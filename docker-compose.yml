@@ -1,0 +1,48 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: zerok-billing-backend
+    ports:
+      - "${BACKEND_PORT:-3011}:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-zerok}:${POSTGRES_PASSWORD:-zerokdev}@postgres:5432/${POSTGRES_DB:-zerok_billing}
+      - SESSION_SECRET=${SESSION_SECRET:-dev-secret-change-in-production}
+      - FRONTEND_ORIGIN=${FRONTEND_ORIGIN:-http://localhost:5173}
+      - COOKIE_SECURE=false
+    restart: unless-stopped
+    networks:
+      - zerok-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: zerok-billing-postgres
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-zerok}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-zerokdev}
+      - POSTGRES_DB=${POSTGRES_DB:-zerok_billing}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - zerok-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zerok} -d ${POSTGRES_DB:-zerok_billing}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+networks:
+  zerok-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

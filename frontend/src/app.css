@@ -1,0 +1,87 @@
+/* Styles globaux minimaux - le reste est dans les modules */
+@import './lib/breakpoints.css';
+
+:root {
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+#app {
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* Fix mobile (même principe que codeurbase) */
+@media (max-width: 415px) {
+  body {
+    padding: 0;
+  }
+  #app {
+    min-height: 100vh;
+    width: 100%;
+  }
+}
+
+/* Impression : une seule page A4, sans interface ni cadres, sans texte parasite (décocher en-têtes/pieds dans le dialogue) */
+@page {
+  size: A4;
+  margin: 0;
+}
+@media print {
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 210mm !important;
+    height: 297mm !important;
+    overflow: hidden !important;
+    min-height: unset !important;
+  }
+  #app {
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: unset !important;
+  }
+  /* N'afficher que la feuille A4 (et son contenu), rien d'autre ; le reste ne doit pas prendre de place */
+  body * {
+    visibility: hidden !important;
+  }
+  .sheet-a4,
+  .sheet-a4 * {
+    visibility: visible !important;
+  }
+  .sheet-a4 {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 210mm !important;
+    height: 297mm !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  .placed-block,
+  .placed-block.selected {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    background: #fff !important;
+  }
+  .placed-block-label {
+    display: none !important;
+  }
+  .placed-lignes-table th,
+  .placed-lignes-table td {
+    border: none !important;
+  }
+  .placed-lignes-table th {
+    background: #f8fafc !important;
+  }
+}

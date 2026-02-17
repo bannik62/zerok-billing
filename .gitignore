@@ -1,0 +1,48 @@
+# Dépendances
+node_modules/
+**/node_modules/
+
+# Fichiers d'environnement (secrets, config locale)
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
+.env.backup
+.env.old
+
+# Build / sorties
+dist/
+**/dist/
+build/
+**/build/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+*~
+
+# IDE / éditeur (décommenter si tu ne veux pas les committer)
+# .vscode/
+# .idea/
+*.swp
+*.swo
+
+# Cache
+.cache/
+**/.vite/
+.svelte-kit/
+
+# Tests / coverage
+coverage/
+.nyc_output/
+
+# Prisma (généré localement si besoin)
+# **/node_modules/ déjà couvert
