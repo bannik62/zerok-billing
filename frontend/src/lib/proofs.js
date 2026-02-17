@@ -1,5 +1,6 @@
 /**
- * Envoi des preuves (hash + signature) au serveur pour rester synchro avec l'enregistrement local.
+ * Envoi des preuves d'intégrité (hash SHA-256 + signature) au serveur.
+ * Hash calculé côté client via Web Crypto API (SHA-256, non obsolète).
  */
 
 import { hashDocument } from '$lib/crypto/index.js';

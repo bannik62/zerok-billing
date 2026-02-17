@@ -1,5 +1,16 @@
 import { writable, get } from 'svelte/store';
 
+/** Longueur max par défaut pour champs texte (email, nom, adresse, etc.). */
+const DEFAULT_MAX_LENGTH = 255;
+/** Longueur max pour mot de passe. */
+const PASSWORD_MAX_LENGTH = 128;
+/** Longueur max pour URL. */
+const URL_MAX_LENGTH = 2048;
+/** Longueur max par défaut pour téléphone. */
+const TEL_DEFAULT_MAX_LENGTH = 30;
+/** Longueur min pour mot de passe. */
+const MIN_PASSWORD_LENGTH = 8;
+
 /**
  * Encapsule un champ de formulaire : getter/setter avec normalisation (trim, maxLength)
  * et validation (minLength, pattern). Utilise un store en interne pour la réactivité Svelte.
@@ -20,14 +31,15 @@ export class FormField {
    * @param {string} [options.autocomplete] - ex. 'email', 'current-password'
    */
   constructor(options = {}) {
-    this.maxLength = options.maxLength ?? null;
-    this.minLength = options.minLength ?? 0;
+    this.maxLength = options.maxLength != null ? options.maxLength : null;
+    this.minLength = options.minLength != null ? options.minLength : 0;
     this.trim = options.trim !== false;
-    this.required = options.required ?? false;
-    this.pattern = options.pattern ?? null;
-    this.patternMessage = options.patternMessage ?? 'Format invalide';
-    this.autocomplete = options.autocomplete ?? null;
-    this._store = writable(options.initial ?? '');
+    this.required = options.required != null ? options.required : false;
+    this.pattern = options.pattern != null ? options.pattern : null;
+    this.patternMessage = options.patternMessage != null ? options.patternMessage : 'Format invalide';
+    this.autocomplete = options.autocomplete != null ? options.autocomplete : null;
+    const initial = options.initial != null ? options.initial : '';
+    this._store = writable(initial);
   }
 
   /** Store Svelte pour liaison réactive dans le template ($field.store) */
@@ -71,10 +83,10 @@ export class FormField {
   }
 }
 
-/** Champ email (maxLength 255, trim, autocomplete email) */
+/** Champ email (maxLength DEFAULT_MAX_LENGTH, trim, autocomplete email) */
 export function createEmailField(initial = '') {
   return new FormField({
-    maxLength: 255,
+    maxLength: DEFAULT_MAX_LENGTH,
     trim: true,
     required: true,
     autocomplete: 'email',
@@ -82,11 +94,12 @@ export function createEmailField(initial = '') {
   });
 }
 
-/** Champ mot de passe (maxLength 128, minLength 8, pas de trim, autocomplete) */
+/** Champ mot de passe (maxLength PASSWORD_MAX_LENGTH, minLength MIN_PASSWORD_LENGTH, pas de trim) */
 export function createPasswordField(initial = '', options = {}) {
-  const { minLength = 8, autocomplete = 'current-password' } = options;
+  const minLength = options.minLength != null ? options.minLength : MIN_PASSWORD_LENGTH;
+  const autocomplete = options.autocomplete != null ? options.autocomplete : 'current-password';
   return new FormField({
-    maxLength: 128,
+    maxLength: PASSWORD_MAX_LENGTH,
     minLength,
     trim: false,
     required: true,
@@ -97,31 +110,27 @@ export function createPasswordField(initial = '', options = {}) {
 
 /** Champ texte libre (nom, prénom, adresse, etc.) */
 export function createTextField(options = {}) {
-  return new FormField({
-    maxLength: options.maxLength ?? 255,
-    trim: true,
-    required: options.required ?? false,
-    autocomplete: options.autocomplete ?? null,
-    initial: options.initial ?? ''
-  });
+  const maxLength = options.maxLength != null ? options.maxLength : DEFAULT_MAX_LENGTH;
+  const required = options.required != null ? options.required : false;
+  const autocomplete = options.autocomplete != null ? options.autocomplete : null;
+  const initial = options.initial != null ? options.initial : '';
+  return new FormField({ maxLength, trim: true, required, autocomplete, initial });
 }
 
-/** Champ URL (logo, lien) – maxLength 2048, trim */
+/** Champ URL (logo, lien) – maxLength URL_MAX_LENGTH, trim */
 export function createUrlField(initial = '') {
   return new FormField({
-    maxLength: 2048,
+    maxLength: URL_MAX_LENGTH,
     trim: true,
     required: false,
     initial
   });
 }
 
-/** Champ téléphone – maxLength 30, trim */
+/** Champ téléphone – maxLength TEL_DEFAULT_MAX_LENGTH, trim */
 export function createTelField(options = {}) {
-  return new FormField({
-    maxLength: options.maxLength ?? 30,
-    trim: true,
-    required: options.required ?? false,
-    initial: options.initial ?? ''
-  });
+  const maxLength = options.maxLength != null ? options.maxLength : TEL_DEFAULT_MAX_LENGTH;
+  const required = options.required != null ? options.required : false;
+  const initial = options.initial != null ? options.initial : '';
+  return new FormField({ maxLength, trim: true, required, initial });
 }

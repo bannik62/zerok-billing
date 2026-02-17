@@ -1,6 +1,6 @@
 /**
- * Module crypto réutilisable – dérivation de clé, chiffrement, hash document.
- * Séparation des rôles : pas de logique métier ici.
+ * Module crypto réutilisable : PBKDF2 (clé), AES-GCM (chiffrement), SHA-256 (hash d'intégrité).
+ * Algorithmes courants et recommandés. Séparation des rôles : pas de logique métier ici.
  */
 
 export {

@@ -6,7 +6,7 @@
   import { csrfStore, fetchCsrfToken } from '$lib/csrf.js';
 
   onMount(() => {
-    fetchCsrfToken();
+    fetchCsrfToken().catch(() => {});
   });
 </script>
 

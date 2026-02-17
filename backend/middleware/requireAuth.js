@@ -1,4 +1,5 @@
-import { prisma } from '../lib/prisma.js';
+import { findUserById } from '../services/userService.js';
+import { error as logError } from '../lib/logger.js';
 
 /**
  * Vérifie que la session contient un userId et charge l'utilisateur.
@@ -8,11 +9,7 @@ export function requireAuth(req, res, next) {
   if (!req.session?.userId) {
     return res.status(401).json({ error: 'Non authentifié' });
   }
-  prisma.user
-    .findUnique({
-      where: { id: req.session.userId },
-      select: { id: true, email: true, nom: true, prenom: true, adresse: true }
-    })
+  findUserById(req.session.userId)
     .then((user) => {
       if (!user) {
         return res.status(401).json({ error: 'Session invalide' });
@@ -21,7 +18,7 @@ export function requireAuth(req, res, next) {
       next();
     })
     .catch((err) => {
-      console.error(err);
+      logError(err);
       res.status(500).json({ error: 'Erreur serveur' });
     });
 }

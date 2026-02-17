@@ -15,14 +15,14 @@ export const BLOCK_LABELS = {
 };
 
 export function getBlockLabel(type) {
-  return BLOCK_LABELS[type] ?? type;
+  const label = BLOCK_LABELS[type];
+  return label != null ? label : type;
 }
 
 export const DEFAULT_W = 40;
 export const DEFAULT_H = 15;
 export const MIN_W = 15;
 export const MIN_H = 8;
-export const DRAG_THRESHOLD = 5;
 
 export const FONT_SIZES = [9, 10, 11, 12, 14, 16, 18, 20];
 
@@ -48,8 +48,8 @@ export function formatMontant(n) {
  */
 export function normalisePos(pos, defaultW = DEFAULT_W, defaultH = DEFAULT_H) {
   if (!pos) return null;
-  const w = pos.w ?? defaultW;
-  const h = pos.h ?? defaultH;
+  const w = pos.w != null ? pos.w : defaultW;
+  const h = pos.h != null ? pos.h : defaultH;
   let out;
   if (pos.left != null && pos.top != null) out = { left: pos.left, top: pos.top, w, h };
   else if (pos.x != null && pos.y != null) out = { left: pos.x - w / 2, top: pos.y - h / 2, w, h };

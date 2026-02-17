@@ -43,7 +43,8 @@ export function openDB() {
  */
 export async function getKeyDerivationSalt() {
   const row = await db[STORE_META].get(META_KEY_SALT);
-  return row?.salt ?? null;
+  const salt = row != null ? row.salt : undefined;
+  return salt != null ? salt : null;
 }
 
 /**
@@ -60,7 +61,8 @@ export async function setKeyDerivationSalt(saltBase64) {
  * @returns {Promise<Object>} client avec id et createdAt
  */
 export async function addClient(client) {
-  const id = crypto.randomUUID?.() ?? `client-${Date.now()}`;
+  const uuid = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : null;
+  const id = uuid != null ? uuid : `client-${Date.now()}`;
   const record = { id, ...client, createdAt: new Date().toISOString() };
   await db[STORE_CLIENTS].add(record);
   return record;
@@ -131,7 +133,8 @@ export async function saveSociete(data) {
  * Devis : { id, clientId?, entete: {}, lignes: [], reduction: {}, sousTotal, total, blockPositions: {}, createdAt }
  */
 export async function addDevis(devis) {
-  const id = crypto.randomUUID?.() ?? `devis-${Date.now()}`;
+  const uuid = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : null;
+  const id = uuid != null ? uuid : `devis-${Date.now()}`;
   const record = plainClone({ id, ...devis, createdAt: new Date().toISOString() });
   await db[STORE_DEVIS].add(record);
   return record;

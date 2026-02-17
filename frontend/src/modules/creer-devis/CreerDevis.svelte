@@ -66,9 +66,11 @@
   /** Au passage en étape 1 pour un nouveau devis, récupérer le prochain numéro depuis la BDD. */
   $effect(() => {
     if (step !== 1 || currentDevis != null) return;
-    getNextDevisNumber().then((num) => {
-      entete = { ...entete, numero: num };
-    });
+    getNextDevisNumber()
+      .then((num) => {
+        entete = { ...entete, numero: num };
+      })
+      .catch(() => {});
   });
 
   let saving = $state(false);
@@ -115,17 +117,23 @@
       resolvedClient = null;
       return;
     }
-    getClientById(id).then((c) => (resolvedClient = c));
+    getClientById(id)
+      .then((c) => (resolvedClient = c))
+      .catch(() => {});
   });
 
   $effect(() => {
     if (step !== 2) return;
-    getSociete().then((s) => (resolvedSociete = s));
+    getSociete()
+      .then((s) => (resolvedSociete = s))
+      .catch(() => {});
   });
 
   $effect(() => {
     if (step !== 2) return;
-    getAllLayoutProfiles().then((list) => (layoutProfiles = list));
+    getAllLayoutProfiles()
+      .then((list) => (layoutProfiles = list))
+      .catch(() => {});
   });
 
   function handleDragStart(e, type) {
@@ -147,7 +155,9 @@
     const top = y - h / 2;
     blockPositions = { ...blockPositions, [type]: { left, top, w, h } };
     if (currentDevis?.createdAt) {
-      updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } }).then((d) => (currentDevis = d));
+      updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } })
+        .then((d) => (currentDevis = d))
+        .catch(() => {});
     } else if (currentDevis) {
       currentDevis = { ...currentDevis, blockPositions: { ...blockPositions } };
     }
@@ -231,7 +241,9 @@
     }
     if ((draggingBlock != null || resizingBlock != null) && currentDevis) {
       if (currentDevis.createdAt) {
-        updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } }).then((d) => (currentDevis = d));
+        updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } })
+          .then((d) => (currentDevis = d))
+          .catch(() => {});
       } else {
         currentDevis = { ...currentDevis, blockPositions: { ...blockPositions } };
       }
@@ -251,7 +263,9 @@
     const next = { ...pos, [key]: value };
     blockPositions = { ...blockPositions, [type]: next };
     if (currentDevis?.createdAt) {
-      updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } }).then((d) => (currentDevis = d));
+      updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } })
+        .then((d) => (currentDevis = d))
+        .catch(() => {});
     } else if (currentDevis) {
       currentDevis = { ...currentDevis, blockPositions: { ...blockPositions } };
     }
@@ -311,7 +325,9 @@
     if (!profile?.blockPositions) return;
     blockPositions = { ...profile.blockPositions };
     if (currentDevis?.createdAt) {
-      updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } }).then((d) => (currentDevis = d));
+      updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } })
+        .then((d) => (currentDevis = d))
+        .catch(() => {});
     } else if (currentDevis) {
       currentDevis = { ...currentDevis, blockPositions: { ...blockPositions } };
     }

@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import argon2 from 'argon2';
-import { prisma } from '../lib/prisma.js';
+import { findUserByEmail, createUser } from '../services/userService.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { ensureCsrfToken } from '../middleware/csrf.js';
+import { error as logError } from '../lib/logger.js';
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
@@ -75,20 +76,18 @@ authRouter.post('/register', authRateLimiter, async (req, res) => {
     if (errors.length > 0) {
       return res.status(400).json({ error: errors.join('. ') });
     }
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const existing = await findUserByEmail(email);
     if (existing) {
       return res.status(409).json({ error: 'Cet email est déjà utilisé' });
     }
     const passwordHash = await argon2.hash(password);
-    const user = await prisma.user.create({
-      data: {
-        email,
-        passwordHash,
-        role: 'USER',
-        nom,
-        prenom,
-        adresse
-      }
+    const user = await createUser({
+      email,
+      passwordHash,
+      role: 'USER',
+      nom,
+      prenom,
+      adresse
     });
     req.session.userId = user.id;
     req.session.save((err) => {
@@ -102,7 +101,7 @@ authRouter.post('/register', authRateLimiter, async (req, res) => {
       });
     });
   } catch (e) {
-    console.error(e);
+    logError(e);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -116,7 +115,7 @@ authRouter.post('/login', authRateLimiter, async (req, res) => {
     if (password.length < PASSWORD_MIN_LENGTH) {
       return res.status(400).json({ error: `Le mot de passe doit contenir au moins ${PASSWORD_MIN_LENGTH} caractères` });
     }
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await findUserByEmail(email);
     if (!user || !(await argon2.verify(user.passwordHash, password))) {
       return res.status(401).json({ error: 'Identifiants incorrects' });
     }
@@ -132,7 +131,7 @@ authRouter.post('/login', authRateLimiter, async (req, res) => {
       });
     });
   } catch (e) {
-    console.error(e);
+    logError(e);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });

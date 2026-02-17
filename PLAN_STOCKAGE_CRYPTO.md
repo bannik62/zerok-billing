@@ -18,7 +18,8 @@
 
 - **Calcul** : hash du document **en clair** (avant chiffrement).
 - **Algo** : SHA-256.
-- **Entrée** : représentation canonique du document (ex. `JSON.stringify(document, clés triées)` ou structure fixe) pour reproductibilité.
+- **Entrée** : représentation canonique du document
+  (ex. `JSON.stringify(document, clés triées)` ou structure fixe) pour reproductibilité.
 - **Usage** :
   - Envoyer ce hash au serveur avec les métadonnées (preuve d’enregistrement, intégrité).
   - Optionnel : stocker le hash en local avec le blob chiffré pour vérification ultérieure.

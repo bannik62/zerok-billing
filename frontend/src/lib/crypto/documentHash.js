@@ -1,7 +1,7 @@
 /**
  * Hash canonique des documents (devis/facture) pour preuve d'intégrité.
+ * Utilise SHA-256 (Web Crypto API), algorithme recommandé pour l'intégrité (non obsolète).
  * Seules les infos métier sont incluses, pas les positions de blocs (layout).
- * Module réutilisable.
  */
 
 /**
@@ -13,19 +13,22 @@ export function canonicalDocumentForHash(document, documentType) {
 
   const { id, entete = {}, lignes = [], reduction = {}, sousTotal, total } = document;
 
+  const docId = id != null && id !== '' ? id : '';
+  const subTotal = sousTotal != null ? sousTotal : 0;
+  const docTotal = total != null ? total : 0;
   const canonical = {
     type: documentType,
-    id: id ?? '',
+    id: docId,
     entete: sortKeys(entete),
     lignes: (lignes || []).map((l) => sortKeys(l)),
     reduction: sortKeys(reduction),
-    sousTotal: sousTotal ?? 0,
-    total: total ?? 0
+    sousTotal: subTotal,
+    total: docTotal
   };
 
   if (documentType === 'facture') {
-    canonical.tvaMontant = document.tvaMontant ?? 0;
-    canonical.totalTTC = document.totalTTC ?? 0;
+    canonical.tvaMontant = document.tvaMontant != null ? document.tvaMontant : 0;
+    canonical.totalTTC = document.totalTTC != null ? document.totalTTC : 0;
     if (document.entete?.tvaTaux != null) canonical.entete.tvaTaux = document.entete.tvaTaux;
   } else {
     if (document.tvaMontant != null) canonical.tvaMontant = document.tvaMontant;
@@ -56,6 +59,10 @@ function sortKeys(obj) {
   return sorted;
 }
 
+const HEX_PAD_LENGTH = 2;
+
 function arrayBufferToHex(buffer) {
-  return [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  return [...new Uint8Array(buffer)]
+    .map((b) => b.toString(16).padStart(HEX_PAD_LENGTH, '0'))
+    .join('');
 }

@@ -1,10 +1,12 @@
 import 'dotenv/config';
+import { log } from './lib/logger.js';
 
 const DEV_SESSION_SECRET = 'dev-secret-change-in-prod';
 if (process.env.NODE_ENV === 'production') {
   const secret = process.env.SESSION_SECRET;
   if (!secret || secret === DEV_SESSION_SECRET) {
-    console.error('[zerok-billing] En production, SESSION_SECRET doit être défini et différent du secret de dev.');
+    // Message critique au démarrage (avant logger)
+    process.stderr.write('[zerok-billing] En production, SESSION_SECRET doit être défini et différent du secret de dev.\n');
     process.exit(1);
   }
 }
@@ -24,7 +26,7 @@ import { secureRouter } from './routes/secure.js';
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 
-console.log('[zerok-billing] PORT from env:', process.env.PORT, '→ listening on', PORT);
+log('[zerok-billing] PORT from env:', process.env.PORT, '→ listening on', PORT);
 
 app.set('trust proxy', 1);
 
@@ -66,9 +68,9 @@ if (process.env.DATABASE_URL) {
   const PgSession = connectPgSimple(session);
   const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
   sessionConfig.store = new PgSession({ pool, createTableIfMissing: true });
-  console.log('[zerok-billing] Sessions: store PostgreSQL (table session)');
+  log('[zerok-billing] Sessions: store PostgreSQL (table session)');
 } else {
-  console.log('[zerok-billing] Sessions: MemoryStore (DATABASE_URL non défini)');
+  log('[zerok-billing] Sessions: MemoryStore (DATABASE_URL non défini)');
 }
 
 app.use(session(sessionConfig));
@@ -79,11 +81,11 @@ app.use('/api', validateCsrf);
 // Route CSRF explicite (évite 404 si le routeur auth ne matche pas)
 app.get('/api/auth/csrf-token', ensureCsrfToken, (req, res) => {
   const token = req.session?.csrfToken;
-  console.log('[zerok-billing] GET /api/auth/csrf-token', {
+  log('[zerok-billing] GET /api/auth/csrf-token', {
     method: req.method,
     origin: req.headers.origin,
     cookie: req.headers.cookie ? 'présent' : 'absent',
-    sessionId: req.sessionID ?? 'aucun',
+    sessionId: req.sessionID != null ? req.sessionID : 'aucun',
     csrfToken: token ? `${token.slice(0, 8)}…` : 'absent'
   });
   res.json({ csrfToken: token });
@@ -105,6 +107,6 @@ app.get('/', (_, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`[zerok-billing] Backend listening on port ${PORT} → http://localhost:${PORT}`);
-  console.log('[zerok-billing] Routes: GET /api/auth/csrf-token, /api/auth/me, /api/health, etc.');
+  log(`[zerok-billing] Backend listening on port ${PORT} → http://localhost:${PORT}`);
+  log('[zerok-billing] Routes: GET /api/auth/csrf-token, /api/auth/me, /api/health, etc.');
 });

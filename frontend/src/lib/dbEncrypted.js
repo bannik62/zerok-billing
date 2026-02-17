@@ -58,7 +58,8 @@ export async function initEncryption(password) {
 
 export async function addDevis(devis) {
   if (!_encryptionKey) return dbAddDevis(devis);
-  const id = devis.id || crypto.randomUUID?.() || 'devis-' + Date.now();
+  const uuid = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : null;
+  const id = (devis.id || uuid) || 'devis-' + Date.now();
   const record = plainClone({ id, ...devis, createdAt: new Date().toISOString() });
   const { payload, iv } = await encrypt(record, _encryptionKey);
   await putDevisRaw({ id, encrypted: true, payload, iv });
@@ -76,10 +77,11 @@ export async function getDevis(id) {
 export async function getAllDevis() {
   if (!_encryptionKey) return dbGetAllDevis();
   const list = await getAllDevisRaw();
-  const out = [];
-  for (const raw of list) {
-    out.push(raw.encrypted ? await decrypt({ payload: raw.payload, iv: raw.iv }, _encryptionKey) : raw);
-  }
+  const out = await Promise.all(
+    list.map((raw) =>
+      raw.encrypted ? decrypt({ payload: raw.payload, iv: raw.iv }, _encryptionKey) : Promise.resolve(raw)
+    )
+  );
   return out;
 }
 
@@ -94,17 +96,18 @@ export async function updateDevis(devis) {
 }
 
 export async function deleteDevis(id) {
-  await dbDeleteDevis(id);
+  return dbDeleteDevis(id);
 }
 
 export async function getNextDevisNumber() {
   const all = await getAllDevis();
   const year = new Date().getFullYear();
   const prefix = 'DEV-' + year + '-';
-  const thisYear = all.filter((d) => (d.entete?.numero || '').startsWith(prefix));
+  const getNumero = (d) => (d && d.entete && d.entete.numero) ? d.entete.numero : '';
+  const thisYear = all.filter((d) => getNumero(d).startsWith(prefix));
   let max = 0;
   for (const d of thisYear) {
-    const n = parseInt((d.entete?.numero || '').slice(prefix.length), 10);
+    const n = parseInt(getNumero(d).slice(prefix.length), 10);
     if (!Number.isNaN(n) && n > max) max = n;
   }
   return prefix + String(max + 1).padStart(3, '0');
@@ -112,7 +115,8 @@ export async function getNextDevisNumber() {
 
 export async function addFacture(facture) {
   if (!_encryptionKey) return dbAddFacture(facture);
-  const id = facture.id || crypto.randomUUID?.() || 'facture-' + Date.now();
+  const uuid = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : null;
+  const id = (facture.id || uuid) || 'facture-' + Date.now();
   const record = plainClone({ id, ...facture, createdAt: new Date().toISOString() });
   const { payload, iv } = await encrypt(record, _encryptionKey);
   await putFactureRaw({ id, encrypted: true, payload, iv });
@@ -130,10 +134,11 @@ export async function getFacture(id) {
 export async function getAllFactures() {
   if (!_encryptionKey) return dbGetAllFactures();
   const list = await getAllFacturesRaw();
-  const out = [];
-  for (const raw of list) {
-    out.push(raw.encrypted ? await decrypt({ payload: raw.payload, iv: raw.iv }, _encryptionKey) : raw);
-  }
+  const out = await Promise.all(
+    list.map((raw) =>
+      raw.encrypted ? decrypt({ payload: raw.payload, iv: raw.iv }, _encryptionKey) : Promise.resolve(raw)
+    )
+  );
   return out;
 }
 
@@ -151,14 +156,18 @@ export async function deleteFacture(id) {
   await dbDeleteFacture(id);
 }
 
+function getFactureNumero(f) {
+  return f && f.entete && f.entete.numero ? f.entete.numero : '';
+}
+
 export async function getNextFactureNumber() {
   const all = await getAllFactures();
   const year = new Date().getFullYear();
   const prefix = 'FAC-' + year + '-';
-  const thisYear = all.filter((f) => (f.entete?.numero || '').startsWith(prefix));
+  const thisYear = all.filter((f) => getFactureNumero(f).startsWith(prefix));
   let max = 0;
   for (const f of thisYear) {
-    const n = parseInt((f.entete?.numero || '').slice(prefix.length), 10);
+    const n = parseInt(getFactureNumero(f).slice(prefix.length), 10);
     if (!Number.isNaN(n) && n > max) max = n;
   }
   return prefix + String(max + 1).padStart(3, '0');

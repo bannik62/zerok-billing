@@ -20,7 +20,7 @@
       if (data?.valid === true) {
         user = data.user;
         page = 'menu';
-        fetchCsrfToken();
+        fetchCsrfToken().catch(() => {});
       } else {
         user = null;
       }
@@ -36,13 +36,13 @@
   function onLoginSuccess(data) {
     user = data;
     page = 'menu';
-    fetchCsrfToken(); // rafraîchir le token (session active) pour que le témoin affiche "CSRF chargé"
+    fetchCsrfToken().catch(() => {});
   }
 
   function onRegisterSuccess(data) {
     user = data;
     page = 'menu';
-    fetchCsrfToken();
+    fetchCsrfToken().catch(() => {});
   }
 
   function logout() {

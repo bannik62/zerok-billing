@@ -16,7 +16,9 @@ export async function fetchCsrfToken() {
   try {
     const res = await fetch(`${API}/api/auth/csrf-token`, { credentials: 'include' });
     const data = await res.json().catch(() => ({}));
-    const token = data?.csrfToken ?? data?.csrf_token ?? null;
+    let token = null;
+    if (data && typeof data.csrfToken === 'string') token = data.csrfToken;
+    else if (data && typeof data.csrf_token === 'string') token = data.csrf_token;
     if (res.ok && token && typeof token === 'string') {
       csrfStore.set({ token, loaded: true });
       return token;

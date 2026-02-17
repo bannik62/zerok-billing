@@ -1,14 +1,16 @@
 import { Router } from 'express';
-import { prisma } from '../lib/prisma.js';
+import { upsertProof, findProofsByUserAndInvoiceIds } from '../services/proofService.js';
+import { error as logError } from '../lib/logger.js';
 
 /**
  * Routeur des routes sécurisées (monté sous /api avec requireAuth dans server.js).
- * Toutes les routes ici exigent une session valide.
+ * Stocke les preuves (hash SHA-256 reçues du client) ; aucun algorithme crypto exécuté ici.
  */
 export const secureRouter = Router();
 
 const INVOICE_ID_MAX = 100;
 const HASH_HEX_LENGTH = 64;
+const HASH_HEX_REGEX = new RegExp(`^[a-f0-9]{${HASH_HEX_LENGTH}}$`, 'i');
 const SIGNATURE_MAX = 512;
 
 /**
@@ -25,7 +27,9 @@ secureRouter.post('/proofs', async (req, res) => {
     if (typeof invoiceId !== 'string' || !invoiceId.trim()) err.push('invoiceId requis');
     else if (invoiceId.length > INVOICE_ID_MAX) err.push('invoiceId trop long');
     if (typeof invoiceHash !== 'string' || !invoiceHash.trim()) err.push('invoiceHash requis');
-    else if (!/^[a-f0-9]{64}$/i.test(invoiceHash.trim())) err.push('invoiceHash doit être un SHA-256 en hex (64 caractères)');
+    else if (!HASH_HEX_REGEX.test(invoiceHash.trim())) {
+      err.push('invoiceHash doit être un SHA-256 en hex (64 caractères)');
+    }
     if (typeof signature !== 'string' || !signature.trim()) err.push('signature requise');
     else if (signature.length > SIGNATURE_MAX) err.push('signature trop longue');
 
@@ -35,25 +39,11 @@ secureRouter.post('/proofs', async (req, res) => {
     const hash = (invoiceHash || '').trim().toLowerCase();
     const sig = (signature || '').trim();
 
-    await prisma.proof.upsert({
-      where: { invoiceId: id },
-      create: {
-        invoiceId: id,
-        userId,
-        invoiceHash: hash,
-        signature: sig,
-        signedAt: new Date()
-      },
-      update: {
-        invoiceHash: hash,
-        signature: sig,
-        signedAt: new Date()
-      }
-    });
+    await upsertProof({ invoiceId: id, userId, invoiceHash: hash, signature: sig });
 
     return res.status(201).json({ ok: true, invoiceId: id });
   } catch (e) {
-    console.error(e);
+    logError(e);
     return res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -79,10 +69,7 @@ secureRouter.post('/proofs/verify', async (req, res) => {
     }
 
     const ids = [...new Set(checks.map((c) => c?.invoiceId).filter(Boolean))];
-    const proofs = await prisma.proof.findMany({
-      where: { userId, invoiceId: { in: ids } },
-      select: { invoiceId: true, invoiceHash: true }
-    });
+    const proofs = await findProofsByUserAndInvoiceIds(userId, ids);
     const hashByInvoiceId = Object.fromEntries(proofs.map((p) => [p.invoiceId, p.invoiceHash]));
 
     const results = checks.map((c) => {
@@ -91,7 +78,7 @@ secureRouter.post('/proofs/verify', async (req, res) => {
       const storedHash = hashByInvoiceId[id];
       const verified = !!(
         id &&
-        /^[a-f0-9]{64}$/.test(sentHash) &&
+        HASH_HEX_REGEX.test(sentHash) &&
         storedHash &&
         storedHash === sentHash
       );
@@ -100,7 +87,7 @@ secureRouter.post('/proofs/verify', async (req, res) => {
 
     return res.json({ results });
   } catch (e) {
-    console.error(e);
+    logError(e);
     return res.status(500).json({ error: 'Erreur serveur' });
   }
 });
