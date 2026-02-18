@@ -32,7 +32,7 @@
         }
         resolvedClient = null;
       })
-      .then(() => (cancelled ? undefined : getSociete()))
+      .then(() => (cancelled ? undefined : getSociete(uid)))
       .then((s) => {
         if (cancelled) return;
         resolvedSociete = s;

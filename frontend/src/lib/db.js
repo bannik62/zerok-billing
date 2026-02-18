@@ -13,6 +13,7 @@ export const STORE_DEVIS = 'devis';
 const STORE_LAYOUT_PROFILES = 'layoutProfiles';
 export const STORE_FACTURES = 'factures';
 const STORE_META = 'meta';
+export const STORE_DOCUMENTS = 'documents';
 const SOCIETE_ID = 'societe';
 const META_KEY_SALT = 'keyDerivationSalt';
 
@@ -25,6 +26,9 @@ db.version(DB_VERSION).stores({
   [STORE_LAYOUT_PROFILES]: 'id',
   [STORE_FACTURES]: 'id',
   [STORE_META]: 'key'
+});
+db.version(9).stores({
+  [STORE_DOCUMENTS]: 'id, clientId, linkedInvoiceId, type, uploadedAt'
 });
 
 /** Clone profond pour IndexedDB (évite DataCloneError avec proxies Svelte). */
@@ -115,24 +119,30 @@ export async function deleteClient(id) {
   await db[STORE_CLIENTS].delete(id);
 }
 
+const DEFAULT_SOCIETE = {
+  logo: '', nom: '', formeJuridique: '', siret: '', rcs: '', capital: '', siegeSocial: '', tvaIntra: ''
+};
+
 /**
- * Récupère les données société (données personnelles).
+ * Récupère les données société (données personnelles) pour un utilisateur.
+ * @param {string|number|null} [userId] - partition utilisateur (si null, lecture legacy id 'societe')
  * @returns {Promise<Object>} { logo, nom, formeJuridique, siret, rcs, capital, siegeSocial, tvaIntra }
  */
-export async function getSociete() {
-  const raw = await db[STORE_SOCIETE].get(SOCIETE_ID);
-  return raw ? { ...raw } : {
-    logo: '', nom: '', formeJuridique: '', siret: '', rcs: '', capital: '', siegeSocial: '', tvaIntra: ''
-  };
+export async function getSociete(userId = null) {
+  const id = userId != null ? `societe-${userId}` : SOCIETE_ID;
+  const raw = await db[STORE_SOCIETE].get(id);
+  return raw ? { ...raw } : { ...DEFAULT_SOCIETE };
 }
 
 /**
- * Enregistre les données société (données personnelles).
+ * Enregistre les données société (données personnelles) pour un utilisateur.
  * @param {Object} data - { logo, nom, formeJuridique, siret, rcs, capital, siegeSocial, tvaIntra }
+ * @param {string|number|null} [userId] - partition utilisateur
  * @returns {Promise<Object>}
  */
-export async function saveSociete(data) {
-  const record = { id: SOCIETE_ID, ...data };
+export async function saveSociete(data, userId = null) {
+  const id = userId != null ? `societe-${userId}` : SOCIETE_ID;
+  const record = plainClone({ id, ...data, ...(userId != null && { userId }) });
   await db[STORE_SOCIETE].put(record);
   return record;
 }
@@ -245,38 +255,46 @@ export async function deleteDevis(id) {
 
 /**
  * Profils de mise en page (templates de blocs pour devis/facture).
- * @typedef {{ id: string, name: string, blockPositions: Object, createdAt: string }} LayoutProfile
+ * @typedef {{ id: string, name: string, blockPositions: Object, createdAt: string, userId? }} LayoutProfile
  */
 
-export async function getAllLayoutProfiles() {
-  return db[STORE_LAYOUT_PROFILES].toArray();
+export async function getAllLayoutProfiles(userId = null) {
+  const all = await db[STORE_LAYOUT_PROFILES].toArray();
+  if (userId == null) return all;
+  return all.filter((r) => r.userId === userId);
 }
 
-export async function getLayoutProfile(id) {
-  return (await db[STORE_LAYOUT_PROFILES].get(id)) ?? null;
+export async function getLayoutProfile(id, userId = null) {
+  const record = (await db[STORE_LAYOUT_PROFILES].get(id)) ?? null;
+  if (!record) return null;
+  if (userId != null && record.userId != null && record.userId !== userId) return null;
+  return record;
 }
 
-export async function addLayoutProfile(profile) {
+export async function addLayoutProfile(profile, userId = null) {
   const id = crypto.randomUUID?.() ?? `profile-${Date.now()}`;
   const record = plainClone({
     id,
     name: profile.name?.trim() || 'Sans nom',
     blockPositions: profile.blockPositions ?? {},
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    ...(userId != null && { userId })
   });
   await db[STORE_LAYOUT_PROFILES].add(record);
   return record;
 }
 
-export async function updateLayoutProfile(id, updates) {
-  const existing = await getLayoutProfile(id);
+export async function updateLayoutProfile(id, updates, userId = null) {
+  const existing = await getLayoutProfile(id, userId);
   if (!existing) throw new Error('Profil introuvable');
   const record = plainClone({ ...existing, ...updates, id: existing.id, createdAt: existing.createdAt });
   await db[STORE_LAYOUT_PROFILES].put(record);
   return record;
 }
 
-export async function deleteLayoutProfile(id) {
+export async function deleteLayoutProfile(id, userId = null) {
+  const existing = await getLayoutProfile(id, userId);
+  if (!existing) throw new Error('Profil introuvable');
   await db[STORE_LAYOUT_PROFILES].delete(id);
 }
 
@@ -354,4 +372,112 @@ export async function getAllFacturesRaw(userId = null) {
   const all = await db[STORE_FACTURES].toArray();
   if (userId == null) return all;
   return all.filter((r) => r.userId === userId);
+}
+
+// ——— Coffre-fort : documents (fichiers chiffrés) ———
+export async function addDocument(doc) {
+  const id = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `doc-${Date.now()}`;
+  const record = plainClone({ id, ...doc, uploadedAt: (doc.uploadedAt || new Date().toISOString()) });
+  await db[STORE_DOCUMENTS].add(record);
+  return record;
+}
+export async function getDocument(id) {
+  return (await db[STORE_DOCUMENTS].get(id)) ?? null;
+}
+export async function getAllDocuments() {
+  return db[STORE_DOCUMENTS].toArray();
+}
+export async function getDocumentsByClientId(clientId) {
+  return db[STORE_DOCUMENTS].where('clientId').equals(clientId).toArray();
+}
+export async function getDocumentsByInvoiceId(linkedInvoiceId) {
+  return db[STORE_DOCUMENTS].where('linkedInvoiceId').equals(linkedInvoiceId).toArray();
+}
+export async function deleteDocument(id) {
+  await db[STORE_DOCUMENTS].delete(id);
+}
+export async function putDocumentRaw(record) {
+  await db[STORE_DOCUMENTS].put(plainClone(record));
+  return record;
+}
+export async function getDocumentRaw(id) {
+  return (await db[STORE_DOCUMENTS].get(id)) ?? null;
+}
+export async function getAllDocumentsRaw() {
+  return db[STORE_DOCUMENTS].toArray();
+}
+
+const LEGACY_MIGRATED_KEY = 'zerok-legacy-migrated';
+
+/**
+ * Attribue au compte userId toutes les données sans userId (migration legacy).
+ * À appeler une fois par utilisateur (ex. au premier chargement).
+ * @param {string|number} userId
+ * @returns {Promise<{ clients: number, devis: number, factures: number, societe: boolean, layoutProfiles: number }>} nombre d'enregistrements migrés
+ */
+export async function migrateLegacyDataToUser(userId) {
+  if (userId == null) return { clients: 0, devis: 0, factures: 0, societe: false, layoutProfiles: 0 };
+  const out = { clients: 0, devis: 0, factures: 0, societe: false, layoutProfiles: 0 };
+
+  const clients = await db[STORE_CLIENTS].toArray();
+  for (const r of clients) {
+    if (r.userId != null) continue;
+    await db[STORE_CLIENTS].put(plainClone({ ...r, userId }));
+    out.clients++;
+  }
+
+  const devis = await db[STORE_DEVIS].toArray();
+  for (const r of devis) {
+    if (r.userId != null) continue;
+    await db[STORE_DEVIS].put(plainClone({ ...r, userId }));
+    out.devis++;
+  }
+
+  const factures = await db[STORE_FACTURES].toArray();
+  for (const r of factures) {
+    if (r.userId != null) continue;
+    await db[STORE_FACTURES].put(plainClone({ ...r, userId }));
+    out.factures++;
+  }
+
+  const legacySociete = await db[STORE_SOCIETE].get(SOCIETE_ID);
+  if (legacySociete) {
+    const newId = `societe-${userId}`;
+    await db[STORE_SOCIETE].put(plainClone({ ...legacySociete, id: newId, userId }));
+    await db[STORE_SOCIETE].delete(SOCIETE_ID);
+    out.societe = true;
+  }
+
+  const profiles = await db[STORE_LAYOUT_PROFILES].toArray();
+  for (const r of profiles) {
+    if (r.userId != null) continue;
+    await db[STORE_LAYOUT_PROFILES].put(plainClone({ ...r, userId }));
+    out.layoutProfiles++;
+  }
+
+  return out;
+}
+
+/**
+ * Indique si la migration legacy a déjà été faite pour cet utilisateur.
+ * @param {string|number} userId
+ */
+export function isLegacyMigratedForUser(userId) {
+  if (userId == null) return true;
+  try {
+    return localStorage.getItem(`${LEGACY_MIGRATED_KEY}-${userId}`) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Marque la migration comme faite pour cet utilisateur.
+ * @param {string|number} userId
+ */
+export function setLegacyMigratedForUser(userId) {
+  if (userId == null) return;
+  try {
+    localStorage.setItem(`${LEGACY_MIGRATED_KEY}-${userId}`, '1');
+  } catch {}
 }

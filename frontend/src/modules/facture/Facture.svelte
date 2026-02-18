@@ -169,11 +169,11 @@
   });
   $effect(() => {
     if (step !== 2) return;
-    getSociete().then((s) => (resolvedSociete = s));
+    getSociete(uid).then((s) => (resolvedSociete = s));
   });
   $effect(() => {
     if (step !== 2) return;
-    getAllLayoutProfiles().then((list) => (layoutProfiles = list));
+    getAllLayoutProfiles(uid).then((list) => (layoutProfiles = list));
   });
 
   function handleDragStart(e, type) {
@@ -338,7 +338,7 @@
 
   async function applyProfile(profileId) {
     if (!profileId) return;
-    const profile = await getLayoutProfile(profileId);
+    const profile = await getLayoutProfile(profileId, uid);
     if (!profile?.blockPositions) return;
     blockPositions = { ...profile.blockPositions };
     if (currentFacture?.createdAt) {
@@ -356,8 +356,8 @@
     const name = saveProfileName?.trim();
     if (!name) return;
     try {
-      await addLayoutProfile({ name, blockPositions: { ...blockPositions } });
-      layoutProfiles = await getAllLayoutProfiles();
+      await addLayoutProfile({ name, blockPositions: { ...blockPositions } }, uid);
+      layoutProfiles = await getAllLayoutProfiles(uid);
       showSaveProfileModal = false;
       saveProfileName = '';
     } catch (e) {
@@ -366,16 +366,16 @@
   }
   async function handleRenameProfile(id, newName) {
     try {
-      await updateLayoutProfile(id, { name: newName?.trim() || 'Sans nom' });
-      layoutProfiles = await getAllLayoutProfiles();
+      await updateLayoutProfile(id, { name: newName?.trim() || 'Sans nom' }, uid);
+      layoutProfiles = await getAllLayoutProfiles(uid);
     } catch (e) {
       console.error(e);
     }
   }
   async function handleDeleteProfile(id) {
     try {
-      await deleteLayoutProfile(id);
-      layoutProfiles = await getAllLayoutProfiles();
+      await deleteLayoutProfile(id, uid);
+      layoutProfiles = await getAllLayoutProfiles(uid);
     } catch (e) {
       console.error(e);
     }

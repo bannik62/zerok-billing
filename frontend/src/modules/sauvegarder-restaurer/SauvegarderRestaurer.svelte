@@ -53,8 +53,8 @@
         getAllDevis(uid),
         getAllFactures(uid),
         getAllClients(uid),
-        getSociete(),
-        getAllLayoutProfiles()
+        getSociete(uid),
+        getAllLayoutProfiles(uid)
       ]);
       const societeRecord = { id: 'societe', ...societe };
       const bundle = { devis, factures, clients, societe: societeRecord, layoutProfiles };
@@ -107,10 +107,11 @@
         await db.clients.put(uid != null ? { ...c, userId: uid } : c);
       }
       if (bundle.societe && bundle.societe.id) {
-        await db.societe.put(bundle.societe);
+        const societeId = uid != null ? `societe-${uid}` : bundle.societe.id;
+        await db.societe.put({ ...bundle.societe, id: societeId, ...(uid != null && { userId: uid }) });
       }
       for (const p of bundle.layoutProfiles) {
-        await db.layoutProfiles.put(p);
+        await db.layoutProfiles.put(uid != null ? { ...p, userId: uid } : p);
       }
       for (const d of bundle.devis) {
         await addDevis(d, uid);

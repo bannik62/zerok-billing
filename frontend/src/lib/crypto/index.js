@@ -16,3 +16,5 @@ export {
   canonicalDocumentForHash,
   hashDocument
 } from './documentHash.js';
+
+export { hashFile, encryptFile, decryptFile } from './fileEncryption.js';

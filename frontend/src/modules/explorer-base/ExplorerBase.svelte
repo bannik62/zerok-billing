@@ -88,7 +88,15 @@
     rows = [];
     try {
       const db = await openDB();
-      const raw = await db.table(name).toArray();
+      let raw = await db.table(name).toArray();
+      if (uid != null) {
+        if (name === 'clients' || name === 'devis' || name === 'factures' || name === 'layoutProfiles') {
+          raw = raw.filter((r) => r.userId === uid);
+        } else if (name === 'societe') {
+          const userSocieteId = `societe-${uid}`;
+          raw = raw.filter((r) => r.id === userSocieteId);
+        }
+      }
       rows = raw.map((r) => {
         if (r && (r.encrypted === true) && (r.payload != null || r.iv != null)) {
           return {

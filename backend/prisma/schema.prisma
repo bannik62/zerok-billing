@@ -18,17 +18,18 @@ enum Role {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String  @map("password_hash")
-  role         Role     @default(USER)
-  nom          String
-  prenom       String
-  adresse      String?
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id             String          @id @default(cuid())
+  email          String          @unique
+  passwordHash   String          @map("password_hash")
+  role           Role            @default(USER)
+  nom            String
+  prenom         String
+  adresse        String?
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
 
-  proofs Proof[]
+  proofs         Proof[]
+  documentProofs DocumentProof[]
 }
 
 model Proof {
@@ -42,5 +43,23 @@ model Proof {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([invoiceId])
+}
+
+model DocumentProof {
+  id          String   @id @default(cuid())
+  documentId  String   @unique @map("document_id")
+  userId      String   @map("user_id")
+  fileHash    String   @map("file_hash")
+  filename    String
+  mimeType    String   @map("mime_type")
+  size        Int
+  uploadedAt  DateTime @map("uploaded_at")
+  invoiceId   String?  @map("invoice_id")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([documentId])
   @@index([invoiceId])
 }

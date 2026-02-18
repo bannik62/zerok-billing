@@ -23,9 +23,26 @@ import {
   getAllFacturesRaw,
   deleteDevis as dbDeleteDevis,
   deleteFacture as dbDeleteFacture,
-  getClientDevisSlug
+  getClientDevisSlug,
+  addDocument as dbAddDocument,
+  putDocumentRaw,
+  getDocument,
+  getAllDocuments,
+  getDocumentsByClientId,
+  getDocumentsByInvoiceId,
+  deleteDocument
 } from './db.js';
-import { deriveKey, generateSalt, saltToBase64, saltFromBase64, encrypt, decrypt } from '$lib/crypto/index.js';
+import {
+  deriveKey,
+  generateSalt,
+  saltToBase64,
+  saltFromBase64,
+  encrypt,
+  decrypt,
+  hashFile,
+  encryptFile,
+  decryptFile
+} from '$lib/crypto/index.js';
 
 function plainClone(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -206,6 +223,36 @@ export async function getNextFactureNumber(clientId, clients = [], userId = null
   return prefix + String(max + 1).padStart(3, '0');
 }
 
+/** Coffre-fort : ajoute un document (fichier chiffré). Retourne { record, fileHash } pour envoyer la preuve. */
+export async function addDocument({ clientId, linkedInvoiceId, type, filename, file, metadata }) {
+  if (!_encryptionKey) throw new Error('Clé de chiffrement requise pour le coffre-fort');
+  const fileHash = await hashFile(file);
+  const { payload, iv, mimeType, originalSize } = await encryptFile(file, _encryptionKey);
+  const record = await dbAddDocument({
+    clientId,
+    linkedInvoiceId: linkedInvoiceId || undefined,
+    type: type || 'autre',
+    filename,
+    mimeType,
+    size: originalSize,
+    encrypted: true,
+    payload,
+    iv,
+    metadata: metadata || undefined
+  });
+  return { record, fileHash };
+}
+
+/** Déchiffre un document et retourne un Blob (téléchargement). */
+export async function decryptDocumentBlob(record) {
+  if (!record?.encrypted || !record?.payload || !record?.iv) throw new Error('Document invalide ou non chiffré');
+  if (!_encryptionKey) throw new Error('Clé de chiffrement requise');
+  return decryptFile(
+    { payload: record.payload, iv: record.iv, mimeType: record.mimeType },
+    _encryptionKey
+  );
+}
+
 export {
   getKeyDerivationSalt,
   setKeyDerivationSalt,
@@ -220,5 +267,10 @@ export {
   getLayoutProfile,
   addLayoutProfile,
   updateLayoutProfile,
-  deleteLayoutProfile
+  deleteLayoutProfile,
+  getDocument,
+  getAllDocuments,
+  getDocumentsByClientId,
+  getDocumentsByInvoiceId,
+  deleteDocument
 } from './db.js';

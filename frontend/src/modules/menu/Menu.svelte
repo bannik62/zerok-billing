@@ -4,14 +4,29 @@
   import CreerDevis from '../creer-devis/CreerDevis.svelte';
   import Facture from '../facture/Facture.svelte';
   import ListeDocuments from '../liste-documents/ListeDocuments.svelte';
+  import CoffreFort from '../coffre-fort/CoffreFort.svelte';
   import ExplorerBase from '../explorer-base/ExplorerBase.svelte';
   import SauvegarderRestaurer from '../sauvegarder-restaurer/SauvegarderRestaurer.svelte';
+  import {
+    migrateLegacyDataToUser,
+    isLegacyMigratedForUser,
+    setLegacyMigratedForUser
+  } from '$lib/db.js';
 
   /**
    * Module Menu principal. Reçoit user du SessionTemoin.
    * display_info affiche le module correspondant au bouton cliqué.
    */
   let { user, logout } = $props();
+
+  /** Une fois par utilisateur : attribuer les données sans userId au compte connecté. */
+  $effect(() => {
+    const uid = user?.id;
+    if (uid == null || isLegacyMigratedForUser(uid)) return;
+    migrateLegacyDataToUser(uid)
+      .then(() => setLegacyMigratedForUser(uid))
+      .catch(() => {});
+  });
 
   /** 'donnees-personnelles' | 'ajouter-client' | 'creer-devis' | 'facture' | 'liste-documents' | 'explorer-base' | 'sauvegarder-restaurer' | null */
   let displayModule = $state(null);
@@ -24,6 +39,7 @@
   function showCreerDevis() { displayModule = 'creer-devis'; selectedClient = null; selectedDevisForFacture = null; }
   function showFacture() { displayModule = 'facture'; selectedClient = null; selectedDevisForFacture = null; }
   function showListeDocuments() { displayModule = 'liste-documents'; selectedClient = null; selectedDevisForFacture = null; }
+  function showCoffreFort() { displayModule = 'coffre-fort'; selectedClient = null; selectedDevisForFacture = null; }
   function showExplorerBase() { displayModule = 'explorer-base'; selectedClient = null; selectedDevisForFacture = null; }
   function showSauvegarderRestaurer() { displayModule = 'sauvegarder-restaurer'; selectedClient = null; selectedDevisForFacture = null; }
 
@@ -109,6 +125,16 @@
         </span>
         <span class="menu-card-label">Liste documents</span>
       </button>
+      <button type="button" class="menu-card menu-card-coffre" aria-label="Coffre-fort" onclick={showCoffreFort}>
+        <span class="menu-card-icon" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+        </span>
+        <span class="menu-card-label">Coffre-fort</span>
+        <span class="menu-card-desc">Documents chiffrés (justificatifs, contrats…)</span>
+      </button>
       <button type="button" class="menu-card menu-card-explorer" aria-label="Explorer la base" onclick={showExplorerBase}>
         <span class="menu-card-icon" aria-hidden="true">
           <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -135,7 +161,7 @@
 
     <div id="display_info" class="display_info" role="region" aria-label="Contenu du module">
       {#if displayModule === 'donnees-personnelles'}
-        <DonneesPersonnelles />
+        <DonneesPersonnelles {user} />
       {:else if displayModule === 'ajouter-client'}
         <AjouterClient {user} onOpenFacture={openFactureForClient} onOpenDevis={openDevisForClient} />
       {:else if displayModule === 'creer-devis'}
@@ -144,6 +170,8 @@
         <Facture {user} client={selectedClient} devis={selectedDevisForFacture} />
       {:else if displayModule === 'liste-documents'}
         <ListeDocuments {user} onOpenFactureFromDevis={openFactureFromDevis} />
+      {:else if displayModule === 'coffre-fort'}
+        <CoffreFort {user} />
       {:else if displayModule === 'explorer-base'}
         <ExplorerBase {user} />
       {:else if displayModule === 'sauvegarder-restaurer'}
@@ -268,6 +296,9 @@
   .menu-card-archive .menu-card-icon { color: #0d9488; }
   .menu-card-archive:hover { border-color: #0d9488; background: #ccfbf1; }
   .menu-card-archive:hover .menu-card-icon { color: #0d9488; }
+  .menu-card-coffre .menu-card-icon { color: #b45309; }
+  .menu-card-coffre:hover { border-color: #b45309; background: #fffbeb; }
+  .menu-card-coffre:hover .menu-card-icon { color: #b45309; }
   .btn-logout {
     padding: 0.5rem 1rem;
     border-radius: 4px;

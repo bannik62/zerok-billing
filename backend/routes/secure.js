@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { upsertProof, findProofsByUserAndInvoiceIds, findAllProofsByUserId } from '../services/proofService.js';
+import { upsertDocumentProof } from '../services/documentProofService.js';
 import { error as logError } from '../lib/logger.js';
 
 /**
@@ -9,6 +10,9 @@ import { error as logError } from '../lib/logger.js';
 export const secureRouter = Router();
 
 const INVOICE_ID_MAX = 100;
+const DOCUMENT_ID_MAX = 100;
+const FILENAME_MAX = 255;
+const MIMETYPE_MAX = 100;
 const HASH_HEX_LENGTH = 64;
 const HASH_HEX_REGEX = new RegExp(`^[a-f0-9]{${HASH_HEX_LENGTH}}$`, 'i');
 const SIGNATURE_MAX = 512;
@@ -102,6 +106,49 @@ secureRouter.post('/proofs/verify', async (req, res) => {
     });
 
     return res.json({ results });
+  } catch (e) {
+    logError(e);
+    return res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+/**
+ * POST /api/documents/proof — Enregistre une preuve pour un document du coffre-fort (hash + métadonnées, pas le contenu).
+ * Body : { documentId, fileHash (SHA-256 hex), filename, mimeType, size, invoiceId? }
+ */
+secureRouter.post('/documents/proof', async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Non authentifié' });
+
+    const { documentId, fileHash, filename, mimeType, size, invoiceId } = req.body;
+    const err = [];
+    if (typeof documentId !== 'string' || !documentId.trim()) err.push('documentId requis');
+    else if (documentId.length > DOCUMENT_ID_MAX) err.push('documentId trop long');
+    if (typeof fileHash !== 'string' || !fileHash.trim()) err.push('fileHash requis');
+    else if (!HASH_HEX_REGEX.test(fileHash.trim())) err.push('fileHash doit être un SHA-256 hex (64 caractères)');
+    if (typeof filename !== 'string' || !filename.trim()) err.push('filename requis');
+    else if (filename.length > FILENAME_MAX) err.push('filename trop long');
+    if (typeof mimeType !== 'string' || !mimeType.trim()) err.push('mimeType requis');
+    else if (mimeType.length > MIMETYPE_MAX) err.push('mimeType trop long');
+    if (typeof size !== 'number' || size < 0 || !Number.isInteger(size)) err.push('size requis (entier ≥ 0)');
+    if (invoiceId != null && (typeof invoiceId !== 'string' || invoiceId.length > INVOICE_ID_MAX)) {
+      err.push('invoiceId optionnel mais invalide');
+    }
+
+    if (err.length > 0) return res.status(400).json({ error: err.join('. ') });
+
+    await upsertDocumentProof({
+      documentId: documentId.trim(),
+      userId,
+      fileHash: fileHash.trim().toLowerCase(),
+      filename: filename.trim(),
+      mimeType: mimeType.trim(),
+      size,
+      invoiceId: invoiceId != null && String(invoiceId).trim() ? String(invoiceId).trim() : null
+    });
+
+    return res.status(201).json({ ok: true, documentId: documentId.trim() });
   } catch (e) {
     logError(e);
     return res.status(500).json({ error: 'Erreur serveur' });

@@ -33,3 +33,21 @@ export async function verifyProofs(checks) {
   const res = await apiClient.post('/api/proofs/verify', { checks });
   return res.data?.results ?? [];
 }
+
+/**
+ * Envoie la preuve d'un document du coffre-fort (hash fichier + métadonnées, pas le contenu).
+ * À appeler après addDocument (avec le record et le fileHash retournés).
+ * @param {{ id: string, filename: string, mimeType: string, size: number, linkedInvoiceId?: string }} record
+ * @param {string} fileHash - SHA-256 hex du fichier
+ */
+export async function sendDocumentProof(record, fileHash) {
+  if (!record?.id || !fileHash) return;
+  await apiClient.post('/api/documents/proof', {
+    documentId: record.id,
+    fileHash,
+    filename: record.filename,
+    mimeType: record.mimeType,
+    size: record.size,
+    invoiceId: record.linkedInvoiceId || null
+  });
+}

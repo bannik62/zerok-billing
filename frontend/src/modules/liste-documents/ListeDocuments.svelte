@@ -1,8 +1,17 @@
 <script>
   import { onMount } from 'svelte';
-  import { getAllDevis, getAllFactures, getAllClients, deleteDevis, deleteFacture } from '$lib/dbEncrypted.js';
+  import {
+    getAllDevis,
+    getAllFactures,
+    getAllClients,
+    deleteDevis,
+    deleteFacture,
+    getDocumentsByInvoiceId,
+    decryptDocumentBlob
+  } from '$lib/dbEncrypted.js';
   import { hashDocument } from '$lib/crypto/index.js';
   import { verifyProofs } from '$lib/proofs.js';
+  import { buildAttachmentsZip, downloadBlob } from '$lib/coffreFortExport.js';
   import PrintPreviewModal from './PrintPreviewModal.svelte';
 
   /**
@@ -30,6 +39,33 @@
     printDocumentId = null;
   }
 
+  /** Exporte les pièces jointes du coffre-fort liées à un devis/facture en ZIP. */
+  async function exportPiecesJointesZip(invoiceId, type, numero) {
+    if (!invoiceId) return;
+    zipExportingId = invoiceId;
+    try {
+      const docs = await getDocumentsByInvoiceId(invoiceId);
+      if (!docs.length) {
+        alert('Aucune pièce jointe pour ce document.');
+        return;
+      }
+      const decrypted = [];
+      for (const doc of docs) {
+        const blob = await decryptDocumentBlob(doc);
+        decrypted.push({ id: doc.id, filename: doc.filename || 'document', blob });
+      }
+      const baseName = type === 'devis'
+        ? `Devis-${numero || invoiceId}-pieces-jointes`
+        : `Facture-${numero || invoiceId}-pieces-jointes`;
+      const zipBlob = await buildAttachmentsZip(decrypted, baseName);
+      downloadBlob(zipBlob, `${baseName}.zip`);
+    } catch (e) {
+      error = e?.message || 'Erreur lors de l’export ZIP.';
+    } finally {
+      zipExportingId = null;
+    }
+  }
+
   let devisList = $state([]);
   let facturesList = $state([]);
   let clientsMap = $state({});
@@ -42,6 +78,7 @@
   let selectedFactureIds = $state(new Set());
   let deletingDevis = $state(false);
   let deleting = $state(false);
+  let zipExportingId = $state(null); // id du devis/facture en cours d'export ZIP
 
   function clientDisplayName(client) {
     if (!client) return '—';
@@ -287,6 +324,7 @@
               <th class="col-verified">Hash vérifié</th>
               <th class="col-facture">Facture</th>
               <th class="col-action">Exporter</th>
+              <th class="col-pieces">Pièces jointes</th>
             </tr>
           </thead>
           <tbody>
@@ -338,10 +376,21 @@
                 <td class="col-action">
                   <button type="button" class="btn-export-row" onclick={() => openPrintPreview(d.id, 'devis')} title="Exporter en PDF">Exporter</button>
                 </td>
+                <td class="col-pieces">
+                  <button
+                    type="button"
+                    class="btn-zip-row"
+                    disabled={zipExportingId === d.id}
+                    onclick={() => exportPiecesJointesZip(d.id, 'devis', d.entete?.numero)}
+                    title="Télécharger les pièces jointes (ZIP)"
+                  >
+                    {zipExportingId === d.id ? '…' : 'ZIP'}
+                  </button>
+                </td>
               </tr>
             {:else}
               <tr>
-                <td colspan="11" class="doc-table-empty">{searchQuery.trim() ? 'Aucun devis ne correspond à la recherche.' : 'Aucun devis.'}</td>
+                <td colspan="12" class="doc-table-empty">{searchQuery.trim() ? 'Aucun devis ne correspond à la recherche.' : 'Aucun devis.'}</td>
               </tr>
             {/each}
           </tbody>
@@ -386,6 +435,7 @@
               <th>Créée le</th>
               <th class="col-verified">Hash vérifié</th>
               <th class="col-action">Exporter</th>
+              <th class="col-pieces">Pièces jointes</th>
             </tr>
           </thead>
           <tbody>
@@ -420,10 +470,21 @@
                 <td class="col-action">
                   <button type="button" class="btn-export-row" onclick={() => openPrintPreview(f.id, 'facture')} title="Exporter en PDF">Exporter</button>
                 </td>
+                <td class="col-pieces">
+                  <button
+                    type="button"
+                    class="btn-zip-row"
+                    disabled={zipExportingId === f.id}
+                    onclick={() => exportPiecesJointesZip(f.id, 'facture', f.entete?.numero)}
+                    title="Télécharger les pièces jointes (ZIP)"
+                  >
+                    {zipExportingId === f.id ? '…' : 'ZIP'}
+                  </button>
+                </td>
               </tr>
             {:else}
               <tr>
-                <td colspan="10" class="doc-table-empty">{searchQuery.trim() ? 'Aucune facture ne correspond à la recherche.' : 'Aucune facture.'}</td>
+                <td colspan="11" class="doc-table-empty">{searchQuery.trim() ? 'Aucune facture ne correspond à la recherche.' : 'Aucune facture.'}</td>
               </tr>
             {/each}
           </tbody>
@@ -622,7 +683,11 @@
   .col-action {
     white-space: nowrap;
   }
-  .btn-export-row {
+  .col-pieces {
+    white-space: nowrap;
+  }
+  .btn-export-row,
+  .btn-zip-row {
     padding: 0.35rem 0.6rem;
     border-radius: 6px;
     border: 1px solid #0f766e;
@@ -631,7 +696,12 @@
     font-size: 0.85rem;
     cursor: pointer;
   }
-  .btn-export-row:hover {
+  .btn-export-row:hover:not(:disabled),
+  .btn-zip-row:hover:not(:disabled) {
     background: #ccfbf1;
+  }
+  .btn-zip-row:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 </style>

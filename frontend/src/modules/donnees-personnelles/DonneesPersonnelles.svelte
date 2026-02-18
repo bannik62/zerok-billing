@@ -6,6 +6,9 @@
    * Module Données personnelles – affichage + modification (IndexedDB).
    * Champs encapsulés (FormField) pour trim + maxLength.
    */
+  let { user = null } = $props();
+  const uid = $derived(user?.id ?? null);
+
   let societe = $state({
     logo: '',
     nom: '',
@@ -40,7 +43,7 @@
 
   async function load() {
     try {
-      societe = await getSociete();
+      societe = await getSociete(uid);
     } catch (e) {
       console.error(e);
       message = { type: 'error', text: 'Impossible de charger les données.' };
@@ -69,17 +72,20 @@
     e.preventDefault();
     saving = true;
     try {
-      await saveSociete({
-        logo: logoField.value,
-        nom: nomField.value,
-        formeJuridique: formeJuridiqueField.value,
-        siret: siretField.value,
-        rcs: rcsField.value,
-        capital: capitalField.value,
-        siegeSocial: siegeSocialField.value,
-        tvaIntra: tvaIntraField.value
-      });
-      societe = await getSociete();
+      await saveSociete(
+        {
+          logo: logoField.value,
+          nom: nomField.value,
+          formeJuridique: formeJuridiqueField.value,
+          siret: siretField.value,
+          rcs: rcsField.value,
+          capital: capitalField.value,
+          siegeSocial: siegeSocialField.value,
+          tvaIntra: tvaIntraField.value
+        },
+        uid
+      );
+      societe = await getSociete(uid);
       editing = false;
       message = { type: 'success', text: 'Données enregistrées.' };
     } catch (err) {
