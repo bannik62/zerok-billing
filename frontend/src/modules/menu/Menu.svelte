@@ -4,6 +4,8 @@
   import CreerDevis from '../creer-devis/CreerDevis.svelte';
   import Facture from '../facture/Facture.svelte';
   import ListeDocuments from '../liste-documents/ListeDocuments.svelte';
+  import ExplorerBase from '../explorer-base/ExplorerBase.svelte';
+  import SauvegarderRestaurer from '../sauvegarder-restaurer/SauvegarderRestaurer.svelte';
 
   /**
    * Module Menu principal. Reçoit user du SessionTemoin.
@@ -11,23 +13,34 @@
    */
   let { user, logout } = $props();
 
-  /** 'donnees-personnelles' | 'ajouter-client' | 'creer-devis' | 'facture' | 'liste-documents' | null */
+  /** 'donnees-personnelles' | 'ajouter-client' | 'creer-devis' | 'facture' | 'liste-documents' | 'explorer-base' | 'sauvegarder-restaurer' | null */
   let displayModule = $state(null);
   /** Client sélectionné pour Facture ou Devis (depuis la liste clients) */
   let selectedClient = $state(null);
-  function showDonneesPersonnelles() { displayModule = 'donnees-personnelles'; selectedClient = null; }
-  function showAjouterClient() { displayModule = 'ajouter-client'; selectedClient = null; }
-  function showCreerDevis() { displayModule = 'creer-devis'; selectedClient = null; }
-  function showFacture() { displayModule = 'facture'; selectedClient = null; }
-  function showListeDocuments() { displayModule = 'liste-documents'; selectedClient = null; }
+  /** Devis sélectionné pour créer une facture (depuis la liste documents) */
+  let selectedDevisForFacture = $state(null);
+  function showDonneesPersonnelles() { displayModule = 'donnees-personnelles'; selectedClient = null; selectedDevisForFacture = null; }
+  function showAjouterClient() { displayModule = 'ajouter-client'; selectedClient = null; selectedDevisForFacture = null; }
+  function showCreerDevis() { displayModule = 'creer-devis'; selectedClient = null; selectedDevisForFacture = null; }
+  function showFacture() { displayModule = 'facture'; selectedClient = null; selectedDevisForFacture = null; }
+  function showListeDocuments() { displayModule = 'liste-documents'; selectedClient = null; selectedDevisForFacture = null; }
+  function showExplorerBase() { displayModule = 'explorer-base'; selectedClient = null; selectedDevisForFacture = null; }
+  function showSauvegarderRestaurer() { displayModule = 'sauvegarder-restaurer'; selectedClient = null; selectedDevisForFacture = null; }
 
   function openFactureForClient(client) {
     selectedClient = client;
+    selectedDevisForFacture = null;
     displayModule = 'facture';
   }
   function openDevisForClient(client) {
     selectedClient = client;
+    selectedDevisForFacture = null;
     displayModule = 'creer-devis';
+  }
+  function openFactureFromDevis(devis) {
+    selectedDevisForFacture = devis;
+    selectedClient = null;
+    displayModule = 'facture';
   }
 </script>
 
@@ -60,7 +73,7 @@
         </span>
         <span class="menu-card-label">Ajouter client</span>
       </button>
-      <button type="button" class="menu-card" aria-label="Créer devis" onclick={showCreerDevis}>
+      <button type="button" class="menu-card menu-card-devis" aria-label="Créer devis" onclick={showCreerDevis}>
         <span class="menu-card-icon" aria-hidden="true">
           <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -71,8 +84,9 @@
           </svg>
         </span>
         <span class="menu-card-label">Créer devis</span>
+        <span class="menu-card-desc">Proposition envoyée au client (avant vente)</span>
       </button>
-      <button type="button" class="menu-card" aria-label="Facture" onclick={showFacture}>
+      <button type="button" class="menu-card menu-card-facture" aria-label="Facture" onclick={showFacture}>
         <span class="menu-card-icon" aria-hidden="true">
           <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -81,6 +95,7 @@
           </svg>
         </span>
         <span class="menu-card-label">Facture</span>
+        <span class="menu-card-desc">Document de vente (après accord du devis)</span>
       </button>
       <button type="button" class="menu-card" aria-label="Liste documents" onclick={showListeDocuments}>
         <span class="menu-card-icon" aria-hidden="true">
@@ -94,19 +109,45 @@
         </span>
         <span class="menu-card-label">Liste documents</span>
       </button>
+      <button type="button" class="menu-card menu-card-explorer" aria-label="Explorer la base" onclick={showExplorerBase}>
+        <span class="menu-card-icon" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <ellipse cx="12" cy="5" rx="9" ry="3" />
+            <path d="M21 12c0 1.66-2 3-4.5 3S12 13.66 12 12s2-3 4.5-3 4.5 1.34 4.5 3z" />
+            <path d="M3 5v14c0 1.66 2 3 4.5 3s4.5-1.34 4.5-3V5" />
+          </svg>
+        </span>
+        <span class="menu-card-label">Explorer la base</span>
+        <span class="menu-card-desc">IndexedDB (devis, factures, clients…)</span>
+      </button>
+      <button type="button" class="menu-card menu-card-archive" aria-label="Sauvegarder ou restaurer" onclick={showSauvegarderRestaurer}>
+        <span class="menu-card-icon" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+        </span>
+        <span class="menu-card-label">Sauvegarder / Restaurer</span>
+        <span class="menu-card-desc">Archive chiffrée (mot de passe requis pour extraire)</span>
+      </button>
     </section>
 
     <div id="display_info" class="display_info" role="region" aria-label="Contenu du module">
       {#if displayModule === 'donnees-personnelles'}
         <DonneesPersonnelles />
       {:else if displayModule === 'ajouter-client'}
-        <AjouterClient onOpenFacture={openFactureForClient} onOpenDevis={openDevisForClient} />
+        <AjouterClient {user} onOpenFacture={openFactureForClient} onOpenDevis={openDevisForClient} />
       {:else if displayModule === 'creer-devis'}
-        <CreerDevis client={selectedClient} />
+        <CreerDevis {user} client={selectedClient} />
       {:else if displayModule === 'facture'}
-        <Facture client={selectedClient} />
+        <Facture {user} client={selectedClient} devis={selectedDevisForFacture} />
       {:else if displayModule === 'liste-documents'}
-        <ListeDocuments {user} />
+        <ListeDocuments {user} onOpenFactureFromDevis={openFactureFromDevis} />
+      {:else if displayModule === 'explorer-base'}
+        <ExplorerBase {user} />
+      {:else if displayModule === 'sauvegarder-restaurer'}
+        <SauvegarderRestaurer {user} />
       {:else}
         <p class="display_info-placeholder">Cliquez sur un bouton pour afficher le module.</p>
       {/if}
@@ -209,6 +250,24 @@
     font-size: clamp(0.9rem, 2.5vw, 1rem);
     text-align: center;
   }
+  .menu-card-desc {
+    display: block;
+    font-size: clamp(0.7rem, 1.8vw, 0.75rem);
+    color: #64748b;
+    text-align: center;
+    font-weight: normal;
+    line-height: 1.2;
+  }
+  .menu-card-devis:hover .menu-card-icon { color: #0f766e; }
+  .menu-card-facture .menu-card-icon { color: #0369a1; }
+  .menu-card-facture:hover { border-color: #0369a1; background: #f0f9ff; }
+  .menu-card-facture:hover .menu-card-icon { color: #0369a1; }
+  .menu-card-explorer .menu-card-icon { color: #475569; }
+  .menu-card-explorer:hover { border-color: #475569; background: #f1f5f9; }
+  .menu-card-explorer:hover .menu-card-icon { color: #475569; }
+  .menu-card-archive .menu-card-icon { color: #0d9488; }
+  .menu-card-archive:hover { border-color: #0d9488; background: #ccfbf1; }
+  .menu-card-archive:hover .menu-card-icon { color: #0d9488; }
   .btn-logout {
     padding: 0.5rem 1rem;
     border-radius: 4px;

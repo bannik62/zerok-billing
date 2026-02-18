@@ -1,0 +1,12 @@
+# Évite de copier ces dossiers/fichiers dans le contexte Docker (réduit la taille et évite des conflits de couches)
+node_modules
+npm-debug.log
+.env
+.env.*
+!.env.example
+.git
+.gitignore
+*.md
+coverage
+.nyc_output
+.cache

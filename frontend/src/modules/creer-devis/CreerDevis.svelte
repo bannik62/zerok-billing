@@ -18,7 +18,8 @@
   /**
    * Créer devis – Étape 1 : saisie. Valider → Étape 2 : éditeur.
    */
-  let { client = null } = $props();
+  let { user = null, client = null } = $props();
+  const uid = $derived(user?.id ?? null);
 
   let step = $state(1);
   let clients = $state([]);
@@ -41,7 +42,7 @@
 
   $effect(() => {
     if (client && client.id && !entete.clientId) {
-      entete.clientId = client.id;
+      entete = { ...entete, clientId: client.id };
     }
   });
 
@@ -59,16 +60,21 @@
   const totalTTC = $derived(totalHT + tvaMontant);
 
   async function loadClients() {
-    clients = await getAllClients();
+    clients = await getAllClients(uid);
   }
   loadClients();
 
-  /** Au passage en étape 1 pour un nouveau devis, récupérer le prochain numéro depuis la BDD. */
+  /** Au passage en étape 1 pour un nouveau devis, prochain numéro (format client-année-NNN) quand un client est choisi. */
   $effect(() => {
     if (step !== 1 || currentDevis != null) return;
-    getNextDevisNumber()
+    const clientId = entete.clientId;
+    const list = clients;
+    getNextDevisNumber(clientId, list, uid)
       .then((num) => {
-        entete = { ...entete, numero: num };
+        const nextNum = num || '';
+        if (entete.clientId === clientId && nextNum !== (entete.numero || '')) {
+          entete = { ...entete, numero: nextNum };
+        }
       })
       .catch(() => {});
   });
@@ -78,6 +84,7 @@
     const devis = {
       id: crypto.randomUUID(),
       clientId: entete.clientId || null,
+      accepted: false,
       entete: { ...entete },
       lignes: lignes.map((l) => ({
         id: l.id,
@@ -117,7 +124,7 @@
       resolvedClient = null;
       return;
     }
-    getClientById(id)
+    getClientById(id, uid)
       .then((c) => (resolvedClient = c))
       .catch(() => {});
   });
@@ -155,10 +162,10 @@
     const top = y - h / 2;
     blockPositions = { ...blockPositions, [type]: { left, top, w, h } };
     if (currentDevis?.createdAt) {
-      updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } })
+      updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } }, uid)
         .then((d) => (currentDevis = d))
         .catch(() => {});
-    } else if (currentDevis) {
+  } else if (currentDevis) {
       currentDevis = { ...currentDevis, blockPositions: { ...blockPositions } };
     }
   }
@@ -241,7 +248,7 @@
     }
     if ((draggingBlock != null || resizingBlock != null) && currentDevis) {
       if (currentDevis.createdAt) {
-        updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } })
+        updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } }, uid)
           .then((d) => (currentDevis = d))
           .catch(() => {});
       } else {
@@ -263,10 +270,10 @@
     const next = { ...pos, [key]: value };
     blockPositions = { ...blockPositions, [type]: next };
     if (currentDevis?.createdAt) {
-      updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } })
+      updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } }, uid)
         .then((d) => (currentDevis = d))
         .catch(() => {});
-    } else if (currentDevis) {
+  } else if (currentDevis) {
       currentDevis = { ...currentDevis, blockPositions: { ...blockPositions } };
     }
   }
@@ -278,8 +285,9 @@
   async function nouveauDevis() {
     step = 1;
     currentDevis = null;
-    const nextNum = await getNextDevisNumber();
-    entete = { clientId: client?.id ?? '', numero: nextNum, dateEmission: '', dateValidite: '', devise: 'EUR', objet: '', tvaTaux: 0 };
+    const clientId = client?.id ?? '';
+    const nextNum = await getNextDevisNumber(clientId, clients, uid);
+    entete = { clientId, numero: nextNum || '', dateEmission: '', dateValidite: '', devise: 'EUR', objet: '', tvaTaux: 0 };
     lignes = [{ id: crypto.randomUUID(), designation: '', quantite: 1, unite: 'u', prixUnitaire: 0 }];
     reduction = { type: 'percent', value: 0 };
   }
@@ -295,15 +303,15 @@
     saveError = '';
     try {
       if (currentDevis.createdAt) {
-        const updated = await updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } });
+        const updated = await updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } }, uid);
         currentDevis = updated;
         saveMessage = 'Devis enregistré.';
         await sendProof(currentDevis, 'devis').catch((err) => console.warn('Preuve non envoyée:', err));
       } else {
-        const saved = await addDevis({
-          ...currentDevis,
-          blockPositions: { ...blockPositions }
-        });
+        const saved = await addDevis(
+          { ...currentDevis, blockPositions: { ...blockPositions } },
+          uid
+        );
         currentDevis = saved;
         blockPositions = { ...(saved.blockPositions || {}) };
         saveMessage = 'Devis enregistré.';
@@ -325,7 +333,7 @@
     if (!profile?.blockPositions) return;
     blockPositions = { ...profile.blockPositions };
     if (currentDevis?.createdAt) {
-      updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } })
+      updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } }, uid)
         .then((d) => (currentDevis = d))
         .catch(() => {});
     } else if (currentDevis) {

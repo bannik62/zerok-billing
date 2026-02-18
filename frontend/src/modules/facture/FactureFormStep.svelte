@@ -62,14 +62,20 @@
 </script>
 
 <div class="facture-form-module">
-  <h2 class="facture-form-title">Créer facture – Saisie</h2>
-
+  <div class="facture-form-header">
+    <h2 class="facture-form-title">Créer facture – Saisie</h2>
+    <p class="facture-form-desc">Document de vente — à émettre après acceptation du devis par le client.</p>
+  </div>
   <section class="facture-section">
     <h3 class="section-label">Entête</h3>
     <div class="form-grid">
       <div class="form-row">
         <label for="facture-client">Client</label>
-        <select id="facture-client" bind:value={entete.clientId}>
+        <select
+          id="facture-client"
+          value={entete.clientId}
+          onchange={(e) => { entete = { ...entete, clientId: e.currentTarget.value }; }}
+        >
           <option value="">— Choisir —</option>
           {#each clients as c (c.id)}
             <option value={c.id}>{c.raisonSociale || [c.prenom, c.nom].filter(Boolean).join(' ') || c.email}</option>
@@ -196,15 +202,24 @@
 </div>
 
 <style>
-  .facture-form-module { display: flex; flex-direction: column; gap: 1.25rem; min-height: 0; }
-  .facture-form-title { margin: 0; font-size: 1.25rem; color: #0f766e; font-weight: 700; }
+  .facture-form-module {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    min-height: 0;
+    border-left: 4px solid #0369a1;
+    padding-left: 1rem;
+  }
+  .facture-form-header { margin-bottom: 0.25rem; }
+  .facture-form-title { margin: 0; font-size: 1.25rem; color: #0369a1; font-weight: 700; }
+  .facture-form-desc { margin: 0.25rem 0 0; font-size: 0.85rem; color: #64748b; }
   .facture-section { padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0; }
   .section-label { margin: 0 0 0.75rem 0; font-size: 0.95rem; font-weight: 600; color: #475569; }
   .form-grid { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
   .form-row label, .form-row-inline label { display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem; }
   .form-row input, .form-row select { width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.9rem; box-sizing: border-box; }
   .input-readonly { background: #f1f5f9; color: #475569; cursor: default; }
-  .entete-client-info { margin-top: 0.5rem; padding: 0.5rem; background: #f0fdfa; border-radius: 6px; border: 1px solid #99f6e4; display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; color: #0f766e; }
+  .entete-client-info { margin-top: 0.5rem; padding: 0.5rem; background: #f0f9ff; border-radius: 6px; border: 1px solid #7dd3fc; display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; color: #0369a1; }
   .entete-client-rs { font-weight: 600; }
   .entete-client-adresse, .entete-client-siret { font-size: 0.8rem; color: #475569; }
   .form-row-inline { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
@@ -222,6 +237,6 @@
   .totaux-row { display: flex; justify-content: space-between; padding: 0.35rem 0; }
   .total-row { font-size: 1.1rem; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #e2e8f0; }
   .step-actions { margin-top: 0.5rem; }
-  .btn-submit { padding: 0.5rem 1rem; border-radius: 6px; border: none; background: #0f766e; color: white; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+  .btn-submit { padding: 0.5rem 1rem; border-radius: 6px; border: none; background: #0369a1; color: white; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
   .btn-submit:disabled { opacity: 0.7; cursor: not-allowed; }
 </style>

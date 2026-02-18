@@ -44,6 +44,11 @@
   const tvaMontant = $derived(totalHT * ((Number(entete.tvaTaux) || 0) / 100));
   const totalTTC = $derived(totalHT + tvaMontant);
 
+  /** Date d'émission doit être <= date de validité (les deux au format YYYY-MM-DD). */
+  const datesInvalides = $derived(
+    Boolean(entete.dateEmission && entete.dateValidite && entete.dateEmission > entete.dateValidite)
+  );
+
   function addLigne() {
     lignes = [...lignes, { id: crypto.randomUUID(), designation: '', quantite: 1, unite: 'u', prixUnitaire: 0 }];
   }
@@ -55,14 +60,20 @@
 </script>
 
 <div class="devis-module">
-  <h2 class="devis-title">Créer devis – Saisie</h2>
-
+  <div class="devis-header">
+    <h2 class="devis-title">Créer devis – Saisie</h2>
+    <p class="devis-desc">Proposition commerciale — à envoyer au client pour accord (avant vente).</p>
+  </div>
   <section class="devis-section">
     <h3 class="section-label">Entête</h3>
     <div class="form-grid">
       <div class="form-row">
         <label for="devis-client">Client</label>
-        <select id="devis-client" bind:value={entete.clientId}>
+        <select
+          id="devis-client"
+          value={entete.clientId}
+          onchange={(e) => { entete = { ...entete, clientId: e.currentTarget.value }; }}
+        >
           <option value="">— Choisir —</option>
           {#each clients as c (c.id)}
             <option value={c.id}>{c.raisonSociale || [c.prenom, c.nom].filter(Boolean).join(' ') || c.email}</option>
@@ -84,11 +95,28 @@
       </div>
       <div class="form-row">
         <label for="devis-date">Date d'émission</label>
-        <input id="devis-date" type="date" value={$dateEmissionStore} oninput={(e) => { dateEmissionField.value = e.target.value; entete = { ...entete, dateEmission: dateEmissionField.value }; }} />
+        <input
+          id="devis-date"
+          type="date"
+          value={$dateEmissionStore}
+          max={entete.dateValidite || undefined}
+          aria-describedby={datesInvalides ? 'devis-dates-erreur' : undefined}
+          oninput={(e) => { dateEmissionField.value = e.target.value; entete = { ...entete, dateEmission: dateEmissionField.value }; }}
+        />
       </div>
       <div class="form-row">
         <label for="devis-validite">Valide jusqu'au</label>
-        <input id="devis-validite" type="date" value={$dateValiditeStore} oninput={(e) => { dateValiditeField.value = e.target.value; entete = { ...entete, dateValidite: dateValiditeField.value }; }} />
+        <input
+          id="devis-validite"
+          type="date"
+          value={$dateValiditeStore}
+          min={entete.dateEmission || undefined}
+          aria-describedby={datesInvalides ? 'devis-dates-erreur' : undefined}
+          oninput={(e) => { dateValiditeField.value = e.target.value; entete = { ...entete, dateValidite: dateValiditeField.value }; }}
+        />
+        {#if datesInvalides}
+          <p id="devis-dates-erreur" class="form-error" role="alert">La date d'émission ne peut pas être après la date de validité.</p>
+        {/if}
       </div>
       <div class="form-row">
         <label for="devis-devise">Devise</label>
@@ -178,7 +206,7 @@
   </section>
 
   <div class="step-actions">
-    <button type="button" class="btn-submit" disabled={saving} onclick={onValider}>
+    <button type="button" class="btn-submit" disabled={saving || datesInvalides} onclick={onValider}>
       {saving ? 'Enregistrement…' : "Valider – Passer à l'éditeur"}
     </button>
   </div>
@@ -190,12 +218,20 @@
     flex-direction: column;
     gap: 1.25rem;
     min-height: 0;
+    border-left: 4px solid #0f766e;
+    padding-left: 1rem;
   }
+  .devis-header { margin-bottom: 0.25rem; }
   .devis-title {
     margin: 0;
     font-size: 1.25rem;
     color: #0f766e;
     font-weight: 700;
+  }
+  .devis-desc {
+    margin: 0.25rem 0 0;
+    font-size: 0.85rem;
+    color: #64748b;
   }
   .devis-section {
     padding: 0.75rem 0;
@@ -248,6 +284,11 @@
   .entete-client-rs { font-weight: 600; }
   .entete-client-adresse,
   .entete-client-siret { font-size: 0.8rem; color: #475569; }
+  .form-error {
+    margin: 0.35rem 0 0;
+    font-size: 0.85rem;
+    color: #b91c1c;
+  }
   .form-row-inline {
     display: flex;
     align-items: center;

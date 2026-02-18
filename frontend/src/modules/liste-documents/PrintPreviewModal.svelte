@@ -2,8 +2,8 @@
   import { getDevis, getFacture, getClientById, getSociete } from '$lib/dbEncrypted.js';
   import SheetA4 from '../creer-devis/SheetA4.svelte';
 
-  /** Modal d'aperçu pour impression / PDF. Reçoit documentId + documentType ('devis' | 'facture'). */
-  let { open = false, documentId = null, documentType = 'devis', onClose = () => {} } = $props();
+  /** Modal d'aperçu pour impression / PDF. Reçoit documentId + documentType ('devis' | 'facture') + userId (partition). */
+  let { open = false, documentId = null, documentType = 'devis', userId = null, onClose = () => {} } = $props();
 
   let document = $state(null);
   let resolvedClient = $state(null);
@@ -19,12 +19,13 @@
     }
     let cancelled = false;
     loading = true;
-    (documentType === 'facture' ? getFacture(documentId) : getDevis(documentId))
+    const uid = userId ?? null;
+    (documentType === 'facture' ? getFacture(documentId, uid) : getDevis(documentId, uid))
       .then((doc) => {
         if (cancelled) return;
         document = doc;
         if (doc?.entete?.clientId) {
-          return getClientById(doc.entete.clientId).then((c) => {
+          return getClientById(doc.entete.clientId, uid).then((c) => {
             if (cancelled) return;
             resolvedClient = c;
           });

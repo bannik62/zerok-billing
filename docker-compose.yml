@@ -7,14 +7,11 @@ services:
     ports:
       - "${BACKEND_PORT:-3011}:3001"
     env_file:
-      - .env
+      - .env.example
     environment:
       - NODE_ENV=production
       - PORT=3001
-      # DATABASE_URL doit être défini dans .env (pas de credentials en dur)
-      - DATABASE_URL=${DATABASE_URL}
-      - SESSION_SECRET=${SESSION_SECRET}
-      - FRONTEND_ORIGIN=${FRONTEND_ORIGIN:-http://localhost:5173}
+      # DATABASE_URL, SESSION_SECRET, FRONTEND_ORIGIN viennent de env_file (.env.example)
       - COOKIE_SECURE=false
     restart: unless-stopped
     networks:
@@ -29,11 +26,8 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     env_file:
-      - .env
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
+      - .env.example
+    # POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB viennent de env_file (.env.example)
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped

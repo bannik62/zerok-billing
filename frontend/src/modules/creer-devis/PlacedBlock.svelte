@@ -20,6 +20,7 @@
 <div
   class="placed-block"
   class:selected
+  class:placed-block-facture={isFacture}
   role="button"
   tabindex="0"
   aria-label="Bloc {getBlockLabel(type)}, déplacer"
@@ -104,6 +105,11 @@
           <span class="placed-block-content">TVA ({taux} %) : {formatMontant(mtva)} €</span>
           <span class="placed-block-content placed-block-total-ttc">Total TTC : {formatMontant(ttc)} €</span>
         {/if}
+        {#if isFacture}
+          <p class="placed-block-mentions-legales">
+            En cas de retard de paiement, des pénalités de retard seront appliquées à partir du lendemain de la date d'échéance, au taux d'intérêt légal en vigueur. Une indemnité forfaitaire de 40 € sera due pour frais de recouvrement.
+          </p>
+        {/if}
       </div>
     {/if}
   </div>
@@ -167,6 +173,13 @@
   }
   .placed-block-total-ttc {
     font-weight: 700;
+  }
+  .placed-block-mentions-legales {
+    margin: 0.5rem 0 0;
+    font-size: 0.6rem;
+    line-height: 1.3;
+    color: #64748b;
+    font-style: italic;
   }
   .placed-block-entete {
     display: flex;
@@ -251,6 +264,26 @@
   .placed-block.selected {
     outline: 2px solid #0f766e;
     outline-offset: 2px;
+  }
+  .placed-block-facture {
+    background: #f0f9ff;
+    border-color: #0369a1;
+  }
+  .placed-block-facture .placed-block-label {
+    color: #0369a1;
+  }
+  .placed-block-facture .placed-lignes-table th {
+    background: #bae6fd;
+    color: #0369a1;
+  }
+  .placed-block-facture.selected {
+    outline-color: #0369a1;
+  }
+  .placed-block-facture .resize-handle {
+    background: linear-gradient(135deg, transparent 50%, #0369a1 50%);
+  }
+  .placed-block-facture .resize-handle:hover {
+    background: linear-gradient(135deg, transparent 50%, #0284c7 50%);
   }
 
   @media print {

@@ -28,3 +28,12 @@ export async function findProofsByUserAndInvoiceIds(userId, invoiceIds) {
     select: { invoiceId: true, invoiceHash: true }
   });
 }
+
+/** Toutes les preuves de l'utilisateur (pour affichage intégrité dans l'explorer). */
+export async function findAllProofsByUserId(userId) {
+  return prisma.proof.findMany({
+    where: { userId },
+    select: { invoiceId: true, invoiceHash: true, signedAt: true },
+    orderBy: { signedAt: 'desc' }
+  });
+}

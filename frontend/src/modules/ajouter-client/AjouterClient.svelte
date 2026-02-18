@@ -5,7 +5,8 @@
   /**
    * Module Ajouter client – formulaire, liste, modifier/supprimer, ouvrir Facture/Devis.
    */
-  let { onOpenFacture, onOpenDevis } = $props();
+  let { user = null, onOpenFacture, onOpenDevis } = $props();
+  const uid = $derived(user?.id ?? null);
 
   let clients = $state([]);
   let message = $state({ type: '', text: '' });
@@ -55,7 +56,7 @@
 
   async function loadClients() {
     try {
-      clients = await getAllClients();
+      clients = await getAllClients(uid);
     } catch (e) {
       console.error(e);
       message = { type: 'error', text: 'Impossible de charger les clients.' };
@@ -69,17 +70,20 @@
     message = { type: '', text: '' };
     loading = true;
     try {
-      await addClient({
-        raisonSociale: raisonSocialeField.value,
-        nom: nomField.value,
-        prenom: prenomField.value,
-        email: emailField.value,
-        telephone: telephoneField.value,
-        adresse: adresseField.value,
-        codePostal: codePostalField.value,
-        ville: villeField.value,
-        siret: siretField.value
-      });
+      await addClient(
+        {
+          raisonSociale: raisonSocialeField.value,
+          nom: nomField.value,
+          prenom: prenomField.value,
+          email: emailField.value,
+          telephone: telephoneField.value,
+          adresse: adresseField.value,
+          codePostal: codePostalField.value,
+          ville: villeField.value,
+          siret: siretField.value
+        },
+        uid
+      );
       raisonSocialeField.reset('');
       nomField.reset('');
       prenomField.reset('');

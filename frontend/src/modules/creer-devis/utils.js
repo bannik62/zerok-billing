@@ -23,6 +23,8 @@ export const DEFAULT_W = 40;
 export const DEFAULT_H = 15;
 export const MIN_W = 15;
 export const MIN_H = 8;
+/** Seuil en px au-delà duquel un déplacement souris est considéré comme un drag (pas un clic). */
+export const DRAG_THRESHOLD = 5;
 
 export const FONT_SIZES = [9, 10, 11, 12, 14, 16, 18, 20];
 

@@ -1,12 +1,14 @@
 <script>
   import Login from './modules/auth/Login.svelte';
   import Register from './modules/auth/Register.svelte';
+  import Unlock from './modules/auth/Unlock.svelte';
   import SessionTemoin from './modules/session/SessionTemoin.svelte';
   import CsrfTemoin from './modules/session/CsrfTemoin.svelte';
+  import CleTemoin from './modules/session/CleTemoin.svelte';
   import Menu from './modules/menu/Menu.svelte';
   import { apiClient } from '$lib/apiClient.js';
   import { fetchCsrfToken } from '$lib/csrf.js';
-  import { clearEncryptionKey } from '$lib/dbEncrypted.js';
+  import { clearEncryptionKey, encryptionKeyLoadedStore } from '$lib/dbEncrypted.js';
 
   let user = $state(null);
   let loading = $state(true);
@@ -55,11 +57,16 @@
 </script>
 
 <CsrfTemoin />
+<CleTemoin />
 <main class:fullscreen={page === 'menu'}>
   {#if loading}
     <p class="loading">Chargement…</p>
   {:else if page === 'menu'}
-    <SessionTemoin content={Menu} {logout} onUnauthorized={() => { user = null; page = 'auth'; view = 'login'; }} />
+    {#if $encryptionKeyLoadedStore}
+      <SessionTemoin content={Menu} {logout} onUnauthorized={() => { user = null; page = 'auth'; view = 'login'; }} />
+    {:else}
+      <Unlock user={user} />
+    {/if}
   {:else}
     <h1>Zero-Knowledge Facturation</h1>
     <p class="tagline">Facturation local-first · Le serveur ne voit jamais le contenu de vos factures.</p>

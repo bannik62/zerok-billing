@@ -58,31 +58,39 @@ export async function setKeyDerivationSalt(saltBase64) {
 /**
  * Ajoute un client.
  * @param {Object} client - { raisonSociale, nom, prenom, email, telephone, adresse, codePostal, ville, siret }
+ * @param {string|number|null} [userId] - id du compte propriétaire (partition par utilisateur)
  * @returns {Promise<Object>} client avec id et createdAt
  */
-export async function addClient(client) {
+export async function addClient(client, userId = null) {
   const uuid = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : null;
   const id = uuid != null ? uuid : `client-${Date.now()}`;
-  const record = { id, ...client, createdAt: new Date().toISOString() };
+  const record = { id, ...client, createdAt: new Date().toISOString(), ...(userId != null && { userId }) };
   await db[STORE_CLIENTS].add(record);
   return record;
 }
 
 /**
- * Récupère tous les clients.
+ * Récupère tous les clients (optionnellement filtrés par utilisateur).
+ * @param {string|number|null} [userId] - si fourni, ne retourne que les clients de cet utilisateur ou sans userId (legacy)
  * @returns {Promise<Object[]>}
  */
-export async function getAllClients() {
-  return db[STORE_CLIENTS].toArray();
+export async function getAllClients(userId = null) {
+  const all = await db[STORE_CLIENTS].toArray();
+  if (userId == null) return all;
+  return all.filter((r) => r.userId === userId);
 }
 
 /**
- * Récupère un client par id.
+ * Récupère un client par id (optionnellement vérifie le propriétaire).
  * @param {string} id
+ * @param {string|number|null} [userId] - si fourni et le client a un userId, doit correspondre
  * @returns {Promise<Object|null>}
  */
-export async function getClientById(id) {
-  return (await db[STORE_CLIENTS].get(id)) ?? null;
+export async function getClientById(id, userId = null) {
+  const record = (await db[STORE_CLIENTS].get(id)) ?? null;
+  if (!record) return null;
+  if (userId != null && record.userId != null && record.userId !== userId) return null;
+  return record;
 }
 
 /**
@@ -130,22 +138,27 @@ export async function saveSociete(data) {
 }
 
 /**
- * Devis : { id, clientId?, entete: {}, lignes: [], reduction: {}, sousTotal, total, blockPositions: {}, createdAt }
+ * Devis : { id, clientId?, entete: {}, lignes: [], reduction: {}, sousTotal, total, blockPositions: {}, createdAt, userId? }
  */
-export async function addDevis(devis) {
+export async function addDevis(devis, userId = null) {
   const uuid = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : null;
   const id = uuid != null ? uuid : `devis-${Date.now()}`;
-  const record = plainClone({ id, ...devis, createdAt: new Date().toISOString() });
+  const record = plainClone({ id, ...devis, createdAt: new Date().toISOString(), ...(userId != null && { userId }) });
   await db[STORE_DEVIS].add(record);
   return record;
 }
 
-export async function getDevis(id) {
-  return (await db[STORE_DEVIS].get(id)) ?? null;
+export async function getDevis(id, userId = null) {
+  const record = (await db[STORE_DEVIS].get(id)) ?? null;
+  if (!record) return null;
+  if (userId != null && record.userId != null && record.userId !== userId) return null;
+  return record;
 }
 
-export async function getAllDevis() {
-  return db[STORE_DEVIS].toArray();
+export async function getAllDevis(userId = null) {
+  const all = await db[STORE_DEVIS].toArray();
+  if (userId == null) return all;
+  return all.filter((r) => r.userId === userId);
 }
 
 /** Pour la couche chiffrée : put/get/getAll bruts sur le store devis. */
@@ -156,27 +169,70 @@ export async function putDevisRaw(record) {
 export async function getDevisRaw(id) {
   return (await db[STORE_DEVIS].get(id)) ?? null;
 }
-export async function getAllDevisRaw() {
-  return db[STORE_DEVIS].toArray();
+export async function getAllDevisRaw(userId = null) {
+  const all = await db[STORE_DEVIS].toArray();
+  if (userId == null) return all;
+  return all.filter((r) => r.userId === userId);
 }
 
-/** Prochain numéro de devis pour l'année en cours (DEV-YYYY-NNN). */
-export async function getNextDevisNumber() {
+/**
+ * Slug pour le numéro de devis : basé sur raison sociale ou prénom+nom, unique parmi les clients.
+ * @param {Object} client - { raisonSociale?, prenom?, nom? }
+ * @param {Object[]} allClients - liste des clients pour garantir unicité du slug
+ * @returns {string}
+ */
+export function getClientDevisSlug(client, allClients = []) {
+  const raw =
+    (client && (client.raisonSociale || [client.prenom, client.nom].filter(Boolean).join(' '))) || '';
+  const slug = raw
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '') || 'client';
+  const sameSlug = allClients.filter((c) => {
+    const s =
+      (c.raisonSociale || [c.prenom, c.nom].filter(Boolean).join(' '))
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '') || 'client';
+    return s === slug;
+  });
+  const index = sameSlug.findIndex((c) => c.id === client?.id);
+  if (index < 0) return slug;
+  return sameSlug.length > 1 ? `${slug}${index + 1}` : slug;
+}
+
+/**
+ * Prochain numéro de devis : {clientSlug}-{année}-{NNN}, NNN par client.
+ * @param {string} [clientId]
+ * @param {Object[]} [clients] - liste des clients (pour le slug)
+ * @param {string|number|null} [userId] - partition utilisateur
+ * @returns {Promise<string>} numéro ou '' si pas de client
+ */
+export async function getNextDevisNumber(clientId, clients = [], userId = null) {
+  if (!clientId || !Array.isArray(clients)) return '';
+  const client = clients.find((c) => c.id === clientId);
+  if (!client) return '';
+  const slug = getClientDevisSlug(client, clients);
   const year = new Date().getFullYear();
-  const prefix = `DEV-${year}-`;
-  const all = await getAllDevis();
-  const thisYear = all.filter((d) => (d.entete?.numero || '').startsWith(prefix));
+  const prefix = `DEV-${slug}-${year}-`;
+  const all = await getAllDevis(userId);
+  const forClient = all.filter((d) => d.clientId === clientId && (d.entete?.numero || '').startsWith(prefix));
   let max = 0;
-  for (const d of thisYear) {
+  for (const d of forClient) {
     const n = parseInt((d.entete?.numero || '').slice(prefix.length), 10);
     if (!Number.isNaN(n) && n > max) max = n;
   }
-  const seq = String(max + 1).padStart(3, '0');
-  return `${prefix}${seq}`;
+  return prefix + String(max + 1).padStart(3, '0');
 }
 
-export async function updateDevis(devis) {
-  const existing = await getDevis(devis.id);
+export async function updateDevis(devis, userId = null) {
+  const existing = await getDevis(devis.id, userId);
   if (!existing) throw new Error('Devis introuvable');
   const record = plainClone({ ...existing, ...devis, id: existing.id, createdAt: existing.createdAt });
   await db[STORE_DEVIS].put(record);
@@ -225,41 +281,57 @@ export async function deleteLayoutProfile(id) {
 }
 
 /**
- * Facture : { id, clientId?, devisId?, entete: {}, lignes, reduction, sousTotal, total, tvaMontant?, totalTTC?, blockPositions, createdAt }
- * Numéro : FAC-YYYY-NNN.
+ * Facture : { id, clientId?, devisId?, entete: {}, lignes, reduction, sousTotal, total, tvaMontant?, totalTTC?, blockPositions, createdAt, userId? }
+ * Numéro : FAC-{clientSlug}-{année}-{NNN} (par client).
  */
-export async function getAllFactures() {
-  return db[STORE_FACTURES].toArray();
+export async function getAllFactures(userId = null) {
+  const all = await db[STORE_FACTURES].toArray();
+  if (userId == null) return all;
+  return all.filter((r) => r.userId === userId);
 }
 
-/** Prochain numéro de facture pour l'année en cours (FAC-YYYY-NNN). */
-export async function getNextFactureNumber() {
+/**
+ * Prochain numéro de facture : FAC-{clientSlug}-{année}-{NNN}, NNN par client.
+ * @param {string} [clientId]
+ * @param {Object[]} [clients]
+ * @param {string|number|null} [userId] - partition utilisateur
+ * @returns {Promise<string>}
+ */
+export async function getNextFactureNumber(clientId, clients = [], userId = null) {
+  if (!clientId || !Array.isArray(clients)) return '';
+  const client = clients.find((c) => c.id === clientId);
+  if (!client) return '';
+  const slug = getClientDevisSlug(client, clients);
   const year = new Date().getFullYear();
-  const prefix = `FAC-${year}-`;
-  const all = await getAllFactures();
-  const thisYear = all.filter((f) => (f.entete?.numero || '').startsWith(prefix));
+  const prefix = `FAC-${slug}-${year}-`;
+  const all = await getAllFactures(userId);
+  const forClient = all.filter(
+    (f) => f.clientId === clientId && (f.entete?.numero || '').startsWith(prefix)
+  );
   let max = 0;
-  for (const f of thisYear) {
+  for (const f of forClient) {
     const n = parseInt((f.entete?.numero || '').slice(prefix.length), 10);
     if (!Number.isNaN(n) && n > max) max = n;
   }
-  const seq = String(max + 1).padStart(3, '0');
-  return `${prefix}${seq}`;
+  return prefix + String(max + 1).padStart(3, '0');
 }
 
-export async function addFacture(facture) {
+export async function addFacture(facture, userId = null) {
   const id = crypto.randomUUID?.() ?? `facture-${Date.now()}`;
-  const record = plainClone({ id, ...facture, createdAt: new Date().toISOString() });
+  const record = plainClone({ id, ...facture, createdAt: new Date().toISOString(), ...(userId != null && { userId }) });
   await db[STORE_FACTURES].add(record);
   return record;
 }
 
-export async function getFacture(id) {
-  return (await db[STORE_FACTURES].get(id)) ?? null;
+export async function getFacture(id, userId = null) {
+  const record = (await db[STORE_FACTURES].get(id)) ?? null;
+  if (!record) return null;
+  if (userId != null && record.userId != null && record.userId !== userId) return null;
+  return record;
 }
 
-export async function updateFacture(facture) {
-  const existing = await getFacture(facture.id);
+export async function updateFacture(facture, userId = null) {
+  const existing = await getFacture(facture.id, userId);
   if (!existing) throw new Error('Facture introuvable');
   const record = plainClone({ ...existing, ...facture, id: existing.id, createdAt: existing.createdAt });
   await db[STORE_FACTURES].put(record);
@@ -278,6 +350,8 @@ export async function putFactureRaw(record) {
 export async function getFactureRaw(id) {
   return (await db[STORE_FACTURES].get(id)) ?? null;
 }
-export async function getAllFacturesRaw() {
-  return db[STORE_FACTURES].toArray();
+export async function getAllFacturesRaw(userId = null) {
+  const all = await db[STORE_FACTURES].toArray();
+  if (userId == null) return all;
+  return all.filter((r) => r.userId === userId);
 }

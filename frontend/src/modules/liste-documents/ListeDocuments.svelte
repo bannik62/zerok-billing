@@ -7,9 +7,9 @@
 
   /**
    * Liste documents – devis et factures.
-   * Cases à cocher, Supprimer, et Exporter (PDF/impression) par document.
+   * Cases à cocher, Supprimer, Exporter ; pour devis sans facture : bouton Créer facture.
    */
-  let { user = null } = $props();
+  let { user = null, onOpenFactureFromDevis = () => {} } = $props();
   let mounted = $state(true);
   onMount(() => {
     mounted = true;
@@ -84,6 +84,15 @@
   );
   const someFacturesSelected = $derived(selectedFactureIds.size > 0);
 
+  /** Pour chaque devis, la facture créée à partir de ce devis (devisId), s'il y en a une. */
+  const factureByDevisId = $derived.by(() => {
+    const map = {};
+    for (const f of facturesList) {
+      if (f.devisId && !map[f.devisId]) map[f.devisId] = f;
+    }
+    return map;
+  });
+
   let selectAllDevisCheckboxEl = $state(null);
   let selectAllCheckboxEl = $state(null);
   $effect(() => {
@@ -113,7 +122,7 @@
     try {
       for (const id of selectedDevisIds) await deleteDevis(id);
       selectedDevisIds = new Set();
-      devisList = await getAllDevis();
+      devisList = await getAllDevis(user?.id ?? null);
     } catch (e) {
       error = e?.message || 'Erreur lors de la suppression.';
     } finally {
@@ -150,7 +159,7 @@
         await deleteFacture(id);
       }
       selectedFactureIds = new Set();
-      facturesList = await getAllFactures();
+      facturesList = await getAllFactures(user?.id ?? null);
     } catch (e) {
       error = e?.message || 'Erreur lors de la suppression.';
     } finally {
@@ -160,14 +169,15 @@
 
   async function loadLists() {
     if (!user) return;
+    const uid = user?.id ?? null;
     loading = true;
     error = null;
     verifiedMap = {};
     try {
       const [devis, factures, clients] = await Promise.all([
-        getAllDevis(),
-        getAllFactures(),
-        getAllClients()
+        getAllDevis(uid),
+        getAllFactures(uid),
+        getAllClients(uid)
       ]);
       if (!mounted) return;
       devisList = devis;
@@ -273,12 +283,15 @@
               <th>Date émission</th>
               <th>Total HT</th>
               <th>Créé le</th>
-              <th class="col-verified">Vérifié</th>
+              <th class="col-accepted">Accepté</th>
+              <th class="col-verified">Hash vérifié</th>
+              <th class="col-facture">Facture</th>
               <th class="col-action">Exporter</th>
             </tr>
           </thead>
           <tbody>
             {#each filteredDevisList as d (d.id)}
+              {@const factureFromDevis = factureByDevisId[d.id]}
               <tr>
                 <td class="col-checkbox">
                   <label class="checkbox-label">
@@ -296,6 +309,9 @@
                 <td>{d.entete?.dateEmission || '—'}</td>
                 <td>{typeof d.total === 'number' ? d.total.toFixed(2) : (d.total ?? '—')} €</td>
                 <td>{d.createdAt ? new Date(d.createdAt).toLocaleDateString('fr-FR') : '—'}</td>
+                <td class="col-accepted" aria-label={d.accepted === true ? 'Devis accepté' : 'Devis non accepté'}>
+                  {d.accepted === true ? 'Oui' : 'Non'}
+                </td>
                 <td class="col-verified" aria-label={verifiedMap[d.id] === true ? 'Hash vérifié' : verifiedMap[d.id] === false ? 'Hash non vérifié' : 'Vérification…'}>
                   {#if verifiedLoading && verifiedMap[d.id] === undefined}
                     <span class="icon icon-pending" aria-hidden="true">—</span>
@@ -305,13 +321,27 @@
                     <span class="icon icon-ko" title="Non vérifié">✗</span>
                   {/if}
                 </td>
+                <td class="col-facture" aria-label={factureFromDevis ? `Facture créée : ${factureFromDevis.entete?.numero || factureFromDevis.id}` : 'Aucune facture'}>
+                  {#if factureFromDevis}
+                    <span class="facture-created" title="Facture {factureFromDevis.entete?.numero || factureFromDevis.id}">{factureFromDevis.entete?.numero || 'Oui'}</span>
+                  {:else}
+                    <button
+                      type="button"
+                      class="btn-create-facture"
+                      onclick={() => onOpenFactureFromDevis(d)}
+                      title="Créer une facture à partir de ce devis"
+                    >
+                      Créer facture
+                    </button>
+                  {/if}
+                </td>
                 <td class="col-action">
                   <button type="button" class="btn-export-row" onclick={() => openPrintPreview(d.id, 'devis')} title="Exporter en PDF">Exporter</button>
                 </td>
               </tr>
             {:else}
               <tr>
-                <td colspan="9" class="doc-table-empty">{searchQuery.trim() ? 'Aucun devis ne correspond à la recherche.' : 'Aucun devis.'}</td>
+                <td colspan="11" class="doc-table-empty">{searchQuery.trim() ? 'Aucun devis ne correspond à la recherche.' : 'Aucun devis.'}</td>
               </tr>
             {/each}
           </tbody>
@@ -354,7 +384,7 @@
               <th>Délai paiement</th>
               <th>Total HT</th>
               <th>Créée le</th>
-              <th class="col-verified">Vérifié</th>
+              <th class="col-verified">Hash vérifié</th>
               <th class="col-action">Exporter</th>
             </tr>
           </thead>
@@ -406,6 +436,7 @@
     open={printPreviewOpen}
     documentId={printDocumentId}
     documentType={printDocumentType}
+    userId={user?.id ?? null}
     onClose={closePrintPreview}
   />
 </div>
@@ -546,6 +577,32 @@
   .col-verified {
     text-align: center;
     width: 3rem;
+  }
+  .col-accepted {
+    text-align: center;
+    min-width: 4rem;
+  }
+  .col-facture {
+    text-align: center;
+    min-width: 5.5rem;
+  }
+  .facture-created {
+    font-size: 0.85rem;
+    color: #0369a1;
+    font-weight: 500;
+  }
+  .btn-create-facture {
+    padding: 0.35rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid #0369a1;
+    background: #f0f9ff;
+    color: #0369a1;
+    font-size: 0.85rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-create-facture:hover {
+    background: #e0f2fe;
   }
   .icon {
     display: inline-block;

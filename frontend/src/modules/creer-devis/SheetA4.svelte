@@ -27,6 +27,7 @@
 <div
   bind:this={sheetEl}
   class="sheet-a4"
+  class:sheet-a4-facture={documentType === 'facture'}
   role="application"
   aria-label="Feuille A4 – déposez les blocs ici"
   ondragover={onOver}
@@ -76,6 +77,10 @@
     border-radius: 2px;
     box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
     min-height: 300px;
+  }
+  .sheet-a4-facture {
+    border-color: #7dd3fc;
+    box-shadow: 0 4px 6px -1px rgba(3, 105, 161, 0.15);
   }
 
   @media print {

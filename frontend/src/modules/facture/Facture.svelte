@@ -29,7 +29,8 @@
   import ManageProfilesModal from '../creer-devis/ManageProfilesModal.svelte';
 
   /** Module Facture – client ou devis pré-sélectionné. Step 0: choix, Step 1: formulaire, Step 2: éditeur. */
-  let { client = null, devis: devisFromMenu = null } = $props();
+  let { user = null, client = null, devis: devisFromMenu = null } = $props();
+  const uid = $derived(user?.id ?? null);
 
   let step = $state(0);
   let clients = $state([]);
@@ -54,7 +55,7 @@
   let reduction = $state({ type: 'percent', value: 0 });
 
   $effect(() => {
-    if (client?.id && !entete.clientId) entete.clientId = client.id;
+    if (client?.id && !entete.clientId) entete = { ...entete, clientId: client.id };
   });
 
   $effect(() => {
@@ -88,10 +89,10 @@
   const totalTTC = $derived(totalHT + tvaMontant);
 
   async function loadClients() {
-    clients = await getAllClients();
+    clients = await getAllClients(uid);
   }
   async function loadDevis() {
-    devisList = await getAllDevis();
+    devisList = await getAllDevis(uid);
   }
   loadClients();
   $effect(() => {
@@ -164,7 +165,7 @@
       resolvedClient = null;
       return;
     }
-    getClientById(id).then((c) => (resolvedClient = c));
+    getClientById(id, uid).then((c) => (resolvedClient = c));
   });
   $effect(() => {
     if (step !== 2) return;
@@ -191,7 +192,7 @@
     const h = existing?.h ?? DEFAULT_H;
     blockPositions = { ...blockPositions, [type]: { left: x - w / 2, top: y - h / 2, w, h } };
     if (currentFacture?.createdAt) {
-      updateFacture({ ...currentFacture, blockPositions: { ...blockPositions } }).then((f) => (currentFacture = f));
+      updateFacture({ ...currentFacture, blockPositions: { ...blockPositions } }, uid).then((f) => (currentFacture = f));
     } else if (currentFacture) {
       currentFacture = { ...currentFacture, blockPositions: { ...blockPositions } };
     }
@@ -254,7 +255,7 @@
     }
     if ((draggingBlock != null || resizingBlock != null) && currentFacture) {
       if (currentFacture.createdAt) {
-        updateFacture({ ...currentFacture, blockPositions: { ...blockPositions } }).then((f) => (currentFacture = f));
+        updateFacture({ ...currentFacture, blockPositions: { ...blockPositions } }, uid).then((f) => (currentFacture = f));
       } else {
         currentFacture = { ...currentFacture, blockPositions: { ...blockPositions } };
       }
@@ -271,7 +272,7 @@
     if (!pos) return;
     blockPositions = { ...blockPositions, [type]: { ...pos, [key]: value } };
     if (currentFacture?.createdAt) {
-      updateFacture({ ...currentFacture, blockPositions: { ...blockPositions } }).then((f) => (currentFacture = f));
+      updateFacture({ ...currentFacture, blockPositions: { ...blockPositions } }, uid).then((f) => (currentFacture = f));
     } else if (currentFacture) {
       currentFacture = { ...currentFacture, blockPositions: { ...blockPositions } };
     }
@@ -280,11 +281,29 @@
   function retour() {
     step = step === 2 ? 1 : 0;
   }
-  function nouvelleFacture() {
+  async function nouvelleFactureFromChoice() {
+    step = 1;
+    const clientId = client?.id ?? '';
+    const nextNum = await getNextFactureNumber(clientId, clients, uid);
+    entete = {
+      clientId,
+      numero: nextNum || '',
+      dateEmission: new Date().toISOString().slice(0, 10),
+      delaiPaiement: '',
+      devise: 'EUR',
+      objet: '',
+      tvaTaux: 20
+    };
+    lignes = [{ id: crypto.randomUUID(), designation: '', quantite: 1, unite: 'u', prixUnitaire: 0 }];
+    reduction = { type: 'percent', value: 0 };
+  }
+  async function nouvelleFacture() {
     step = 0;
     currentFacture = null;
     selectedDevisId = '';
-    entete = { clientId: client?.id ?? '', numero: '', dateEmission: '', delaiPaiement: '', devise: 'EUR', objet: '', tvaTaux: 20 };
+    const clientId = client?.id ?? '';
+    const nextNum = await getNextFactureNumber(clientId, clients, uid);
+    entete = { clientId, numero: nextNum || '', dateEmission: '', delaiPaiement: '', devise: 'EUR', objet: '', tvaTaux: 20 };
     lignes = [{ id: crypto.randomUUID(), designation: '', quantite: 1, unite: 'u', prixUnitaire: 0 }];
     reduction = { type: 'percent', value: 0 };
   }
@@ -295,17 +314,17 @@
     savingBdd = true;
     try {
       if (currentFacture.createdAt) {
-        const updated = await updateFacture({ ...currentFacture, blockPositions: { ...blockPositions } });
+        const updated = await updateFacture({ ...currentFacture, blockPositions: { ...blockPositions } }, uid);
         currentFacture = updated;
         await sendProof(currentFacture, 'facture').catch((err) => console.warn('Preuve non envoyée:', err));
       } else {
-        const numero = await getNextFactureNumber();
+        const numero = currentFacture.entete?.numero || (await getNextFactureNumber(currentFacture.clientId || '', clients, uid));
         const factureToSave = {
           ...currentFacture,
           entete: { ...currentFacture.entete, numero },
           blockPositions: { ...blockPositions }
         };
-        const saved = await addFacture(factureToSave);
+        const saved = await addFacture(factureToSave, uid);
         currentFacture = saved;
         blockPositions = { ...(saved.blockPositions || {}) };
         await sendProof(currentFacture, 'facture').catch((err) => console.warn('Preuve non envoyée:', err));
@@ -323,7 +342,7 @@
     if (!profile?.blockPositions) return;
     blockPositions = { ...profile.blockPositions };
     if (currentFacture?.createdAt) {
-      updateFacture({ ...currentFacture, blockPositions: { ...blockPositions } }).then((f) => (currentFacture = f));
+      updateFacture({ ...currentFacture, blockPositions: { ...blockPositions } }, uid).then((f) => (currentFacture = f));
     } else if (currentFacture) {
       currentFacture = { ...currentFacture, blockPositions: { ...blockPositions } };
     }
@@ -362,18 +381,28 @@
     }
   }
 
+  /** À l'étape 1, prochain numéro (FAC-{client}-{année}-{NNN}) quand un client est choisi. */
   $effect(() => {
     if (step !== 1) return;
-    getNextFactureNumber().then((n) => (entete.numero = n));
+    const clientId = entete.clientId;
+    const list = clients;
+    getNextFactureNumber(clientId, list, uid)
+      .then((num) => {
+        const nextNum = num || '';
+        if (entete.clientId === clientId && nextNum !== (entete.numero || '')) {
+          entete = { ...entete, numero: nextNum };
+        }
+      })
+      .catch(() => {});
   });
 </script>
 
 {#if step === 0}
   <div class="facture-choice">
     <h2 class="facture-title">Facture</h2>
-    <p class="facture-intro">Choisissez comment créer la facture.</p>
+    <p class="facture-intro">Document de vente (à émettre après accord du devis). Choisissez comment créer la facture.</p>
     <div class="choice-actions">
-      <button type="button" class="btn-choice" onclick={() => { step = 1; entete = { clientId: client?.id ?? '', numero: '', dateEmission: new Date().toISOString().slice(0, 10), delaiPaiement: '', devise: 'EUR', objet: '', tvaTaux: 20 }; lignes = [{ id: crypto.randomUUID(), designation: '', quantite: 1, unite: 'u', prixUnitaire: 0 }]; reduction = { type: 'percent', value: 0 }; }}>
+      <button type="button" class="btn-choice" onclick={nouvelleFactureFromChoice}>
         Nouvelle facture
       </button>
       <div class="from-devis">
@@ -451,12 +480,18 @@
 {/if}
 
 <style>
-  .facture-choice { display: flex; flex-direction: column; gap: 1rem; }
-  .facture-title { margin: 0; font-size: 1.25rem; color: #0f766e; font-weight: 700; }
-  .facture-intro { margin: 0; color: #64748b; }
+  .facture-choice {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    border-left: 4px solid #0369a1;
+    padding-left: 1rem;
+  }
+  .facture-title { margin: 0; font-size: 1.25rem; color: #0369a1; font-weight: 700; }
+  .facture-intro { margin: 0; color: #64748b; font-size: 0.95rem; }
   .choice-actions { display: flex; flex-direction: column; gap: 1rem; }
-  .btn-choice { padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid #0f766e; background: #f0fdfa; color: #0f766e; font-weight: 600; cursor: pointer; }
-  .btn-choice:hover { background: #ccfbf1; }
+  .btn-choice { padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid #0369a1; background: #f0f9ff; color: #0369a1; font-weight: 600; cursor: pointer; }
+  .btn-choice:hover { background: #e0f2fe; }
   .from-devis { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem; }
   .from-devis label { display: block; font-size: 0.9rem; color: #475569; margin-bottom: 0.25rem; width: 100%; }
   .from-devis select { padding: 0.4rem 0.6rem; border: 1px solid #e2e8f0; border-radius: 6px; min-width: 220px; }
@@ -474,8 +509,8 @@
   .btn-editor.btn-secondary:hover { background: #f8fafc; }
   .btn-profile, .btn-manage-profiles { border: 1px solid #94a3b8; background: #fff; color: #475569; }
   .btn-profile:hover, .btn-manage-profiles:hover { background: #f1f5f9; }
-  .btn-save-bdd { border: none; background: #0f766e; color: white; }
-  .btn-save-bdd:hover:not(:disabled) { background: #0d9488; }
+  .btn-save-bdd { border: none; background: #0369a1; color: white; }
+  .btn-save-bdd:hover:not(:disabled) { background: #0284c7; }
   .btn-save-bdd:disabled { opacity: 0.7; cursor: wait; }
   @media print {
     :global(.editor-sidebar), .editor-toolbar, .editor-actions, :global(.resize-handle), :global(.block-toolbar) { display: none !important; }

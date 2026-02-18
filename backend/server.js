@@ -32,10 +32,7 @@ app.set('trust proxy', 1);
 
 app.use(helmet());
 
-const allowedOrigins = (process.env.FRONTEND_ORIGIN || 'http://localhost:5173')
-  .split(',')
-  .map((o) => o.trim())
-  .filter(Boolean);
+const allowedOrigins = (process.env.FRONTEND_ORIGIN || 'http://localhost:5173').split(',').map((o) => o.trim()).filter(Boolean);
 if (!allowedOrigins.includes('http://127.0.0.1:5173')) allowedOrigins.push('http://127.0.0.1:5173');
 if (!allowedOrigins.includes('http://localhost:5173')) allowedOrigins.push('http://localhost:5173');
 
