@@ -8,7 +8,7 @@
     deleteDocument,
     decryptDocumentBlob
   } from '$lib/dbEncrypted.js';
-  import { sendDocumentProof } from '$lib/proofs.js';
+  import { sendDocumentProof, verifyDocumentProofs } from '$lib/proofs.js';
   import { filterDocuments } from '$lib/coffreFortSearch.js';
   import { getDocTypeLabel, getCategoryLabel } from './constants.js';
   import UploadSection from './UploadSection.svelte';
@@ -29,6 +29,8 @@
   let searchQuery = $state('');
   let previewOpen = $state(false);
   let previewDoc = $state(null);
+  let verifiedMap = $state({});
+  let verifiedLoading = $state(false);
 
   const clientsMap = $derived(Object.fromEntries((clients || []).map((c) => [c.id, c])));
   const invoiceOptions = $derived.by(() => {
@@ -73,6 +75,14 @@
       clients = cl;
       devisList = devis;
       facturesList = factures;
+      verifiedLoading = true;
+      try {
+        verifiedMap = await verifyDocumentProofs(docs);
+      } catch (_) {
+        verifiedMap = {};
+      } finally {
+        verifiedLoading = false;
+      }
     } catch (e) {
       error = e?.message || 'Erreur chargement';
       documents = [];
@@ -98,7 +108,12 @@
         file: formData.file,
         metadata: formData.metadata
       });
-      await sendDocumentProof(record, fileHash);
+      try {
+        await sendDocumentProof(record, fileHash);
+      } catch (e) {
+        await deleteDocument(record.id);
+        throw e;
+      }
       await loadData();
     } catch (e) {
       uploadError = e?.message || 'Erreur lors de l’ajout du document';
@@ -158,9 +173,9 @@
       onClearError={() => { uploadError = null; }}
     />
 
-    <section class="coffre-list" aria-label="Liste des documents">
+    <section class="coffre-list" aria-label="Documents perso">
       <div class="coffre-list-head">
-        <h3 class="coffre-section-title">Documents ({filteredDocuments.length})</h3>
+        <h3 class="coffre-section-title">Documents perso ({filteredDocuments.length})</h3>
         <div class="coffre-search-wrap">
           <label for="coffre-search" class="coffre-search-label">Rechercher</label>
           <input
@@ -180,6 +195,8 @@
         invoiceOptions={invoiceOptions}
         clientDisplayName={clientDisplayName}
         formatSize={formatSize}
+        verifiedMap={verifiedMap}
+        verifiedLoading={verifiedLoading}
         onPreview={openPreview}
         onDownload={handleDownload}
         onDelete={handleDelete}

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { upsertProof, findProofsByUserAndInvoiceIds, findAllProofsByUserId } from '../services/proofService.js';
-import { upsertDocumentProof } from '../services/documentProofService.js';
+import { upsertDocumentProof, findAllDocumentProofsByUserId } from '../services/documentProofService.js';
 import { error as logError } from '../lib/logger.js';
 
 /**
@@ -106,6 +106,21 @@ secureRouter.post('/proofs/verify', async (req, res) => {
     });
 
     return res.json({ results });
+  } catch (e) {
+    logError(e);
+    return res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+/**
+ * GET /api/documents/proofs — Liste les preuves documents (hash) de l'utilisateur pour comparaison local / backend.
+ */
+secureRouter.get('/documents/proofs', async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Non authentifié' });
+    const documentProofs = await findAllDocumentProofsByUserId(userId);
+    return res.json({ documentProofs });
   } catch (e) {
     logError(e);
     return res.status(500).json({ error: 'Erreur serveur' });

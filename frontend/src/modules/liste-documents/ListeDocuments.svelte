@@ -10,7 +10,7 @@
     decryptDocumentBlob
   } from '$lib/dbEncrypted.js';
   import { hashDocument } from '$lib/crypto/index.js';
-  import { verifyProofs } from '$lib/proofs.js';
+  import { getProofs, verifyProofs } from '$lib/proofs.js';
   import { buildAttachmentsZip, downloadBlob } from '$lib/coffreFortExport.js';
   import PrintPreviewModal from './PrintPreviewModal.svelte';
 
@@ -74,6 +74,9 @@
   let error = $state(null);
   let verifiedMap = $state({});
   let verifiedLoading = $state(false);
+  /** Preuves backend (pour l'encart gauche). */
+  let backendProofs = $state([]);
+  let proofsPanelError = $state('');
   let selectedDevisIds = $state(new Set());
   let selectedFactureIds = $state(new Set());
   let deletingDevis = $state(false);
@@ -129,6 +132,24 @@
     }
     return map;
   });
+
+  /** Libellé lisible pour une preuve (invoiceId) : Devis/Facture n° — Client */
+  function getProofLabel(invoiceId) {
+    if (!invoiceId) return '—';
+    const devis = devisList.find((d) => d.id === invoiceId);
+    if (devis) {
+      const numero = devis.entete?.numero || devis.id;
+      const client = clientsMap[devis.entete?.clientId];
+      return `Devis ${numero} — ${clientDisplayName(client)}`;
+    }
+    const facture = facturesList.find((f) => f.id === invoiceId);
+    if (facture) {
+      const numero = facture.entete?.numero || facture.id;
+      const client = clientsMap[facture.entete?.clientId];
+      return `Facture ${numero} — ${clientDisplayName(client)}`;
+    }
+    return invoiceId.length > 24 ? invoiceId.slice(0, 22) + '…' : invoiceId;
+  }
 
   let selectAllDevisCheckboxEl = $state(null);
   let selectAllCheckboxEl = $state(null);
@@ -224,6 +245,16 @@
       selectedFactureIds = new Set();
 
       verifiedLoading = true;
+      proofsPanelError = '';
+      try {
+        backendProofs = await getProofs();
+      } catch (e) {
+        backendProofs = [];
+        const status = e.response?.status;
+        if (status === 401) proofsPanelError = 'Non connecté';
+        else if (status === 404) proofsPanelError = 'Route introuvable (404). Démarrez le backend.';
+        else proofsPanelError = e?.message || 'Erreur chargement preuves';
+      }
       try {
         const checks = [];
         for (const d of devisList) {
@@ -274,6 +305,33 @@
     <p class="liste-documents-msg liste-documents-msg--error">{error}</p>
     <p class="liste-documents-hint">Si l’erreur concerne la base de données, essayez de rafraîchir la page.</p>
   {:else}
+    <div class="liste-layout">
+      <aside class="liste-proofs-panel" aria-label="Preuves — comparaison hash local / backend">
+        <h3 class="liste-proofs-title">Preuves (intégrité)</h3>
+        <p class="liste-proofs-hint">Hash enregistrés côté serveur. Comparaison avec le hash local (IndexedDB).</p>
+        {#if proofsPanelError}
+          <p class="liste-proofs-error">{proofsPanelError}</p>
+        {:else if backendProofs.length === 0}
+          <p class="liste-proofs-empty">Aucune preuve enregistrée.</p>
+        {:else}
+          <ul class="liste-proofs-list">
+            {#each backendProofs as p (p.invoiceId)}
+              <li class="liste-proof-item">
+                <span class="liste-proof-label" title={p.invoiceId}>{getProofLabel(p.invoiceId)}</span>
+                <code class="liste-proof-hash" title={p.invoiceHash}>{p.invoiceHash ? p.invoiceHash.slice(0, 12) + '…' : '—'}</code>
+                {#if verifiedLoading && verifiedMap[p.invoiceId] === undefined}
+                  <span class="liste-proof-status liste-proof-pending" title="Vérification…">—</span>
+                {:else if verifiedMap[p.invoiceId] === true}
+                  <span class="liste-proof-status liste-proof-ok" title="Hash local = hash backend">✓ conforme</span>
+                {:else}
+                  <span class="liste-proof-status liste-proof-diff" title="Hash local ≠ hash backend">✗ différent</span>
+                {/if}
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </aside>
+      <div class="liste-main">
     <div class="liste-search-wrap">
       <label for="liste-search" class="liste-search-label">Rechercher</label>
       <input
@@ -321,7 +379,7 @@
               <th>Total HT</th>
               <th>Créé le</th>
               <th class="col-accepted">Accepté</th>
-              <th class="col-verified">Hash vérifié</th>
+              <th class="col-verified" title="Comparaison hash local = hash backend">Hash vérifié</th>
               <th class="col-facture">Facture</th>
               <th class="col-action">Exporter</th>
               <th class="col-pieces">Pièces jointes</th>
@@ -354,9 +412,9 @@
                   {#if verifiedLoading && verifiedMap[d.id] === undefined}
                     <span class="icon icon-pending" aria-hidden="true">—</span>
                   {:else if verifiedMap[d.id] === true}
-                    <span class="icon icon-ok" title="Hash vérifié">✓</span>
+                    <span class="icon icon-ok" title="Hash local = hash backend">✓</span>
                   {:else}
-                    <span class="icon icon-ko" title="Non vérifié">✗</span>
+                    <span class="icon icon-ko" title="Hash différent ou absent côté serveur">✗</span>
                   {/if}
                 </td>
                 <td class="col-facture" aria-label={factureFromDevis ? `Facture créée : ${factureFromDevis.entete?.numero || factureFromDevis.id}` : 'Aucune facture'}>
@@ -433,7 +491,7 @@
               <th>Délai paiement</th>
               <th>Total HT</th>
               <th>Créée le</th>
-              <th class="col-verified">Hash vérifié</th>
+              <th class="col-verified" title="Comparaison hash local = hash backend">Hash vérifié</th>
               <th class="col-action">Exporter</th>
               <th class="col-pieces">Pièces jointes</th>
             </tr>
@@ -462,9 +520,9 @@
                   {#if verifiedLoading && verifiedMap[f.id] === undefined}
                     <span class="icon icon-pending" aria-hidden="true">—</span>
                   {:else if verifiedMap[f.id] === true}
-                    <span class="icon icon-ok" title="Hash vérifié">✓</span>
+                    <span class="icon icon-ok" title="Hash local = hash backend">✓</span>
                   {:else}
-                    <span class="icon icon-ko" title="Non vérifié">✗</span>
+                    <span class="icon icon-ko" title="Hash différent ou absent côté serveur">✗</span>
                   {/if}
                 </td>
                 <td class="col-action">
@@ -491,6 +549,8 @@
         </table>
       </div>
     </section>
+      </div>
+    </div>
   {/if}
 
   <PrintPreviewModal
@@ -508,6 +568,95 @@
     flex-direction: column;
     gap: 1.5rem;
     min-height: 0;
+  }
+  .liste-layout {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .liste-proofs-panel {
+    flex: 0 0 280px;
+    min-width: 240px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1rem;
+    background: #f8fafc;
+  }
+  .liste-proofs-title {
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+    color: #0f766e;
+  }
+  .liste-proofs-hint {
+    font-size: 0.8rem;
+    color: #64748b;
+    margin: 0 0 0.75rem 0;
+  }
+  .liste-proofs-error {
+    color: #b91c1c;
+    font-size: 0.85rem;
+    margin: 0;
+  }
+  .liste-proofs-empty {
+    color: #64748b;
+    font-size: 0.9rem;
+    margin: 0;
+  }
+  .liste-proofs-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .liste-proof-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.5rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 0.8rem;
+  }
+  .liste-proof-item:last-child {
+    border-bottom: none;
+  }
+  .liste-proof-id,
+  .liste-proof-label {
+    flex: 0 0 100%;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .liste-proof-label {
+    color: #0f172a;
+  }
+  .liste-proof-hash {
+    font-size: 0.75rem;
+    background: #e2e8f0;
+    padding: 0.15rem 0.35rem;
+    border-radius: 4px;
+    color: #475569;
+  }
+  .liste-proof-status {
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  .liste-proof-ok {
+    color: #15803d;
+  }
+  .liste-proof-diff {
+    color: #b91c1c;
+  }
+  .liste-proof-pending {
+    color: #94a3b8;
+  }
+  .liste-main {
+    flex: 1;
+    min-width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
   }
   .liste-documents-title {
     margin: 0;

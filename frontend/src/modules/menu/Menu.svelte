@@ -125,15 +125,15 @@
         </span>
         <span class="menu-card-label">Liste documents</span>
       </button>
-      <button type="button" class="menu-card menu-card-coffre" aria-label="Coffre-fort" onclick={showCoffreFort}>
+      <button type="button" class="menu-card menu-card-coffre" aria-label="Mes fichiers — Coffre-fort" onclick={showCoffreFort}>
         <span class="menu-card-icon" aria-hidden="true">
           <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
         </span>
-        <span class="menu-card-label">Coffre-fort</span>
-        <span class="menu-card-desc">Documents chiffrés (justificatifs, contrats…)</span>
+        <span class="menu-card-label">Mes fichiers</span>
+        <span class="menu-card-desc">Coffre-fort — Documents chiffrés (justificatifs, contrats…)</span>
       </button>
       <button type="button" class="menu-card menu-card-explorer" aria-label="Explorer la base" onclick={showExplorerBase}>
         <span class="menu-card-icon" aria-hidden="true">

@@ -24,6 +24,15 @@ export async function sendProof(document, documentType) {
 }
 
 /**
+ * Récupère la liste des preuves (devis/factures) enregistrées sur le serveur.
+ * @returns {Promise<{ invoiceId: string, invoiceHash: string, signedAt?: string }[]>}
+ */
+export async function getProofs() {
+  const res = await apiClient.get('/api/proofs');
+  return res.data?.proofs ?? [];
+}
+
+/**
  * Vérifie en lot que les hash des documents correspondent à ceux enregistrés sur le serveur.
  * @param {{ invoiceId: string, invoiceHash: string }[]} checks
  * @returns {Promise<{ invoiceId: string, verified: boolean }[]>}
@@ -50,4 +59,37 @@ export async function sendDocumentProof(record, fileHash) {
     size: record.size,
     invoiceId: record.linkedInvoiceId || null
   });
+}
+
+/**
+ * Récupère la liste des preuves documents (hash) enregistrées sur le serveur pour l'utilisateur.
+ * @returns {Promise<{ documentId: string, fileHash: string, filename: string, uploadedAt: string }[]>}
+ */
+export async function getDocumentProofs() {
+  const res = await apiClient.get('/api/documents/proofs');
+  return res.data?.documentProofs ?? [];
+}
+
+/**
+ * Compare les documents locaux (avec fileHash) aux preuves backend. Retourne un map documentId -> verified.
+ * @param {{ id: string, fileHash?: string }[]} localDocuments
+ * @returns {Promise<Record<string, boolean>>} documentId -> true si hash local === hash backend, false sinon
+ */
+export async function verifyDocumentProofs(localDocuments) {
+  const map = {};
+  if (!localDocuments?.length) return map;
+  try {
+    const backendProofs = await getDocumentProofs();
+    const hashByDocumentId = Object.fromEntries(
+      backendProofs.map((p) => [p.documentId, (p.fileHash || '').toLowerCase()])
+    );
+    for (const doc of localDocuments) {
+      const localHash = (doc.fileHash || '').toLowerCase();
+      const backendHash = hashByDocumentId[doc.id];
+      map[doc.id] = !!localHash && !!backendHash && localHash === backendHash;
+    }
+  } catch (_) {
+    for (const doc of localDocuments) map[doc.id] = false;
+  }
+  return map;
 }

@@ -8,6 +8,8 @@
     invoiceOptions = [],
     clientDisplayName = (c) => c?.raisonSociale ?? '—',
     formatSize = (n) => (n != null ? `${n} o` : '—'),
+    verifiedMap = {},
+    verifiedLoading = false,
     onPreview = () => {},
     onDownload = () => {},
     onDelete = () => {}
@@ -36,6 +38,7 @@
         <th>Taille</th>
         <th>Date</th>
         <th>Lien facture / devis</th>
+        <th class="doc-col-verified">Hash vérifié</th>
         <th class="doc-col-actions">Actions</th>
       </tr>
     </thead>
@@ -49,6 +52,15 @@
           <td>{formatSize(doc.size)}</td>
           <td>{doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString('fr-FR') : '—'}</td>
           <td>{invoiceLabel(doc.linkedInvoiceId)}</td>
+          <td class="doc-col-verified" aria-label={verifiedLoading ? 'Vérification…' : verifiedMap[doc.id] === true ? 'Hash local = hash backend' : verifiedMap[doc.id] === false ? 'Hash local ≠ backend ou absent' : '—'}>
+            {#if verifiedLoading && verifiedMap[doc.id] === undefined}
+              <span class="doc-verified doc-verified-pending" title="Vérification…">—</span>
+            {:else if verifiedMap[doc.id] === true}
+              <span class="doc-verified doc-verified-ok" title="Hash local = hash backend">✓</span>
+            {:else}
+              <span class="doc-verified doc-verified-ko" title="Hash différent ou preuve absente côté serveur">✗</span>
+            {/if}
+          </td>
           <td class="doc-col-actions">
             {#if canPreview(doc.mimeType)}
               <button type="button" class="doc-btn doc-btn-preview" onclick={() => onPreview(doc)} title="Aperçu">Aperçu</button>
@@ -59,7 +71,7 @@
         </tr>
       {:else}
         <tr>
-          <td colspan="8" class="doc-empty">Aucun document.</td>
+          <td colspan="9" class="doc-empty">Aucun document.</td>
         </tr>
       {/each}
     </tbody>
@@ -91,6 +103,22 @@
   }
   .doc-table tbody tr:hover {
     background: #f8fafc;
+  }
+  .doc-col-verified {
+    text-align: center;
+    white-space: nowrap;
+  }
+  .doc-verified {
+    font-weight: 600;
+  }
+  .doc-verified-ok {
+    color: #15803d;
+  }
+  .doc-verified-ko {
+    color: #b91c1c;
+  }
+  .doc-verified-pending {
+    color: #94a3b8;
   }
   .doc-col-actions {
     white-space: nowrap;

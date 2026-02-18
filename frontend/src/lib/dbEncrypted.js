@@ -238,7 +238,8 @@ export async function addDocument({ clientId, linkedInvoiceId, type, filename, f
     encrypted: true,
     payload,
     iv,
-    metadata: metadata || undefined
+    metadata: metadata || undefined,
+    fileHash
   });
   return { record, fileHash };
 }
