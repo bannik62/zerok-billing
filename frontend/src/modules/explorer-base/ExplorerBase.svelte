@@ -92,6 +92,8 @@
       if (uid != null) {
         if (name === 'clients' || name === 'devis' || name === 'factures' || name === 'layoutProfiles') {
           raw = raw.filter((r) => r.userId === uid);
+        } else if (name === 'documents') {
+          raw = raw.filter((r) => r.userId === uid);
         } else if (name === 'societe') {
           const userSocieteId = `societe-${uid}`;
           raw = raw.filter((r) => r.id === userSocieteId);

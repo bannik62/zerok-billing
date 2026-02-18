@@ -140,6 +140,7 @@
     <p class="warning">Déverrouillez d'abord avec votre mot de passe (écran « Déverrouiller » après connexion) pour exporter ou restaurer les devis et factures.</p>
   {/if}
 
+  <div class="blocks-row">
   <section class="block export-block">
     <h3>Créer une archive et l'exporter</h3>
     <form onsubmit={(e) => { e.preventDefault(); doExport(); }} class="form">
@@ -197,14 +198,31 @@
       </button>
     </form>
   </section>
+  </div>
 </div>
 
 <style>
-  .sauvegarder-restaurer { max-width: 480px; }
+  .sauvegarder-restaurer { max-width: 100%; }
+  .blocks-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: 1.5rem;
+  }
+  .blocks-row .block {
+    flex: 1;
+    min-width: 0;
+  }
+  @media (max-width: 520px) {
+    .blocks-row {
+      flex-direction: column;
+    }
+  }
   .hint { color: #64748b; font-size: 0.9rem; margin-bottom: 1rem; }
   .hint-small { color: #64748b; font-size: 0.85rem; margin: 0 0 0.75rem 0; }
   .warning { background: #fef3c7; color: #92400e; padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.9rem; }
-  .block { margin-bottom: 2rem; }
+  .block { margin-bottom: 0; }
   .block h3 { margin: 0 0 0.75rem 0; font-size: 1.1rem; color: #0f766e; }
   .form label { display: block; margin: 0.5rem 0 0.25rem 0; font-size: 0.9rem; }
   .form input[type="password"],

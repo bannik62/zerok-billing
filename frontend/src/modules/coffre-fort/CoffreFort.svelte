@@ -8,7 +8,7 @@
     deleteDocument,
     decryptDocumentBlob
   } from '$lib/dbEncrypted.js';
-  import { sendDocumentProof, verifyDocumentProofs } from '$lib/proofs.js';
+  import { sendDocumentProof, verifyDocumentProofs, getDocumentProofs } from '$lib/proofs.js';
   import { filterDocuments } from '$lib/coffreFortSearch.js';
   import { getDocTypeLabel, getCategoryLabel } from './constants.js';
   import UploadSection from './UploadSection.svelte';
@@ -31,6 +31,8 @@
   let previewDoc = $state(null);
   let verifiedMap = $state({});
   let verifiedLoading = $state(false);
+  let backendDocumentProofs = $state([]);
+  let proofsPanelError = $state('');
 
   const clientsMap = $derived(Object.fromEntries((clients || []).map((c) => [c.id, c])));
   const invoiceOptions = $derived.by(() => {
@@ -59,6 +61,13 @@
     return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
   }
 
+  /** Libellé lisible pour une preuve document (fichier — client ou filename). */
+  function getDocumentProofLabel(p) {
+    const doc = documents.find((d) => d.id === p.documentId);
+    if (doc) return `${doc.filename} — ${clientDisplayName(clientsMap[doc.clientId])}`;
+    return p.filename || (p.documentId.length > 20 ? p.documentId.slice(0, 18) + '…' : p.documentId);
+  }
+
   async function loadData() {
     if (!user) return;
     loading = true;
@@ -66,7 +75,7 @@
     try {
       const uid = user?.id ?? null;
       const [docs, cl, devis, factures] = await Promise.all([
-        getAllDocuments(),
+        getAllDocuments(uid),
         getAllClients(uid),
         getAllDevis(uid),
         getAllFactures(uid)
@@ -76,10 +85,17 @@
       devisList = devis;
       facturesList = factures;
       verifiedLoading = true;
+      proofsPanelError = '';
       try {
+        backendDocumentProofs = await getDocumentProofs();
         verifiedMap = await verifyDocumentProofs(docs);
-      } catch (_) {
+      } catch (e) {
         verifiedMap = {};
+        backendDocumentProofs = [];
+        const status = e.response?.status;
+        if (status === 401) proofsPanelError = 'Non connecté';
+        else if (status === 404) proofsPanelError = 'Route introuvable (404). Démarrez le backend.';
+        else proofsPanelError = e?.message || 'Erreur chargement preuves';
       } finally {
         verifiedLoading = false;
       }
@@ -100,18 +116,20 @@
     uploading = true;
     uploadError = null;
     try {
+      const uid = user?.id ?? null;
       const { record, fileHash } = await addDocument({
         clientId: formData.clientId,
         linkedInvoiceId: formData.linkedInvoiceId,
         type: formData.type,
         filename: formData.file.name,
         file: formData.file,
-        metadata: formData.metadata
+        metadata: formData.metadata,
+        userId: uid
       });
       try {
         await sendDocumentProof(record, fileHash);
       } catch (e) {
-        await deleteDocument(record.id);
+        await deleteDocument(record.id, uid);
         throw e;
       }
       await loadData();
@@ -144,7 +162,7 @@
   async function handleDelete(doc) {
     if (!confirm(`Supprimer « ${doc.filename} » du coffre-fort ?`)) return;
     try {
-      await deleteDocument(doc.id);
+      await deleteDocument(doc.id, user?.id ?? null);
       await loadData();
     } catch (e) {
       error = e?.message || 'Erreur suppression';
@@ -163,6 +181,33 @@
   {:else if error}
     <p class="coffre-msg coffre-msg--error">{error}</p>
   {:else}
+    <div class="coffre-layout">
+      <aside class="coffre-proofs-panel" aria-label="Preuves documents — comparaison hash local / backend">
+        <h3 class="coffre-proofs-title">Preuves documents (intégrité)</h3>
+        <p class="coffre-proofs-hint">Hash enregistrés côté serveur. Comparaison avec le hash local (IndexedDB).</p>
+        {#if proofsPanelError}
+          <p class="coffre-proofs-error">{proofsPanelError}</p>
+        {:else if backendDocumentProofs.length === 0}
+          <p class="coffre-proofs-empty">Aucune preuve enregistrée.</p>
+        {:else}
+          <ul class="coffre-proofs-list">
+            {#each backendDocumentProofs as p (p.documentId)}
+              <li class="coffre-proof-item">
+                <span class="coffre-proof-label" title={p.documentId}>{getDocumentProofLabel(p)}</span>
+                <code class="coffre-proof-hash" title={p.fileHash}>{p.fileHash ? p.fileHash.slice(0, 12) + '…' : '—'}</code>
+                {#if verifiedLoading && verifiedMap[p.documentId] === undefined}
+                  <span class="coffre-proof-status coffre-proof-pending" title="Vérification…">—</span>
+                {:else if verifiedMap[p.documentId] === true}
+                  <span class="coffre-proof-status coffre-proof-ok" title="Hash local = hash backend">✓ conforme</span>
+                {:else}
+                  <span class="coffre-proof-status coffre-proof-diff" title="Hash local ≠ hash backend">✗ différent</span>
+                {/if}
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </aside>
+      <div class="coffre-main">
     <UploadSection
       clients={clients}
       invoiceOptions={invoiceOptions}
@@ -202,6 +247,8 @@
         onDelete={handleDelete}
       />
     </section>
+      </div>
+    </div>
   {/if}
 </div>
 
@@ -213,6 +260,92 @@
 
 <style>
   .coffre-fort {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  .coffre-layout {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .coffre-proofs-panel {
+    flex: 0 0 280px;
+    min-width: 240px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1rem;
+    background: #f8fafc;
+  }
+  .coffre-proofs-title {
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+    color: #0f766e;
+  }
+  .coffre-proofs-hint {
+    font-size: 0.8rem;
+    color: #64748b;
+    margin: 0 0 0.75rem 0;
+  }
+  .coffre-proofs-error {
+    color: #b91c1c;
+    font-size: 0.85rem;
+    margin: 0;
+  }
+  .coffre-proofs-empty {
+    color: #64748b;
+    font-size: 0.9rem;
+    margin: 0;
+  }
+  .coffre-proofs-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .coffre-proof-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.5rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 0.8rem;
+  }
+  .coffre-proof-item:last-child {
+    border-bottom: none;
+  }
+  .coffre-proof-label {
+    flex: 0 0 100%;
+    font-weight: 500;
+    color: #0f172a;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .coffre-proof-hash {
+    font-size: 0.75rem;
+    background: #e2e8f0;
+    padding: 0.15rem 0.35rem;
+    border-radius: 4px;
+    color: #475569;
+  }
+  .coffre-proof-status {
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  .coffre-proof-ok {
+    color: #15803d;
+  }
+  .coffre-proof-diff {
+    color: #b91c1c;
+  }
+  .coffre-proof-pending {
+    color: #94a3b8;
+  }
+  .coffre-main {
+    flex: 1;
+    min-width: 280px;
     display: flex;
     flex-direction: column;
     gap: 1.5rem;

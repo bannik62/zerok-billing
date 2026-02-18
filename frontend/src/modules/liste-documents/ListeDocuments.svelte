@@ -44,7 +44,7 @@
     if (!invoiceId) return;
     zipExportingId = invoiceId;
     try {
-      const docs = await getDocumentsByInvoiceId(invoiceId);
+      const docs = await getDocumentsByInvoiceId(invoiceId, user?.id ?? null);
       if (!docs.length) {
         alert('Aucune pièce jointe pour ce document.');
         return;

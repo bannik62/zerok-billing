@@ -374,26 +374,44 @@ export async function getAllFacturesRaw(userId = null) {
   return all.filter((r) => r.userId === userId);
 }
 
-// ——— Coffre-fort : documents (fichiers chiffrés) ———
+// ——— Coffre-fort : documents (fichiers chiffrés, partition par userId) ———
 export async function addDocument(doc) {
   const id = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `doc-${Date.now()}`;
-  const record = plainClone({ id, ...doc, uploadedAt: (doc.uploadedAt || new Date().toISOString()) });
+  const record = plainClone({
+    id,
+    ...doc,
+    uploadedAt: doc.uploadedAt || new Date().toISOString(),
+    ...(doc.userId != null && { userId: doc.userId })
+  });
   await db[STORE_DOCUMENTS].add(record);
   return record;
 }
-export async function getDocument(id) {
-  return (await db[STORE_DOCUMENTS].get(id)) ?? null;
+export async function getDocument(id, userId = null) {
+  const record = (await db[STORE_DOCUMENTS].get(id)) ?? null;
+  if (!record) return null;
+  if (userId != null && record.userId !== userId) return null;
+  return record;
 }
-export async function getAllDocuments() {
-  return db[STORE_DOCUMENTS].toArray();
+export async function getAllDocuments(userId = null) {
+  const all = await db[STORE_DOCUMENTS].toArray();
+  if (userId == null) return all;
+  return all.filter((r) => r.userId === userId);
 }
-export async function getDocumentsByClientId(clientId) {
-  return db[STORE_DOCUMENTS].where('clientId').equals(clientId).toArray();
+export async function getDocumentsByClientId(clientId, userId = null) {
+  const rows = await db[STORE_DOCUMENTS].where('clientId').equals(clientId).toArray();
+  if (userId == null) return rows;
+  return rows.filter((r) => r.userId === userId);
 }
-export async function getDocumentsByInvoiceId(linkedInvoiceId) {
-  return db[STORE_DOCUMENTS].where('linkedInvoiceId').equals(linkedInvoiceId).toArray();
+export async function getDocumentsByInvoiceId(linkedInvoiceId, userId = null) {
+  const rows = await db[STORE_DOCUMENTS].where('linkedInvoiceId').equals(linkedInvoiceId).toArray();
+  if (userId == null) return rows;
+  return rows.filter((r) => r.userId === userId);
 }
-export async function deleteDocument(id) {
+export async function deleteDocument(id, userId = null) {
+  if (userId != null) {
+    const record = await db[STORE_DOCUMENTS].get(id);
+    if (!record || record.userId !== userId) throw new Error('Document introuvable ou non autorisé');
+  }
   await db[STORE_DOCUMENTS].delete(id);
 }
 export async function putDocumentRaw(record) {
@@ -413,11 +431,11 @@ const LEGACY_MIGRATED_KEY = 'zerok-legacy-migrated';
  * Attribue au compte userId toutes les données sans userId (migration legacy).
  * À appeler une fois par utilisateur (ex. au premier chargement).
  * @param {string|number} userId
- * @returns {Promise<{ clients: number, devis: number, factures: number, societe: boolean, layoutProfiles: number }>} nombre d'enregistrements migrés
+ * @returns {Promise<{ clients: number, devis: number, factures: number, societe: boolean, layoutProfiles: number, documents: number }>} nombre d'enregistrements migrés
  */
 export async function migrateLegacyDataToUser(userId) {
-  if (userId == null) return { clients: 0, devis: 0, factures: 0, societe: false, layoutProfiles: 0 };
-  const out = { clients: 0, devis: 0, factures: 0, societe: false, layoutProfiles: 0 };
+  if (userId == null) return { clients: 0, devis: 0, factures: 0, societe: false, layoutProfiles: 0, documents: 0 };
+  const out = { clients: 0, devis: 0, factures: 0, societe: false, layoutProfiles: 0, documents: 0 };
 
   const clients = await db[STORE_CLIENTS].toArray();
   for (const r of clients) {
@@ -453,6 +471,13 @@ export async function migrateLegacyDataToUser(userId) {
     if (r.userId != null) continue;
     await db[STORE_LAYOUT_PROFILES].put(plainClone({ ...r, userId }));
     out.layoutProfiles++;
+  }
+
+  const documents = await db[STORE_DOCUMENTS].toArray();
+  for (const r of documents) {
+    if (r.userId != null) continue;
+    await db[STORE_DOCUMENTS].put(plainClone({ ...r, userId }));
+    out.documents++;
   }
 
   return out;

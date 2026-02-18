@@ -224,7 +224,7 @@ export async function getNextFactureNumber(clientId, clients = [], userId = null
 }
 
 /** Coffre-fort : ajoute un document (fichier chiffré). Retourne { record, fileHash } pour envoyer la preuve. */
-export async function addDocument({ clientId, linkedInvoiceId, type, filename, file, metadata }) {
+export async function addDocument({ clientId, linkedInvoiceId, type, filename, file, metadata, userId }) {
   if (!_encryptionKey) throw new Error('Clé de chiffrement requise pour le coffre-fort');
   const fileHash = await hashFile(file);
   const { payload, iv, mimeType, originalSize } = await encryptFile(file, _encryptionKey);
@@ -239,7 +239,8 @@ export async function addDocument({ clientId, linkedInvoiceId, type, filename, f
     payload,
     iv,
     metadata: metadata || undefined,
-    fileHash
+    fileHash,
+    ...(userId != null && { userId })
   });
   return { record, fileHash };
 }
