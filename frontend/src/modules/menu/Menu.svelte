@@ -13,13 +13,8 @@
     setLegacyMigratedForUser
   } from '$lib/db.js';
 
-  /**
-   * Module Menu principal. Reçoit user du SessionTemoin.
-   * display_info affiche le module correspondant au bouton cliqué.
-   */
   let { user, logout } = $props();
 
-  /** Une fois par utilisateur : attribuer les données sans userId au compte connecté. */
   $effect(() => {
     const uid = user?.id;
     if (uid == null || isLegacyMigratedForUser(uid)) return;
@@ -28,138 +23,207 @@
       .catch(() => {});
   });
 
-  /** 'donnees-personnelles' | 'ajouter-client' | 'creer-devis' | 'facture' | 'liste-documents' | 'explorer-base' | 'sauvegarder-restaurer' | null */
-  let displayModule = $state(null);
-  /** Client sélectionné pour Facture ou Devis (depuis la liste clients) */
+  let displayModule = $state('liste-documents'); // Par défaut, afficher la liste de documents
   let selectedClient = $state(null);
-  /** Devis sélectionné pour créer une facture (depuis la liste documents) */
   let selectedDevisForFacture = $state(null);
-  function showDonneesPersonnelles() { displayModule = 'donnees-personnelles'; selectedClient = null; selectedDevisForFacture = null; }
-  function showAjouterClient() { displayModule = 'ajouter-client'; selectedClient = null; selectedDevisForFacture = null; }
-  function showCreerDevis() { displayModule = 'creer-devis'; selectedClient = null; selectedDevisForFacture = null; }
-  function showFacture() { displayModule = 'facture'; selectedClient = null; selectedDevisForFacture = null; }
-  function showListeDocuments() { displayModule = 'liste-documents'; selectedClient = null; selectedDevisForFacture = null; }
-  function showCoffreFort() { displayModule = 'coffre-fort'; selectedClient = null; selectedDevisForFacture = null; }
-  function showExplorerBase() { displayModule = 'explorer-base'; selectedClient = null; selectedDevisForFacture = null; }
-  function showSauvegarderRestaurer() { displayModule = 'sauvegarder-restaurer'; selectedClient = null; selectedDevisForFacture = null; }
+  let mobileMenuOpen = $state(false);
+
+  const menuItems = [
+    {
+      id: 'liste-documents',
+      label: 'Documents',
+      icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8',
+      group: 'core'
+    },
+    {
+      id: 'creer-devis',
+      label: 'Nouveau devis',
+      icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M12 11v6 M9 14h6',
+      group: 'core'
+    },
+    {
+      id: 'facture',
+      label: 'Nouvelle facture',
+      icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M9 11h6 M9 15h6 M9 19h2',
+      group: 'core'
+    },
+    {
+      id: 'ajouter-client',
+      label: 'Clients',
+      icon: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M22 11h-6 M19 8v6',
+      group: 'data'
+    },
+    {
+      id: 'coffre-fort',
+      label: 'Coffre-fort',
+      icon: 'M3 13h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8z M7 13V7a5 5 0 0 1 10 0v6',
+      group: 'data'
+    },
+    {
+      id: 'donnees-personnelles',
+      label: 'Profil',
+      icon: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+      group: 'settings'
+    },
+    {
+      id: 'sauvegarder-restaurer',
+      label: 'Sauvegarde',
+      icon: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3',
+      group: 'settings'
+    },
+    {
+      id: 'explorer-base',
+      label: 'Explorateur',
+      icon: 'M12 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M3 5v14a3 3 0 0 0 6 0V5a3 3 0 0 0-6 0z M21 12a3 3 0 0 0-6 0v7a3 3 0 0 0 6 0v-7z',
+      group: 'settings'
+    }
+  ];
+
+  function navigate(moduleId) {
+    displayModule = moduleId;
+    selectedClient = null;
+    selectedDevisForFacture = null;
+    mobileMenuOpen = false;
+  }
 
   function openFactureForClient(client) {
     selectedClient = client;
     selectedDevisForFacture = null;
     displayModule = 'facture';
   }
+
   function openDevisForClient(client) {
     selectedClient = client;
     selectedDevisForFacture = null;
     displayModule = 'creer-devis';
   }
+
   function openFactureFromDevis(devis) {
     selectedDevisForFacture = devis;
     selectedClient = null;
     displayModule = 'facture';
   }
+
+  function getModuleTitle() {
+    const item = menuItems.find(m => m.id === displayModule);
+    return item?.label || 'Tableau de bord';
+  }
 </script>
 
-<div class="menu-module page">
-  <header class="menu-header">
-    <h1>Accueil</h1>
-    <p class="welcome">Bienvenue, <strong>{user.prenom} {user.nom}</strong>.</p>
-    <button type="button" class="btn-logout" onclick={logout}>Déconnexion</button>
-  </header>
+<div class="app-layout">
+  <!-- Sidebar Desktop -->
+  <aside class="sidebar" class:open={mobileMenuOpen}>
+    <div class="sidebar-header">
+      <div class="brand">
+        <svg class="brand-icon" xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <path d="M12 18v-6"/>
+          <path d="M9 15l3 3 3-3"/>
+        </svg>
+        <span class="brand-name">ZK Facturation</span>
+      </div>
+      <button class="btn-close-mobile" onclick={() => mobileMenuOpen = false} aria-label="Fermer le menu">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
 
-  <div class="menu-body">
-    <section class="menu-content" aria-label="Actions">
-      <button type="button" class="menu-card" aria-label="Données personnelles" onclick={showDonneesPersonnelles}>
-        <span class="menu-card-icon" aria-hidden="true">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-          </svg>
-        </span>
-        <span class="menu-card-label">Données personnelles</span>
-      </button>
-      <button type="button" class="menu-card" aria-label="Ajouter client" onclick={showAjouterClient}>
-        <span class="menu-card-icon" aria-hidden="true">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-            <circle cx="9" cy="7" r="4" />
-            <line x1="19" y1="8" x2="19" y2="14" />
-            <line x1="22" y1="11" x2="16" y2="11" />
-          </svg>
-        </span>
-        <span class="menu-card-label">Ajouter client</span>
-      </button>
-      <button type="button" class="menu-card menu-card-devis" aria-label="Créer devis" onclick={showCreerDevis}>
-        <span class="menu-card-icon" aria-hidden="true">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="16" y1="13" x2="8" y2="13" />
-            <line x1="16" y1="17" x2="8" y2="17" />
-            <polyline points="10 9 9 9 8 9" />
-          </svg>
-        </span>
-        <span class="menu-card-label">Créer devis</span>
-        <span class="menu-card-desc">Proposition envoyée au client (avant vente)</span>
-      </button>
-      <button type="button" class="menu-card menu-card-facture" aria-label="Facture" onclick={showFacture}>
-        <span class="menu-card-icon" aria-hidden="true">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <path d="M9 15h6M9 11h6M9 19h2" />
-          </svg>
-        </span>
-        <span class="menu-card-label">Facture</span>
-        <span class="menu-card-desc">Document de vente (après accord du devis)</span>
-      </button>
-      <button type="button" class="menu-card" aria-label="Liste documents" onclick={showListeDocuments}>
-        <span class="menu-card-icon" aria-hidden="true">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="16" y1="13" x2="8" y2="13" />
-            <line x1="16" y1="17" x2="8" y2="17" />
-            <line x1="10" y1="9" x2="8" y2="9" />
-          </svg>
-        </span>
-        <span class="menu-card-label">Liste documents</span>
-      </button>
-      <button type="button" class="menu-card menu-card-coffre" aria-label="Mes fichiers — Coffre-fort" onclick={showCoffreFort}>
-        <span class="menu-card-icon" aria-hidden="true">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
-        </span>
-        <span class="menu-card-label">Mes fichiers</span>
-        <span class="menu-card-desc">Coffre-fort — Documents chiffrés (justificatifs, contrats…)</span>
-      </button>
-      <button type="button" class="menu-card menu-card-explorer" aria-label="Explorer la base" onclick={showExplorerBase}>
-        <span class="menu-card-icon" aria-hidden="true">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <ellipse cx="12" cy="5" rx="9" ry="3" />
-            <path d="M21 12c0 1.66-2 3-4.5 3S12 13.66 12 12s2-3 4.5-3 4.5 1.34 4.5 3z" />
-            <path d="M3 5v14c0 1.66 2 3 4.5 3s4.5-1.34 4.5-3V5" />
-          </svg>
-        </span>
-        <span class="menu-card-label">Explorer la base</span>
-        <span class="menu-card-desc">IndexedDB (devis, factures, clients…)</span>
-      </button>
-      <button type="button" class="menu-card menu-card-archive" aria-label="Sauvegarder ou restaurer" onclick={showSauvegarderRestaurer}>
-        <span class="menu-card-icon" aria-hidden="true">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-        </span>
-        <span class="menu-card-label">Sauvegarder / Restaurer</span>
-        <span class="menu-card-desc">Archive chiffrée (mot de passe requis pour extraire)</span>
-      </button>
-    </section>
+    <nav class="sidebar-nav" aria-label="Navigation principale">
+      <div class="nav-section">
+        <div class="nav-section-title">Principal</div>
+        {#each menuItems.filter(item => item.group === 'core') as item (item.id)}
+          <button
+            class="nav-item"
+            class:active={displayModule === item.id}
+            onclick={() => navigate(item.id)}
+            aria-current={displayModule === item.id ? 'page' : undefined}
+          >
+            <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d={item.icon}/>
+            </svg>
+            <span class="nav-label">{item.label}</span>
+          </button>
+        {/each}
+      </div>
 
-    <div id="display_info" class="display_info" role="region" aria-label="Contenu du module">
+      <div class="nav-section">
+        <div class="nav-section-title">Données</div>
+        {#each menuItems.filter(item => item.group === 'data') as item (item.id)}
+          <button
+            class="nav-item"
+            class:active={displayModule === item.id}
+            onclick={() => navigate(item.id)}
+            aria-current={displayModule === item.id ? 'page' : undefined}
+          >
+            <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d={item.icon}/>
+            </svg>
+            <span class="nav-label">{item.label}</span>
+          </button>
+        {/each}
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Paramètres</div>
+        {#each menuItems.filter(item => item.group === 'settings') as item (item.id)}
+          <button
+            class="nav-item"
+            class:active={displayModule === item.id}
+            onclick={() => navigate(item.id)}
+            aria-current={displayModule === item.id ? 'page' : undefined}
+          >
+            <svg class="nav-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d={item.icon}/>
+            </svg>
+            <span class="nav-label">{item.label}</span>
+          </button>
+        {/each}
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar">
+          {user.prenom?.charAt(0)}{user.nom?.charAt(0)}
+        </div>
+        <div class="user-details">
+          <div class="user-name">{user.prenom} {user.nom}</div>
+          <div class="user-email">{user.email}</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick={logout} title="Se déconnecter">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        <span>Déconnexion</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Overlay mobile -->
+  {#if mobileMenuOpen}
+    <div class="mobile-overlay" onclick={() => mobileMenuOpen = false}></div>
+  {/if}
+
+  <!-- Main content -->
+  <div class="main-content">
+    <header class="content-header">
+      <button class="btn-menu-mobile" onclick={() => mobileMenuOpen = true} aria-label="Ouvrir le menu">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
+      <h1 class="content-title">{getModuleTitle()}</h1>
+    </header>
+
+    <main class="content-body">
       {#if displayModule === 'donnees-personnelles'}
         <DonneesPersonnelles {user} />
       {:else if displayModule === 'ajouter-client'}
@@ -176,220 +240,286 @@
         <ExplorerBase {user} />
       {:else if displayModule === 'sauvegarder-restaurer'}
         <SauvegarderRestaurer {user} />
-      {:else}
-        <p class="display_info-placeholder">Cliquez sur un bouton pour afficher le module.</p>
       {/if}
-    </div>
+    </main>
   </div>
 </div>
 
 <style>
-  /* Mobile first - base (jusqu'à 767px) */
-  .page {
+  .app-layout {
+    display: flex;
     min-height: 100vh;
-    min-height: 100dvh;
-    width: 100%;
-    box-sizing: border-box;
+    background: var(--color-neutral-50);
+  }
+
+  /* === SIDEBAR === */
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: var(--layout-sidebar-width);
+    background: white;
+    border-right: 1px solid var(--color-neutral-200);
     display: flex;
     flex-direction: column;
-    padding: clamp(0.75rem, 3vw, 1.5rem);
-    font-family: system-ui, sans-serif;
+    z-index: var(--z-fixed);
+    transition: transform var(--transition-base);
   }
-  .menu-header {
+
+  .sidebar-header {
+    padding: var(--space-5);
+    border-bottom: 1px solid var(--color-neutral-200);
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 0.75rem;
-    margin-bottom: clamp(1rem, 2.5vw, 1.5rem);
+    justify-content: space-between;
     flex-shrink: 0;
   }
-  .menu-header h1 {
-    font-size: clamp(1.25rem, 4vw, 1.5rem);
-    color: #0f766e;
-    margin: 0;
-  }
-  .welcome { margin: 0; font-size: clamp(0.875rem, 2.2vw, 0.95rem); }
-  .menu-body {
-    flex: 1;
+
+  .brand {
     display: flex;
-    flex-direction: column;
-    min-height: 0;
-    gap: 1rem;
+    align-items: center;
+    gap: var(--space-3);
   }
-  .menu-content {
-    display: flex;
-    flex-wrap: wrap;
-    align-content: flex-start;
-    align-items: flex-start;
-    gap: clamp(0.75rem, 2.5vw, 1.25rem);
+
+  .brand-icon {
+    color: var(--color-primary-700);
     flex-shrink: 0;
   }
-  .display_info {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    background: #f8fafc;
-    padding: clamp(1rem, 3vw, 1.5rem);
+
+  .brand-name {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-neutral-900);
   }
-  .display_info-placeholder {
-    margin: 0;
-    color: #64748b;
-    font-size: clamp(0.9rem, 2.2vw, 1rem);
-  }
-  .menu-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: clamp(0.5rem, 1.5vw, 0.75rem);
-    width: clamp(140px, 40vw, 200px);
-    min-width: clamp(140px, 40vw, 200px);
-    height: clamp(120px, 28svh, 180px);
-    min-height: clamp(120px, 28svh, 180px);
-    padding: clamp(1rem, 3vw, 1.5rem);
-    border: 2px solid #e2e8f0;
-    border-radius: 12px;
-    background: #f8fafc;
-    color: #0f172a;
+
+  .btn-close-mobile {
+    display: none;
+    background: transparent;
+    border: none;
     cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
+    padding: var(--space-2);
+    color: var(--color-neutral-600);
   }
-  .menu-card:hover {
-    border-color: #0f766e;
-    background: #f0fdfa;
+
+  .sidebar-nav {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-4) 0;
   }
-  .menu-card-icon {
+
+  .nav-section {
+    margin-bottom: var(--space-6);
+  }
+
+  .nav-section-title {
+    padding: 0 var(--space-5) var(--space-2);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-neutral-500);
+  }
+
+  .nav-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-5);
+    background: transparent;
+    border: none;
+    border-left: 3px solid transparent;
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-neutral-700);
+    transition: all var(--transition-fast);
+    text-align: left;
+  }
+
+  .nav-item:hover {
+    background: var(--color-neutral-50);
+    color: var(--color-neutral-900);
+  }
+
+  .nav-item.active {
+    background: var(--color-primary-50);
+    border-left-color: var(--color-primary-700);
+    color: var(--color-primary-700);
+  }
+
+  .nav-icon {
+    flex-shrink: 0;
+  }
+
+  .nav-label {
+    flex: 1;
+  }
+
+  .sidebar-footer {
+    padding: var(--space-4) var(--space-5);
+    border-top: 1px solid var(--color-neutral-200);
+    flex-shrink: 0;
+  }
+
+  .user-info {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+  }
+
+  .user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-full);
+    background: var(--color-primary-100);
+    color: var(--color-primary-700);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #0f766e;
-    width: clamp(40px, 10vw, 48px);
-    height: clamp(40px, 10vw, 48px);
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-sm);
+    text-transform: uppercase;
     flex-shrink: 0;
   }
-  .menu-card-icon :global(svg) {
-    width: 100%;
-    height: 100%;
+
+  .user-details {
+    flex: 1;
+    min-width: 0;
   }
-  .menu-card-label {
-    font-weight: 600;
-    font-size: clamp(0.9rem, 2.5vw, 1rem);
-    text-align: center;
+
+  .user-name {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-neutral-900);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .menu-card-desc {
-    display: block;
-    font-size: clamp(0.7rem, 1.8vw, 0.75rem);
-    color: #64748b;
-    text-align: center;
-    font-weight: normal;
-    line-height: 1.2;
+
+  .user-email {
+    font-size: var(--font-size-xs);
+    color: var(--color-neutral-500);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .menu-card-devis:hover .menu-card-icon { color: #0f766e; }
-  .menu-card-facture .menu-card-icon { color: #0369a1; }
-  .menu-card-facture:hover { border-color: #0369a1; background: #f0f9ff; }
-  .menu-card-facture:hover .menu-card-icon { color: #0369a1; }
-  .menu-card-explorer .menu-card-icon { color: #475569; }
-  .menu-card-explorer:hover { border-color: #475569; background: #f1f5f9; }
-  .menu-card-explorer:hover .menu-card-icon { color: #475569; }
-  .menu-card-archive .menu-card-icon { color: #0d9488; }
-  .menu-card-archive:hover { border-color: #0d9488; background: #ccfbf1; }
-  .menu-card-archive:hover .menu-card-icon { color: #0d9488; }
-  .menu-card-coffre .menu-card-icon { color: #b45309; }
-  .menu-card-coffre:hover { border-color: #b45309; background: #fffbeb; }
-  .menu-card-coffre:hover .menu-card-icon { color: #b45309; }
+
   .btn-logout {
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    border: 1px solid #b91c1c;
-    background: #b91c1c;
-    color: white;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-error-50);
+    border: 1px solid var(--color-error-200);
+    border-radius: var(--radius-md);
+    color: var(--color-error-700);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
     cursor: pointer;
-    font-size: clamp(0.8rem, 2vw, 0.9rem);
-    margin-left: auto;
+    transition: all var(--transition-fast);
   }
 
-  /* Très petits écrans (max 475px) */
-  @media (max-width: 475px) {
-    .menu-content {
-      justify-content: center;
+  .btn-logout:hover {
+    background: var(--color-error-100);
+    border-color: var(--color-error-300);
+  }
+
+  /* === MAIN CONTENT === */
+  .main-content {
+    flex: 1;
+    margin-left: var(--layout-sidebar-width);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  .content-header {
+    background: white;
+    border-bottom: 1px solid var(--color-neutral-200);
+    padding: var(--space-5) var(--layout-content-padding);
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    flex-shrink: 0;
+  }
+
+  .btn-menu-mobile {
+    display: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: var(--space-2);
+    color: var(--color-neutral-600);
+  }
+
+  .content-title {
+    margin: 0;
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-neutral-900);
+  }
+
+  .content-body {
+    flex: 1;
+    padding: var(--layout-content-padding);
+    overflow: auto;
+  }
+
+  .mobile-overlay {
+    display: none;
+  }
+
+  /* === RESPONSIVE === */
+  @media (max-width: 1023px) {
+    .sidebar {
+      transform: translateX(-100%);
     }
-    .menu-card {
-      width: 160px;
-      min-width: 160px;
-      height: 140px;
-      min-height: 140px;
+
+    .sidebar.open {
+      transform: translateX(0);
+    }
+
+    .btn-close-mobile {
+      display: block;
+    }
+
+    .main-content {
+      margin-left: 0;
+    }
+
+    .btn-menu-mobile {
+      display: block;
+    }
+
+    .mobile-overlay {
+      display: block;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: calc(var(--z-fixed) - 1);
     }
   }
 
-  /* Tablette (768px - 1023px) */
-  @media (min-width: 768px) and (max-width: 1023px) {
-    .menu-content {
-      gap: 1.5rem;
+  @media (max-width: 640px) {
+    .content-header {
+      padding: var(--space-4);
     }
-    .menu-card {
-      width: 180px;
-      min-width: 180px;
-      height: 160px;
-      min-height: 160px;
-    }
-  }
 
-  /* Desktop (1024px - 1399px) */
-  @media (min-width: 1024px) and (max-width: 1399px) {
-    .page { padding: 1.5rem 2rem; }
-    .menu-body { flex-direction: row; gap: 1.5rem; }
-    .menu-content {
-      flex: 0 0 auto;
-      flex-direction: column;
-      flex-wrap: nowrap;
-      gap: 1.5rem;
+    .content-title {
+      font-size: var(--font-size-xl);
     }
-    .display_info { min-width: 0; }
-    .menu-card {
-      width: 190px;
-      min-width: 190px;
-      height: 170px;
-      min-height: 170px;
-    }
-  }
 
-  /* Large desktop (1400px - 1799px) */
-  @media (min-width: 1400px) and (max-width: 1799px) {
-    .page { padding: 2rem 3rem; }
-    .menu-body { flex-direction: row; gap: 2rem; }
-    .menu-content {
-      flex: 0 0 auto;
-      flex-direction: column;
-      flex-wrap: nowrap;
-      gap: 1.75rem;
+    .content-body {
+      padding: var(--space-4);
     }
-    .display_info { min-width: 0; }
-    .menu-card {
-      width: 200px;
-      min-width: 200px;
-      height: 180px;
-      min-height: 180px;
-    }
-  }
 
-  /* XL desktop (1800px+) */
-  @media (min-width: 1800px) {
-    .page { padding: 2rem 4rem; max-width: 1600px; margin: 0 auto; }
-    .menu-body { flex-direction: row; gap: 2rem; }
-    .menu-content {
-      flex: 0 0 auto;
-      flex-direction: column;
-      flex-wrap: nowrap;
-      gap: 2rem;
-    }
-    .display_info { min-width: 0; }
-    .menu-card {
-      width: 220px;
-      min-width: 220px;
-      height: 200px;
-      min-height: 200px;
+    .user-email {
+      display: none;
     }
   }
 </style>

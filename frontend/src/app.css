@@ -1,4 +1,5 @@
 /* Styles globaux minimaux - le reste est dans les modules */
+@import './design-system.css';
 @import './lib/breakpoints.css';
 
 :root {

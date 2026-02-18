@@ -68,91 +68,178 @@
   }
 </script>
 
-<div class="register-module card">
-  <h2>Inscription</h2>
-  <form onsubmit={submit}>
-    <input
-      type="email"
-      placeholder="Email"
-      required
-      disabled={loading}
-      maxlength={emailField.maxLength}
-      autocomplete={emailField.autocomplete ?? undefined}
-      value={$emailStore}
-      oninput={(e) => (emailField.value = e.currentTarget.value)}
-    />
-    <input
-      type="password"
-      placeholder="Mot de passe"
-      required
-      disabled={loading}
-      minlength={passwordField.minLength}
-      maxlength={passwordField.maxLength}
-      autocomplete={passwordField.autocomplete ?? undefined}
-      value={$passwordStore}
-      oninput={(e) => (passwordField.value = e.currentTarget.value)}
-    />
-    <input
-      type="text"
-      placeholder="Prénom"
-      required
-      disabled={loading}
-      maxlength={prenomField.maxLength}
-      autocomplete={prenomField.autocomplete ?? undefined}
-      value={$prenomStore}
-      oninput={(e) => (prenomField.value = e.currentTarget.value)}
-    />
-    <input
-      type="text"
-      placeholder="Nom"
-      required
-      disabled={loading}
-      maxlength={nomField.maxLength}
-      autocomplete={nomField.autocomplete ?? undefined}
-      value={$nomStore}
-      oninput={(e) => (nomField.value = e.currentTarget.value)}
-    />
-    <input
-      type="text"
-      placeholder="Adresse (optionnel)"
-      disabled={loading}
-      maxlength={adresseField.maxLength}
-      autocomplete={adresseField.autocomplete ?? undefined}
-      value={$adresseStore}
-      oninput={(e) => (adresseField.value = e.currentTarget.value)}
-    />
-    {#if error}<p class="error">{error}</p>{/if}
-    <button type="submit" disabled={loading}>{loading ? 'Inscription…' : "S'inscrire"}</button>
-  </form>
-  <button type="button" class="link" onclick={switchView}>Déjà un compte ? Connexion</button>
+<div class="auth-container">
+  <div class="auth-card card">
+    <div class="card-header">
+      <h2 class="auth-title">Inscription</h2>
+      <p class="auth-subtitle">Créez votre compte pour commencer</p>
+    </div>
+    <div class="card-body">
+      <form onsubmit={submit} class="auth-form">
+        <div class="form-row">
+          <div class="form-field">
+            <label for="register-prenom" class="label">Prénom</label>
+            <input
+              id="register-prenom"
+              type="text"
+              class="input"
+              placeholder="Jean"
+              required
+              disabled={loading}
+              maxlength={prenomField.maxLength}
+              autocomplete={prenomField.autocomplete ?? undefined}
+              value={$prenomStore}
+              oninput={(e) => (prenomField.value = e.currentTarget.value)}
+            />
+          </div>
+          <div class="form-field">
+            <label for="register-nom" class="label">Nom</label>
+            <input
+              id="register-nom"
+              type="text"
+              class="input"
+              placeholder="Dupont"
+              required
+              disabled={loading}
+              maxlength={nomField.maxLength}
+              autocomplete={nomField.autocomplete ?? undefined}
+              value={$nomStore}
+              oninput={(e) => (nomField.value = e.currentTarget.value)}
+            />
+          </div>
+        </div>
+        <div class="form-field">
+          <label for="register-email" class="label">Adresse email</label>
+          <input
+            id="register-email"
+            type="email"
+            class="input"
+            placeholder="votre@email.com"
+            required
+            disabled={loading}
+            maxlength={emailField.maxLength}
+            autocomplete={emailField.autocomplete ?? undefined}
+            value={$emailStore}
+            oninput={(e) => (emailField.value = e.currentTarget.value)}
+          />
+        </div>
+        <div class="form-field">
+          <label for="register-password" class="label">Mot de passe</label>
+          <input
+            id="register-password"
+            type="password"
+            class="input"
+            placeholder="•••••••• (min. 8 caractères)"
+            required
+            disabled={loading}
+            minlength={passwordField.minLength}
+            maxlength={passwordField.maxLength}
+            autocomplete={passwordField.autocomplete ?? undefined}
+            value={$passwordStore}
+            oninput={(e) => (passwordField.value = e.currentTarget.value)}
+          />
+        </div>
+        <div class="form-field">
+          <label for="register-adresse" class="label">Adresse <span class="optional">(optionnel)</span></label>
+          <input
+            id="register-adresse"
+            type="text"
+            class="input"
+            placeholder="123 rue de la Paix, 75000 Paris"
+            disabled={loading}
+            maxlength={adresseField.maxLength}
+            autocomplete={adresseField.autocomplete ?? undefined}
+            value={$adresseStore}
+            oninput={(e) => (adresseField.value = e.currentTarget.value)}
+          />
+        </div>
+        {#if error}
+          <div class="alert alert-error" role="alert">{error}</div>
+        {/if}
+        <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;" disabled={loading}>
+          {loading ? 'Inscription en cours…' : "Créer mon compte"}
+        </button>
+      </form>
+    </div>
+    <div class="card-footer">
+      <p class="auth-switch">Déjà un compte ? <button type="button" class="btn-ghost" onclick={switchView}>Se connecter</button></p>
+    </div>
+  </div>
 </div>
 
 <style>
-  .card {
-    background: #f8fafc;
-    border-radius: 8px;
-    padding: 1.5rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  .auth-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+    background: linear-gradient(135deg, var(--color-primary-50) 0%, var(--color-neutral-100) 100%);
   }
-  .card h2 { margin: 0 0 1rem; font-size: 1.1rem; }
-  input {
-    display: block;
+
+  .auth-card {
     width: 100%;
-    box-sizing: border-box;
-    padding: 0.5rem;
-    margin-bottom: 0.75rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 4px;
+    max-width: 480px;
   }
-  button[type="submit"] {
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    border: 1px solid #0f766e;
-    background: #0f766e;
-    color: white;
-    cursor: pointer;
+
+  .auth-title {
+    margin: 0;
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-primary-700);
   }
-  button[type="submit"]:disabled { opacity: 0.7; cursor: not-allowed; }
-  button.link { background: transparent; color: #0f766e; border: none; margin-top: 0.5rem; font-size: 0.9rem; cursor: pointer; }
-  .error { color: #b91c1c; font-size: 0.9rem; margin: 0.5rem 0 0; }
+
+  .auth-subtitle {
+    margin: var(--space-2) 0 0 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-neutral-600);
+  }
+
+  .auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+  }
+
+  .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .optional {
+    font-weight: var(--font-weight-normal);
+    color: var(--color-neutral-500);
+    font-size: var(--font-size-xs);
+  }
+
+  .auth-switch {
+    margin: 0;
+    text-align: center;
+    font-size: var(--font-size-sm);
+    color: var(--color-neutral-600);
+  }
+
+  .auth-switch .btn-ghost {
+    padding: 0;
+    color: var(--color-primary-700);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .auth-switch .btn-ghost:hover {
+    text-decoration: underline;
+    background: transparent;
+  }
+
+  @media (max-width: 640px) {
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+  }
 </style>
