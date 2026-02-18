@@ -32,63 +32,81 @@
   }
 </script>
 
-<div class="unlock-module card">
-  <h2>Déverrouiller vos données</h2>
-  <p class="hint">La session est active mais la clé de chiffrement a été perdue (rechargement). Entrez votre mot de passe pour la recréer.</p>
-  <form onsubmit={submit}>
-    <input
-      type="password"
-      placeholder="Mot de passe"
-      required
-      disabled={loading}
-      minlength={passwordField.minLength}
-      maxlength={passwordField.maxLength}
-      autocomplete={passwordField.autocomplete ?? undefined}
-      value={$passwordStore}
-      oninput={(e) => (passwordField.value = e.currentTarget.value)}
-    />
-    {#if error}<p class="error">{error}</p>{/if}
-    <button type="submit" disabled={loading}>{loading ? 'Déverrouillage…' : 'Déverrouiller'}</button>
-  </form>
+<div class="auth-container">
+  <div class="auth-card card">
+    <div class="card-header">
+      <h2 class="auth-title">Déverrouiller vos données</h2>
+      <p class="auth-subtitle">Votre session est active. Entrez votre mot de passe pour déchiffrer vos données.</p>
+    </div>
+    <div class="card-body">
+      <div class="alert alert-info" role="alert" style="margin-bottom: var(--space-4);">
+        🔒 La clé de chiffrement a été effacée (rechargement de la page). Votre mot de passe est requis pour la regénérer.
+      </div>
+      <form onsubmit={submit} class="auth-form">
+        <div class="form-field">
+          <label for="unlock-password" class="label">Mot de passe</label>
+          <input
+            id="unlock-password"
+            type="password"
+            class="input"
+            placeholder="••••••••"
+            required
+            disabled={loading}
+            minlength={passwordField.minLength}
+            maxlength={passwordField.maxLength}
+            autocomplete={passwordField.autocomplete ?? undefined}
+            value={$passwordStore}
+            oninput={(e) => (passwordField.value = e.currentTarget.value)}
+          />
+        </div>
+        {#if error}
+          <div class="alert alert-error" role="alert">{error}</div>
+        {/if}
+        <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;" disabled={loading}>
+          {loading ? 'Déverrouillage en cours…' : 'Déverrouiller'}
+        </button>
+      </form>
+    </div>
+  </div>
 </div>
 
 <style>
-  .card {
-    background: #f8fafc;
-    border-radius: 8px;
-    padding: 1.5rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  .auth-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+    background: linear-gradient(135deg, var(--color-primary-50) 0%, var(--color-neutral-100) 100%);
   }
-  .hint {
-    color: #64748b;
-    font-size: 0.9rem;
-    margin: 0 0 1rem 0;
-  }
-  input {
-    display: block;
+
+  .auth-card {
     width: 100%;
-    box-sizing: border-box;
-    padding: 0.5rem 0.75rem;
-    margin-bottom: 0.75rem;
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
+    max-width: 420px;
   }
-  button {
-    width: 100%;
-    padding: 0.6rem;
-    background: #0f766e;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
+
+  .auth-title {
+    margin: 0;
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-primary-700);
   }
-  button:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
+
+  .auth-subtitle {
+    margin: var(--space-2) 0 0 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-neutral-600);
   }
-  .error {
-    color: #b91c1c;
-    font-size: 0.9rem;
-    margin: 0 0 0.75rem 0;
+
+  .auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
   }
 </style>
