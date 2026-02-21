@@ -1,4 +1,5 @@
 <script>
+  import { writable, get } from 'svelte/store';
   import {
     getAllDocuments,
     getAllClients,
@@ -18,6 +19,38 @@
   /** Orchestration du coffre-fort : données, recherche, upload, liste, aperçu. Pas de logique métier dans les sous-composants. */
   let { user = null } = $props();
 
+  class CoffreFortSearchField {
+    constructor() {
+      this._searchStore = writable('');
+    }
+
+    static SEARCH_MAX_LENGTH = 200;
+
+    normalize(value) {
+      let next = typeof value === 'string' ? value : '';
+      next = next.replace(/[\u0000-\u001f\u007f]/g, '');
+      if (next.length > CoffreFortSearchField.SEARCH_MAX_LENGTH) {
+        next = next.slice(0, CoffreFortSearchField.SEARCH_MAX_LENGTH);
+      }
+      return next;
+    }
+
+    get store() {
+      return this._searchStore;
+    }
+
+    get searchQuery() {
+      return get(this._searchStore);
+    }
+
+    set searchQuery(value) {
+      this._searchStore.set(this.normalize(value));
+    }
+  }
+
+  const searchField = new CoffreFortSearchField();
+  const searchStore = searchField.store;
+
   let documents = $state([]);
   let clients = $state([]);
   let devisList = $state([]);
@@ -26,7 +59,6 @@
   let error = $state(null);
   let uploading = $state(false);
   let uploadError = $state(null);
-  let searchQuery = $state('');
   let previewOpen = $state(false);
   let previewDoc = $state(null);
   let verifiedMap = $state({});
@@ -46,7 +78,7 @@
     return out;
   });
   const filteredDocuments = $derived.by(() =>
-    filterDocuments(documents, searchQuery, clientsMap, getDocTypeLabel, getCategoryLabel)
+    filterDocuments(documents, searchField.searchQuery, clientsMap, getDocTypeLabel, getCategoryLabel)
   );
 
   function clientDisplayName(client) {
@@ -228,7 +260,8 @@
             type="search"
             class="coffre-search-input"
             placeholder="Fichier, client, description, montant…"
-            bind:value={searchQuery}
+            value={$searchStore}
+            oninput={(e) => (searchField.searchQuery = e.currentTarget.value)}
             maxlength="200"
             aria-label="Filtrer les documents"
           />
