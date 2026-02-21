@@ -12,9 +12,48 @@
   let { user = null } = $props();
   const uid = $derived(user?.id ?? null);
 
-  const exportPwd = createPasswordField('', { autocomplete: 'new-password' });
-  const exportPwdConfirm = createPasswordField('', { autocomplete: 'new-password' });
-  const importPwd = createPasswordField('', { autocomplete: 'current-password' });
+  /**
+   * Encapsule les champs du module sauvegarde/restauration.
+   * Conserve une interface getter/setter pour le fichier d'import.
+   */
+  class ArchiveRestoreFields {
+    constructor() {
+      this.exportPassword = createPasswordField('', { autocomplete: 'new-password' });
+      this.exportPasswordConfirm = createPasswordField('', { autocomplete: 'new-password' });
+      this.importPassword = createPasswordField('', { autocomplete: 'current-password' });
+      this._importFile = null;
+    }
+
+    get importFile() {
+      return this._importFile;
+    }
+
+    set importFile(file) {
+      if (!file || typeof file !== 'object') {
+        this._importFile = null;
+        return;
+      }
+      if (typeof File === 'undefined' || file instanceof File) {
+        this._importFile = file;
+        return;
+      }
+      this._importFile = null;
+    }
+
+    syncImportFileFromInput(inputEl) {
+      this.importFile = inputEl?.files?.[0] ?? null;
+    }
+
+    clearImportFile(inputEl) {
+      this.importFile = null;
+      if (inputEl) inputEl.value = '';
+    }
+  }
+
+  const archiveRestoreFields = new ArchiveRestoreFields();
+  const exportPwd = archiveRestoreFields.exportPassword;
+  const exportPwdConfirm = archiveRestoreFields.exportPasswordConfirm;
+  const importPwd = archiveRestoreFields.importPassword;
   const exportPwdStore = exportPwd.store;
   const exportPwdConfirmStore = exportPwdConfirm.store;
   const importPwdStore = importPwd.store;
@@ -84,7 +123,8 @@
       importError = err;
       return;
     }
-    const file = fileInputEl?.files?.[0];
+    archiveRestoreFields.syncImportFileFromInput(fileInputEl);
+    const file = archiveRestoreFields.importFile;
     if (!file) {
       importError = 'Choisissez un fichier d\'archive.';
       return;
@@ -119,7 +159,7 @@
       for (const f of bundle.factures) {
         await addFacture(f, uid);
       }
-      if (fileInputEl) fileInputEl.value = '';
+      archiveRestoreFields.clearImportFile(fileInputEl);
       importSuccess = 'Restauration terminée. Les documents ont été réimportés (chiffrés avec la clé actuelle).';
     } catch (e) {
       importError = e?.message || 'Erreur : archive invalide ou mot de passe incorrect.';
@@ -179,7 +219,14 @@
     <p class="hint-small">Remplace toutes les données actuelles par le contenu de l'archive. Mot de passe = celui utilisé à l'export.</p>
     <form onsubmit={(e) => { e.preventDefault(); doImport(); }} class="form">
       <label for="import-file">Fichier d'archive (.zerok-archive)</label>
-      <input id="import-file" type="file" accept=".zerok-archive,application/json" bind:this={fileInputEl} disabled={importLoading} />
+      <input
+        id="import-file"
+        type="file"
+        accept=".zerok-archive,application/json"
+        bind:this={fileInputEl}
+        disabled={importLoading}
+        onchange={(e) => archiveRestoreFields.syncImportFileFromInput(e.currentTarget)}
+      />
       <label for="import-pwd">Mot de passe de l'archive</label>
       <input
         id="import-pwd"
