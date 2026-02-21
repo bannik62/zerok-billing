@@ -32,6 +32,37 @@
       this.selectedFactureIdsStore = writable(new Set());
     }
 
+    static SEARCH_MAX_LENGTH = 200;
+    static ID_MAX_LENGTH = 100;
+
+    normalizeSearchQuery(value) {
+      let next = typeof value === 'string' ? value : '';
+      // Input type="search": on retire uniquement les caractères de contrôle.
+      next = next.replace(/[\u0000-\u001f\u007f]/g, '');
+      if (next.length > ListeDocumentsControlsFields.SEARCH_MAX_LENGTH) {
+        next = next.slice(0, ListeDocumentsControlsFields.SEARCH_MAX_LENGTH);
+      }
+      return next;
+    }
+
+    normalizeId(value) {
+      if (typeof value !== 'string') return null;
+      const id = value.trim();
+      if (!id) return null;
+      if (id.length > ListeDocumentsControlsFields.ID_MAX_LENGTH) return null;
+      return id;
+    }
+
+    normalizeIdSet(ids) {
+      const source = ids instanceof Set ? ids : Array.isArray(ids) ? ids : [];
+      const out = new Set();
+      for (const raw of source) {
+        const id = this.normalizeId(raw);
+        if (id) out.add(id);
+      }
+      return out;
+    }
+
     get searchStore() {
       return this._searchStore;
     }
@@ -41,9 +72,7 @@
     }
 
     set searchQuery(value) {
-      let next = typeof value === 'string' ? value : '';
-      if (next.length > 200) next = next.slice(0, 200);
-      this._searchStore.set(next);
+      this._searchStore.set(this.normalizeSearchQuery(value));
     }
 
     get selectedDevisIds() {
@@ -51,7 +80,7 @@
     }
 
     set selectedDevisIds(ids) {
-      this.selectedDevisIdsStore.set(ids instanceof Set ? new Set(ids) : new Set());
+      this.selectedDevisIdsStore.set(this.normalizeIdSet(ids));
     }
 
     get selectedFactureIds() {
@@ -59,7 +88,7 @@
     }
 
     set selectedFactureIds(ids) {
-      this.selectedFactureIdsStore.set(ids instanceof Set ? new Set(ids) : new Set());
+      this.selectedFactureIdsStore.set(this.normalizeIdSet(ids));
     }
 
     clearSelections() {
@@ -68,16 +97,20 @@
     }
 
     toggleDevisSelection(id) {
+      const normalizedId = this.normalizeId(id);
+      if (!normalizedId) return;
       const next = new Set(this.selectedDevisIds);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(normalizedId)) next.delete(normalizedId);
+      else next.add(normalizedId);
       this.selectedDevisIds = next;
     }
 
     toggleFactureSelection(id) {
+      const normalizedId = this.normalizeId(id);
+      if (!normalizedId) return;
       const next = new Set(this.selectedFactureIds);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(normalizedId)) next.delete(normalizedId);
+      else next.add(normalizedId);
       this.selectedFactureIds = next;
     }
 

@@ -24,6 +24,20 @@
       this._importFile = null;
     }
 
+    /**
+     * Fichier conforme au champ input:
+     * - extension .zerok-archive ou .json
+     * - ou mimeType application/json
+     */
+    isAcceptedArchiveFile(file) {
+      if (!file || typeof file !== 'object') return false;
+      const rawName = typeof file.name === 'string' ? file.name : '';
+      const name = rawName.trim().toLowerCase();
+      const mimeType = typeof file.type === 'string' ? file.type.trim().toLowerCase() : '';
+      if (name.endsWith('.zerok-archive') || name.endsWith('.json')) return true;
+      return mimeType === 'application/json';
+    }
+
     get importFile() {
       return this._importFile;
     }
@@ -33,7 +47,8 @@
         this._importFile = null;
         return;
       }
-      if (typeof File === 'undefined' || file instanceof File) {
+      const isFileLike = typeof File === 'undefined' || file instanceof File;
+      if (isFileLike && this.isAcceptedArchiveFile(file)) {
         this._importFile = file;
         return;
       }
@@ -42,6 +57,7 @@
 
     syncImportFileFromInput(inputEl) {
       this.importFile = inputEl?.files?.[0] ?? null;
+      return this._importFile;
     }
 
     clearImportFile(inputEl) {
@@ -123,9 +139,12 @@
       importError = err;
       return;
     }
-    archiveRestoreFields.syncImportFileFromInput(fileInputEl);
-    const file = archiveRestoreFields.importFile;
+    const file = archiveRestoreFields.syncImportFileFromInput(fileInputEl);
     if (!file) {
+      if (fileInputEl?.files?.[0]) {
+        importError = 'Format invalide. Utilisez un fichier .zerok-archive ou .json.';
+        return;
+      }
       importError = 'Choisissez un fichier d\'archive.';
       return;
     }
