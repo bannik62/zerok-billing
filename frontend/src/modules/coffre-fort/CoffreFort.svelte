@@ -24,6 +24,7 @@
       this._searchStore = writable('');
     }
 
+    // Aligné avec maxlength="200" de l'input de recherche.
     static SEARCH_MAX_LENGTH = 200;
 
     normalize(value) {
@@ -78,7 +79,7 @@
     return out;
   });
   const filteredDocuments = $derived.by(() =>
-    filterDocuments(documents, searchField.searchQuery, clientsMap, getDocTypeLabel, getCategoryLabel)
+    filterDocuments(documents, $searchStore, clientsMap, getDocTypeLabel, getCategoryLabel)
   );
 
   function clientDisplayName(client) {

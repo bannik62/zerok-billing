@@ -47,8 +47,13 @@
         this._importFile = null;
         return;
       }
-      const isFileLike = typeof File === 'undefined' || file instanceof File;
-      if (isFileLike && this.isAcceptedArchiveFile(file)) {
+      // Ce champ est alimenté par <input type="file"> en navigateur.
+      // En environnement non navigateur (SSR/tests sans File), on rejette explicitement.
+      if (typeof File === 'undefined') {
+        this._importFile = null;
+        return;
+      }
+      if (file instanceof File && this.isAcceptedArchiveFile(file)) {
         this._importFile = file;
         return;
       }

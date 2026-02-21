@@ -32,7 +32,9 @@
       this.selectedFactureIdsStore = writable(new Set());
     }
 
+    // Aligné avec maxlength="200" de l'input de recherche.
     static SEARCH_MAX_LENGTH = 200;
+    // Aligné avec les limites backend des ids fonctionnels (invoice/document = 100).
     static ID_MAX_LENGTH = 100;
 
     normalizeSearchQuery(value) {
@@ -195,7 +197,7 @@
   }
 
   const filteredDevisList = $derived.by(() => {
-    const q = (controlsFields.searchQuery || '').trim().toLowerCase();
+    const q = ($searchStore || '').trim().toLowerCase();
     if (!q) return devisList;
     return devisList.filter((d) => {
       const clientName = clientDisplayName(clientsMap[d.entete?.clientId]).toLowerCase();
@@ -209,7 +211,7 @@
   });
 
   const filteredFacturesList = $derived.by(() => {
-    const q = (controlsFields.searchQuery || '').trim().toLowerCase();
+    const q = ($searchStore || '').trim().toLowerCase();
     if (!q) return facturesList;
     return facturesList.filter((f) => {
       const clientName = clientDisplayName(clientsMap[f.entete?.clientId]).toLowerCase();
@@ -552,7 +554,7 @@
               </tr>
             {:else}
               <tr>
-                <td colspan="12" class="doc-table-empty">{(controlsFields.searchQuery || '').trim() ? 'Aucun devis ne correspond à la recherche.' : 'Aucun devis.'}</td>
+                <td colspan="12" class="doc-table-empty">{($searchStore || '').trim() ? 'Aucun devis ne correspond à la recherche.' : 'Aucun devis.'}</td>
               </tr>
             {/each}
           </tbody>
@@ -646,7 +648,7 @@
               </tr>
             {:else}
               <tr>
-                <td colspan="11" class="doc-table-empty">{(controlsFields.searchQuery || '').trim() ? 'Aucune facture ne correspond à la recherche.' : 'Aucune facture.'}</td>
+                <td colspan="11" class="doc-table-empty">{($searchStore || '').trim() ? 'Aucune facture ne correspond à la recherche.' : 'Aucune facture.'}</td>
               </tr>
             {/each}
           </tbody>

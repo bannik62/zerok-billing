@@ -18,6 +18,7 @@
     onClearError = () => {}
   } = $props();
 
+  // Aligné avec les limites backend document/invoice id (100).
   const FIELD_ID_MAX_LENGTH = 100;
   const FIELD_VALUE_MAX_LENGTH = 30;
   const DESCRIPTION_MAX_LENGTH = 500;
@@ -102,8 +103,13 @@
         this.selectedFileStore.set(null);
         return;
       }
-      const isFileLike = typeof File === 'undefined' || file instanceof File;
-      if (isFileLike && this.isAcceptedFile(file)) {
+      // Ce setter représente un input fichier navigateur.
+      // En environnement sans File (SSR/tests), on rejette explicitement.
+      if (typeof File === 'undefined') {
+        this.selectedFileStore.set(null);
+        return;
+      }
+      if (file instanceof File && this.isAcceptedFile(file)) {
         this.selectedFileStore.set(file);
         return;
       }
