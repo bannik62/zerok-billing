@@ -8,7 +8,8 @@
     getSociete,
     addDocument,
     deleteDocument,
-    decryptDocumentBlob
+    decryptDocumentBlob,
+    verifyPassword
   } from '$lib/dbEncrypted.js';
   import { sendDocumentProof, verifyDocumentProofs, getDocumentProofs, deleteDocumentProof, cleanupDocumentProofs } from '$lib/proofs.js';
   import { filterDocuments } from '$lib/coffreFortSearch.js';
@@ -16,6 +17,7 @@
   import UploadSection from './UploadSection.svelte';
   import DocumentTable from './DocumentTable.svelte';
   import DocumentPreviewModal from './DocumentPreviewModal.svelte';
+  import PasswordConfirmModal from '$lib/PasswordConfirmModal.svelte';
   import ProofsPanel from '$lib/ProofsPanel.svelte';
 
   /** Orchestration du coffre-fort : données, recherche, upload, liste, aperçu. Pas de logique métier dans les sous-composants. */
@@ -64,6 +66,9 @@
   let uploadError = $state(null);
   let previewOpen = $state(false);
   let previewDoc = $state(null);
+  let passwordModalOpen = $state(false);
+  let pendingPreview = $state(null);  // doc
+  let pendingDownload = $state(null); // doc
   let verifiedMap = $state({});
   let verifiedLoading = $state(false);
   let backendDocumentProofs = $state([]);
@@ -204,7 +209,32 @@
     previewOpen = true;
   }
 
-  async function handleDownload(doc) {
+  function requestPreview(doc) {
+    pendingPreview = doc;
+    pendingDownload = null;
+    passwordModalOpen = true;
+  }
+
+  function requestDownload(doc) {
+    pendingDownload = doc;
+    pendingPreview = null;
+    passwordModalOpen = true;
+  }
+
+  async function onPasswordConfirm(pwd) {
+    const uid = user?.id ?? null;
+    const ok = await verifyPassword(pwd, uid);
+    if (!ok) return false;
+    if (pendingPreview) {
+      openPreview(pendingPreview);
+    }
+    if (pendingDownload) {
+      await doDownload(pendingDownload);
+    }
+    return true;
+  }
+
+  async function doDownload(doc) {
     try {
       const blob = await decryptDocumentBlob(doc);
       const url = URL.createObjectURL(blob);
@@ -216,6 +246,10 @@
     } catch (e) {
       error = e?.message || 'Impossible de télécharger';
     }
+  }
+
+  async function handleDownload(doc) {
+    requestDownload(doc);
   }
 
   async function handleDelete(doc) {
@@ -283,7 +317,7 @@
         formatSize={formatSize}
         verifiedMap={verifiedMap}
         verifiedLoading={verifiedLoading}
-        onPreview={openPreview}
+        onPreview={requestPreview}
         onDownload={handleDownload}
         onDelete={handleDelete}
       />
@@ -305,6 +339,14 @@
   open={previewOpen}
   document={previewDoc}
   onClose={() => { previewOpen = false; previewDoc = null; }}
+/>
+<PasswordConfirmModal
+  open={passwordModalOpen}
+  title="Mot de passe requis"
+  message="Entrez votre mot de passe pour continuer."
+  submitLabel="Confirmer"
+  onConfirm={onPasswordConfirm}
+  onCancel={() => { passwordModalOpen = false; pendingPreview = null; pendingDownload = null; }}
 />
 
 <style>

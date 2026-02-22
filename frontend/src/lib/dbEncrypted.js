@@ -124,6 +124,47 @@ export async function initEncryption(password, userId = null) {
   return key;
 }
 
+/**
+ * Vérifie que le mot de passe correspond à la clé de session (sans la remplacer).
+ * Dérive la clé à partir du mot de passe et du sel, puis vérifie via keyCheck ou un enregistrement chiffré.
+ * @param {string} password
+ * @param {string|number|null} [userId]
+ * @returns {Promise<boolean>}
+ */
+export async function verifyPassword(password, userId = null) {
+  let saltBase64 = await getKeyDerivationSalt(userId);
+  if (!saltBase64) return false;
+  const salt = saltFromBase64(saltBase64);
+  const key = await deriveKey(password, salt);
+
+  const keyCheck = await getKeyCheck(userId);
+  if (keyCheck) {
+    try {
+      const dec = await decrypt(keyCheck, key);
+      return dec?.check === 'zerok-ok';
+    } catch {
+      return false;
+    }
+  }
+  try {
+    const list = await getAllDevisRaw(userId);
+    const encryptedOne = list.find((r) => r.encrypted);
+    if (encryptedOne) {
+      await decrypt({ payload: encryptedOne.payload, iv: encryptedOne.iv }, key);
+      return true;
+    }
+    const facturesList = await getAllFacturesRaw(userId);
+    const encFacture = facturesList.find((r) => r.encrypted);
+    if (encFacture) {
+      await decrypt({ payload: encFacture.payload, iv: encFacture.iv }, key);
+      return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 export async function addDevis(devis, userId = null) {
   if (!_encryptionKey) return dbAddDevis(devis, userId);
   const uuid = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : null;

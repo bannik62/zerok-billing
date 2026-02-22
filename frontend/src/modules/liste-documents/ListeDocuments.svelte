@@ -9,12 +9,14 @@
     deleteDevis,
     deleteFacture,
     getDocumentsByInvoiceId,
-    decryptDocumentBlob
+    decryptDocumentBlob,
+    verifyPassword
   } from '$lib/dbEncrypted.js';
   import { hashDocument } from '$lib/crypto/index.js';
   import { getProofs, verifyProofs, deleteProof } from '$lib/proofs.js';
   import { buildAttachmentsZip, downloadBlob } from '$lib/coffreFortExport.js';
   import PrintPreviewModal from './PrintPreviewModal.svelte';
+  import PasswordConfirmModal from '$lib/PasswordConfirmModal.svelte';
   import ListeDocumentsSearch from './ListeDocumentsSearch.svelte';
   import DevisTable from './DevisTable.svelte';
   import FacturesTable from './FacturesTable.svelte';
@@ -36,6 +38,11 @@
   let printDocumentId = $state(null);
   let printDocumentType = $state('devis');
 
+  /** Pending action après vérification du mot de passe : 'print' | 'zip' + args. */
+  let passwordModalOpen = $state(false);
+  let pendingPrint = $state(null); // { id, type }
+  let pendingZip = $state(null);   // { invoiceId, type, numero }
+
   function openPrintPreview(id, type) {
     printDocumentId = id;
     printDocumentType = type;
@@ -46,8 +53,33 @@
     printDocumentId = null;
   }
 
+  function requestPrintPreview(id, type) {
+    pendingPrint = { id, type };
+    pendingZip = null;
+    passwordModalOpen = true;
+  }
+
+  function requestExportZip(invoiceId, type, numero) {
+    pendingZip = { invoiceId, type, numero };
+    pendingPrint = null;
+    passwordModalOpen = true;
+  }
+
+  async function onPasswordConfirm(pwd) {
+    const uid = user?.id ?? null;
+    const ok = await verifyPassword(pwd, uid);
+    if (!ok) return false;
+    if (pendingPrint) {
+      openPrintPreview(pendingPrint.id, pendingPrint.type);
+    }
+    if (pendingZip) {
+      await doExportPiecesJointesZip(pendingZip.invoiceId, pendingZip.type, pendingZip.numero);
+    }
+    return true;
+  }
+
   /** Exporte les pièces jointes du coffre-fort liées à un devis/facture en ZIP. */
-  async function exportPiecesJointesZip(invoiceId, type, numero) {
+  async function doExportPiecesJointesZip(invoiceId, type, numero) {
     if (!invoiceId) return;
     zipExportingId = invoiceId;
     try {
@@ -71,6 +103,12 @@
     } finally {
       zipExportingId = null;
     }
+  }
+
+  /** Demande le mot de passe puis exporte ZIP (point d'entrée depuis la table). */
+  async function exportPiecesJointesZip(invoiceId, type, numero) {
+    if (!invoiceId) return;
+    requestExportZip(invoiceId, type, numero);
   }
 
   let devisList = $state([]);
@@ -321,7 +359,7 @@
       onToggleAll={toggleAllDevis}
       onDeleteSelection={supprimerDevisSelection}
       onOpenFactureFromDevis={onOpenFactureFromDevis}
-      onExportPdf={openPrintPreview}
+      onExportPdf={requestPrintPreview}
       onExportZip={exportPiecesJointesZip}
     />
     <FacturesTable
@@ -338,7 +376,7 @@
       onToggle={toggleFacture}
       onToggleAll={toggleAllFactures}
       onDeleteSelection={supprimerFacturesSelection}
-      onExportPdf={openPrintPreview}
+      onExportPdf={requestPrintPreview}
       onExportZip={exportPiecesJointesZip}
     />
       </div>
@@ -360,6 +398,14 @@
     documentType={printDocumentType}
     userId={user?.id ?? null}
     onClose={closePrintPreview}
+  />
+  <PasswordConfirmModal
+    open={passwordModalOpen}
+    title="Mot de passe requis"
+    message="Entrez votre mot de passe pour continuer."
+    submitLabel="Confirmer"
+    onConfirm={onPasswordConfirm}
+    onCancel={() => { passwordModalOpen = false; pendingPrint = null; pendingZip = null; }}
   />
 </div>
 
