@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { formatMontant } from '../creer-devis/utils.js';
+  import { formatMontant } from '../editor/utils.js';
   import { createTextField } from '$lib/formField.js';
 
   let {

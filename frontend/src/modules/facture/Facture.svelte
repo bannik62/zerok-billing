@@ -21,10 +21,10 @@
     MIN_W,
     MIN_H,
     DRAG_THRESHOLD
-  } from '../creer-devis/utils.js';
+  } from '../editor/utils.js';
   import FactureFormStep from './FactureFormStep.svelte';
-  import EditorSidebar from '../creer-devis/EditorSidebar.svelte';
-  import SheetA4 from '../creer-devis/SheetA4.svelte';
+  import EditorSidebar from '../editor/EditorSidebar.svelte';
+  import SheetA4 from '../editor/SheetA4.svelte';
   import SaveProfileModal from '../creer-devis/SaveProfileModal.svelte';
   import ManageProfilesModal from '../creer-devis/ManageProfilesModal.svelte';
   import NoticeModal from '$lib/NoticeModal.svelte';

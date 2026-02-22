@@ -9,10 +9,10 @@
     MIN_W,
     MIN_H,
     DRAG_THRESHOLD
-  } from './utils.js';
+  } from '../editor/utils.js';
   import DevisFormStep from './DevisFormStep.svelte';
-  import EditorSidebar from './EditorSidebar.svelte';
-  import SheetA4 from './SheetA4.svelte';
+  import EditorSidebar from '../editor/EditorSidebar.svelte';
+  import SheetA4 from '../editor/SheetA4.svelte';
   import SaveProfileModal from './SaveProfileModal.svelte';
   import ManageProfilesModal from './ManageProfilesModal.svelte';
   import NoticeModal from '$lib/NoticeModal.svelte';

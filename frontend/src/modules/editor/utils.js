@@ -1,5 +1,5 @@
 /**
- * Utilitaires et constantes pour le module Créer devis.
+ * Utilitaires et constantes pour le module Éditeur (drag-and-drop devis/facture).
  */
 
 export const BLOCK_TYPES = ['logo', 'societe', 'entete', 'lignes', 'sousTotal', 'reduction', 'total'];
@@ -23,7 +23,6 @@ export const DEFAULT_W = 40;
 export const DEFAULT_H = 15;
 export const MIN_W = 15;
 export const MIN_H = 8;
-/** Seuil en px au-delà duquel un déplacement souris est considéré comme un drag (pas un clic). */
 export const DRAG_THRESHOLD = 5;
 
 export const FONT_SIZES = [9, 10, 11, 12, 14, 16, 18, 20];
@@ -41,13 +40,6 @@ export function formatMontant(n) {
   return new Intl.NumberFormat('fr-FR', { style: 'decimal', minimumFractionDigits: 2 }).format(n);
 }
 
-/**
- * Normalise une position (ancien format x,y ou nouveau left,top,w,h) + styles optionnels.
- * @param {Object} pos
- * @param {number} [defaultW]
- * @param {number} [defaultH]
- * @returns {Object|null} { left, top, w, h, fontSize?, fontFamily?, color?, textAlign?, fontWeight? }
- */
 export function normalisePos(pos, defaultW = DEFAULT_W, defaultH = DEFAULT_H) {
   if (!pos) return null;
   const w = pos.w != null ? pos.w : defaultW;
@@ -64,11 +56,6 @@ export function normalisePos(pos, defaultW = DEFAULT_W, defaultH = DEFAULT_H) {
   return out;
 }
 
-/**
- * Construit la chaîne style CSS pour un bloc à partir d'une position normalisée.
- * @param {Object} p - position normalisée (sortie de normalisePos)
- * @returns {string}
- */
 export function buildBlockStyle(p) {
   if (!p) return '';
   return [

@@ -1,6 +1,6 @@
 <script>
   import { getDevis, getFacture, getClientById, getSociete } from '$lib/dbEncrypted.js';
-  import SheetA4 from '../creer-devis/SheetA4.svelte';
+  import SheetA4 from '../editor/SheetA4.svelte';
 
   /** Modal d'aperçu pour impression / PDF. Reçoit documentId + documentType ('devis' | 'facture') + userId (partition). */
   let { open = false, documentId = null, documentType = 'devis', userId = null, onClose = () => {} } = $props();
