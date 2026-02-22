@@ -135,20 +135,20 @@
     margin: 0;
     font-size: 1rem;
     font-weight: 600;
-    color: #475569;
+    color: var(--color-text-soft);
   }
   .btn-delete {
     padding: 0.4rem 0.75rem;
     border-radius: 6px;
-    border: 1px solid #b91c1c;
-    background: #fef2f2;
-    color: #b91c1c;
+    border: 1px solid var(--color-error);
+    background: var(--color-error-bg);
+    color: var(--color-error);
     font-size: 0.9rem;
     font-weight: 500;
     cursor: pointer;
   }
   .btn-delete:hover:not(:disabled) {
-    background: #fee2e2;
+    filter: brightness(0.95);
   }
   .btn-delete:disabled {
     opacity: 0.5;
@@ -173,9 +173,9 @@
   }
   .table-wrap {
     overflow: auto;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     border-radius: 8px;
-    background: #fff;
+    background: var(--color-bg-elevated);
   }
   .doc-table {
     width: 100%;
@@ -185,19 +185,20 @@
   .doc-table th,
   .doc-table td {
     padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--color-border);
     text-align: left;
+    color: var(--color-text);
   }
   .doc-table th {
-    background: #f1f5f9;
+    background: var(--color-bg-muted);
     font-weight: 600;
-    color: #475569;
+    color: var(--color-text-soft);
   }
   .doc-table tbody tr:hover {
-    background: #f8fafc;
+    background: var(--color-bg-muted);
   }
   .doc-table-empty {
-    color: #64748b;
+    color: var(--color-text-muted);
     font-style: italic;
     text-align: center;
   }
@@ -212,13 +213,13 @@
     line-height: 1;
   }
   .icon-ok {
-    color: #15803d;
+    color: var(--color-primary);
   }
   .icon-ko {
-    color: #b91c1c;
+    color: var(--color-error);
   }
   .icon-pending {
-    color: #94a3b8;
+    color: var(--color-text-muted);
   }
   .col-action {
     white-space: nowrap;
@@ -230,15 +231,15 @@
   .btn-zip-row {
     padding: 0.35rem 0.6rem;
     border-radius: 6px;
-    border: 1px solid #0f766e;
-    background: #f0fdfa;
-    color: #0f766e;
+    border: 1px solid var(--color-primary);
+    background: var(--color-bg-muted);
+    color: var(--color-primary);
     font-size: 0.85rem;
     cursor: pointer;
   }
   .btn-export-row:hover:not(:disabled),
   .btn-zip-row:hover:not(:disabled) {
-    background: #ccfbf1;
+    filter: brightness(0.95);
   }
   .btn-zip-row:disabled {
     opacity: 0.6;

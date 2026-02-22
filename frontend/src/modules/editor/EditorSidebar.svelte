@@ -48,9 +48,9 @@
   .editor-sidebar {
     flex: 0 0 200px;
     padding: 0.75rem;
-    background: #f8fafc;
+    background: var(--color-bg-muted);
     border-radius: 8px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
@@ -59,17 +59,17 @@
     margin: 0 0 0.25rem 0;
     font-size: 0.95rem;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--color-text);
   }
   .sidebar-hint {
     margin: 0 0 0.5rem 0;
     font-size: 0.8rem;
-    color: #64748b;
+    color: var(--color-text-muted);
   }
   .sidebar-block {
     padding: 0.5rem 0.75rem;
     background: #fff;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     border-radius: 6px;
     cursor: grab;
     display: flex;
@@ -82,10 +82,10 @@
   .sidebar-block-label {
     font-weight: 600;
     font-size: 0.9rem;
-    color: #0f172a;
+    color: var(--color-text);
   }
   .sidebar-block-preview {
     font-size: 0.8rem;
-    color: #64748b;
+    color: var(--color-text-muted);
   }
 </style>

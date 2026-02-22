@@ -29,22 +29,22 @@
   .liste-search-label {
     font-size: 0.9rem;
     font-weight: 500;
-    color: #475569;
+    color: var(--color-text-soft);
   }
   .liste-search-input {
     flex: 1;
     max-width: 20rem;
     padding: 0.5rem 0.75rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     border-radius: 6px;
     font-size: 0.9rem;
   }
   .liste-search-input:focus {
     outline: none;
-    border-color: #0f766e;
+    border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.2);
   }
   .liste-search-input::placeholder {
-    color: #94a3b8;
+    color: var(--color-text-muted);
   }
 </style>

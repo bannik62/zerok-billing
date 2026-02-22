@@ -371,20 +371,20 @@
   .coffre-title {
     margin: 0;
     font-size: 1.25rem;
-    color: #0f766e;
+    color: var(--color-primary);
     font-weight: 700;
   }
   .coffre-desc {
     margin: 0;
-    color: #64748b;
+    color: var(--color-text-muted);
     font-size: 0.9rem;
   }
   .coffre-msg {
     margin: 0;
-    color: #64748b;
+    color: var(--color-text-muted);
   }
   .coffre-msg--error {
-    color: #b91c1c;
+    color: var(--color-error);
     font-weight: 500;
   }
   .coffre-list-head {
@@ -398,7 +398,7 @@
     margin: 0;
     font-size: 1rem;
     font-weight: 600;
-    color: #475569;
+    color: var(--color-text-soft);
   }
   .coffre-search-wrap {
     display: flex;
@@ -408,13 +408,15 @@
   .coffre-search-label {
     font-size: 0.9rem;
     font-weight: 500;
-    color: #475569;
+    color: var(--color-text-soft);
   }
   .coffre-search-input {
     padding: 0.4rem 0.6rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     border-radius: 6px;
     font-size: 0.9rem;
     min-width: 12rem;
+    background: var(--color-bg-elevated);
+    color: var(--color-text);
   }
 </style>

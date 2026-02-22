@@ -29,13 +29,13 @@
     border-radius: 6px;
     font-size: 0.75rem;
     font-family: system-ui, sans-serif;
-    background: #f1f5f9;
-    color: #475569;
-    border: 1px solid #e2e8f0;
+    background: var(--color-bg-muted);
+    color: var(--color-text-soft);
+    border: 1px solid var(--color-border);
     z-index: 9999;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   }
   .csrf-temoin-label { font-weight: 500; }
-  .csrf-temoin-ok { color: #0f766e; }
-  .csrf-temoin-err { color: #b91c1c; }
+  .csrf-temoin-ok { color: var(--color-primary); }
+  .csrf-temoin-err { color: var(--color-error); }
 </style>

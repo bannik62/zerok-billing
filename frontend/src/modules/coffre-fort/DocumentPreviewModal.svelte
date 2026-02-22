@@ -101,7 +101,7 @@
   }
   .preview-box {
     position: relative;
-    background: #fff;
+    background: var(--color-bg-elevated);
     border-radius: 12px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
     max-width: 90vw;
@@ -115,12 +115,12 @@
     align-items: center;
     justify-content: space-between;
     padding: 0.75rem 1rem;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--color-border);
     flex-shrink: 0;
   }
   .preview-title {
     font-weight: 600;
-    color: #0f172a;
+    color: var(--color-text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -129,15 +129,15 @@
     width: 2rem;
     height: 2rem;
     border: none;
-    background: #f1f5f9;
+    background: var(--color-bg-muted);
     border-radius: 6px;
     font-size: 1.25rem;
     line-height: 1;
     cursor: pointer;
-    color: #475569;
+    color: var(--color-text-soft);
   }
   .preview-close:hover {
-    background: #e2e8f0;
+    background: var(--color-border);
   }
   .preview-body {
     flex: 1;
@@ -152,10 +152,10 @@
   .preview-error,
   .preview-unsupported {
     margin: 0;
-    color: #64748b;
+    color: var(--color-text-muted);
   }
   .preview-error {
-    color: #b91c1c;
+    color: var(--color-error);
   }
   .preview-img {
     max-width: 100%;
@@ -171,7 +171,7 @@
   .preview-pdf-fallback {
     margin: 0.75rem 0 0 0;
     font-size: 0.85rem;
-    color: #64748b;
+    color: var(--color-text-muted);
   }
   .preview-error-block {
     text-align: center;
@@ -179,6 +179,6 @@
   .preview-error-hint {
     margin: 0.5rem 0 0 0;
     font-size: 0.9rem;
-    color: #64748b;
+    color: var(--color-text-muted);
   }
 </style>

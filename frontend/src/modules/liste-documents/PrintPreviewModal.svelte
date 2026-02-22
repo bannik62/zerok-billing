@@ -105,7 +105,7 @@
     box-sizing: border-box;
   }
   .print-preview-content {
-    background: #f8fafc;
+    background: var(--color-bg-muted);
     border-radius: 12px;
     padding: 1rem;
     max-width: 100%;
@@ -125,42 +125,43 @@
   .print-preview-hint {
     margin: 0;
     font-size: 0.8rem;
-    color: #64748b;
+    color: var(--color-text-muted);
     width: 100%;
   }
   .btn-print {
     padding: 0.5rem 1rem;
     border: none;
     border-radius: 6px;
-    background: #0f766e;
+    background: var(--color-primary);
     color: white;
     font-weight: 600;
     cursor: pointer;
   }
   .btn-print:hover {
-    background: #0d9488;
+    background: var(--color-primary-hover);
   }
   .btn-close {
     padding: 0.5rem 1rem;
-    border: 1px solid #64748b;
+    border: 1px solid var(--color-border-strong);
     border-radius: 6px;
-    background: #fff;
+    background: var(--color-bg-elevated);
+    color: var(--color-text);
     cursor: pointer;
   }
   .btn-close:hover {
-    background: #f1f5f9;
+    background: var(--color-bg-muted);
   }
   .print-preview-sheet-wrap {
     max-width: 595px;
     width: 100%;
   }
-  .print-preview-loading,
-  .print-preview-error {
+  .print-preview-loading {
     margin: 0;
-    color: #64748b;
+    color: var(--color-text-muted);
   }
   .print-preview-error {
-    color: #b91c1c;
+    margin: 0;
+    color: var(--color-error);
   }
   @media print {
     .print-preview-overlay {

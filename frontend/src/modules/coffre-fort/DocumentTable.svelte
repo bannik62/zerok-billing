@@ -81,9 +81,9 @@
 <style>
   .doc-table-wrap {
     overflow: auto;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     border-radius: 8px;
-    background: #fff;
+    background: var(--color-bg-elevated);
   }
   .doc-table {
     width: 100%;
@@ -93,16 +93,17 @@
   .doc-table th,
   .doc-table td {
     padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--color-border);
     text-align: left;
+    color: var(--color-text);
   }
   .doc-table th {
-    background: #f1f5f9;
+    background: var(--color-bg-muted);
     font-weight: 600;
-    color: #475569;
+    color: var(--color-text-soft);
   }
   .doc-table tbody tr:hover {
-    background: #f8fafc;
+    background: var(--color-bg-muted);
   }
   .doc-col-verified {
     text-align: center;
@@ -112,13 +113,13 @@
     font-weight: 600;
   }
   .doc-verified-ok {
-    color: #15803d;
+    color: var(--color-primary);
   }
   .doc-verified-ko {
-    color: #b91c1c;
+    color: var(--color-error);
   }
   .doc-verified-pending {
-    color: #94a3b8;
+    color: var(--color-text-muted);
   }
   .doc-col-actions {
     white-space: nowrap;
@@ -132,19 +133,19 @@
     margin-right: 0.35rem;
   }
   .doc-btn-preview {
-    background: #f0fdfa;
-    color: #0f766e;
-    border-color: #0f766e;
+    background: var(--color-bg-muted);
+    color: var(--color-primary);
+    border-color: var(--color-primary);
   }
   .doc-btn-dl {
-    background: #f0fdfa;
-    color: #0f766e;
-    border-color: #0f766e;
+    background: var(--color-bg-muted);
+    color: var(--color-primary);
+    border-color: var(--color-primary);
   }
   .doc-btn-del {
-    background: #fef2f2;
-    color: #b91c1c;
-    border-color: #b91c1c;
+    background: var(--color-error-bg);
+    color: var(--color-error);
+    border-color: var(--color-error);
   }
   .doc-cell-filename {
     max-width: 180px;
@@ -159,7 +160,7 @@
     white-space: nowrap;
   }
   .doc-empty {
-    color: #64748b;
+    color: var(--color-text-muted);
     font-style: italic;
     text-align: center;
   }

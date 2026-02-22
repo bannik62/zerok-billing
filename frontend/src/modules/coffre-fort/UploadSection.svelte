@@ -386,7 +386,7 @@
     margin: 0 0 0.75rem 0;
     font-size: 1rem;
     font-weight: 600;
-    color: #475569;
+    color: var(--color-text-soft);
   }
   .upload-form {
     display: grid;
@@ -414,27 +414,27 @@
   .upload-field label {
     font-size: 0.85rem;
     font-weight: 500;
-    color: #475569;
+    color: var(--color-text-soft);
   }
   .upload-field select,
   .upload-field input[type="text"] {
     padding: 0.4rem 0.6rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     border-radius: 6px;
     font-size: 0.9rem;
   }
   .upload-dropzone {
-    border: 2px dashed #cbd5e1;
+    border: 2px dashed var(--color-border-strong);
     border-radius: 8px;
     padding: 1.25rem;
     text-align: center;
     cursor: pointer;
-    background: #f8fafc;
+    background: var(--color-bg-muted);
     transition: border-color 0.2s, background 0.2s;
   }
   .upload-dropzone.is-dragover {
-    border-color: #0f766e;
-    background: #f0fdfa;
+    border-color: var(--color-primary);
+    background: var(--color-bg-muted);
   }
   .upload-dropzone .upload-input-hidden {
     position: absolute;
@@ -444,22 +444,22 @@
     pointer-events: none;
   }
   .upload-drop-text {
-    color: #64748b;
+    color: var(--color-text-muted);
     font-size: 0.9rem;
   }
   .upload-filename {
     font-size: 0.9rem;
-    color: #0f766e;
+    color: var(--color-primary);
     font-weight: 500;
   }
   .upload-file-error {
     margin: 0.35rem 0 0 0;
-    color: #b91c1c;
+    color: var(--color-error);
     font-size: 0.9rem;
   }
   .upload-error {
     margin: 0;
-    color: #b91c1c;
+    color: var(--color-error);
     font-size: 0.9rem;
     width: 100%;
   }
@@ -476,11 +476,11 @@
     cursor: not-allowed;
   }
   .upload-btn-primary {
-    background: #0f766e;
+    background: var(--color-primary);
     color: white;
-    border-color: #0f766e;
+    border-color: var(--color-primary);
   }
   .upload-btn-primary:hover:not(:disabled) {
-    background: #0d9488;
+    background: var(--color-primary-hover);
   }
 </style>

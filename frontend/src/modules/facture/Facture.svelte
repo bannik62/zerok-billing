@@ -512,37 +512,37 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    border-left: 4px solid #0369a1;
+    border-left: 4px solid var(--color-primary);
     padding-left: 1rem;
   }
-  .facture-title { margin: 0; font-size: 1.25rem; color: #0369a1; font-weight: 700; }
-  .facture-intro { margin: 0; color: #64748b; font-size: 0.95rem; }
+  .facture-title { margin: 0; font-size: 1.25rem; color: var(--color-primary); font-weight: 700; }
+  .facture-intro { margin: 0; color: var(--color-text-muted); font-size: 0.95rem; }
   .choice-actions { display: flex; flex-direction: column; gap: 1rem; }
-  .btn-choice { padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid #0369a1; background: #f0f9ff; color: #0369a1; font-weight: 600; cursor: pointer; }
-  .btn-choice:hover { background: #e0f2fe; }
+  .btn-choice { padding: 0.5rem 1rem; border-radius: 6px; border: 1px solid var(--color-primary); background: var(--color-bg-muted); color: var(--color-primary); font-weight: 600; cursor: pointer; }
+  .btn-choice:hover { background: var(--color-bg-muted); }
   .from-devis { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem; }
-  .from-devis label { display: block; font-size: 0.9rem; color: #475569; margin-bottom: 0.25rem; width: 100%; }
-  .from-devis select { padding: 0.4rem 0.6rem; border: 1px solid #e2e8f0; border-radius: 6px; min-width: 220px; }
+  .from-devis label { display: block; font-size: 0.9rem; color: var(--color-text-soft); margin-bottom: 0.25rem; width: 100%; }
+  .from-devis select { padding: 0.4rem 0.6rem; border: 1px solid var(--color-border); border-radius: 6px; min-width: 220px; }
   .btn-from-devis:disabled { opacity: 0.6; cursor: not-allowed; }
   .editor-wrap { display: flex; gap: 1rem; min-height: 0; flex: 1; }
   .editor-main { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1rem; min-width: 0; }
   .editor-toolbar { display: flex; align-items: center; gap: 0.5rem; }
-  .editor-toolbar label { font-size: 0.9rem; color: #475569; }
-  .profile-select { padding: 0.35rem 0.6rem; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.9rem; background: #fff; min-width: 160px; }
+  .editor-toolbar label { font-size: 0.9rem; color: var(--color-text-soft); }
+  .profile-select { padding: 0.35rem 0.6rem; border: 1px solid var(--color-border); border-radius: 6px; font-size: 0.9rem; background: var(--color-bg-elevated); min-width: 160px; }
   .editor-actions { margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .btn-editor { padding: 0.4rem 0.75rem; border-radius: 6px; font-size: 0.9rem; font-weight: 500; cursor: pointer; }
-  .btn-retour { border: 1px solid #64748b; background: #fff; color: #475569; }
-  .btn-retour:hover { background: #f1f5f9; }
-  .btn-editor.btn-secondary { border: 1px solid #e2e8f0; background: #fff; color: #0f172a; }
-  .btn-editor.btn-secondary:hover { background: #f8fafc; }
-  .btn-profile, .btn-manage-profiles { border: 1px solid #94a3b8; background: #fff; color: #475569; }
-  .btn-profile:hover, .btn-manage-profiles:hover { background: #f1f5f9; }
-  .btn-save-bdd { border: none; background: #0369a1; color: white; }
-  .btn-save-bdd:hover:not(:disabled) { background: #0284c7; }
+  .btn-retour { border: 1px solid var(--color-text-muted); background: var(--color-bg-elevated); color: var(--color-text-soft); }
+  .btn-retour:hover { background: var(--color-bg-muted); }
+  .btn-editor.btn-secondary { border: 1px solid var(--color-border); background: var(--color-bg-elevated); color: var(--color-text); }
+  .btn-editor.btn-secondary:hover { background: var(--color-bg-muted); }
+  .btn-profile, .btn-manage-profiles { border: 1px solid var(--color-border-strong); background: var(--color-bg-elevated); color: var(--color-text-soft); }
+  .btn-profile:hover, .btn-manage-profiles:hover { background: var(--color-bg-muted); }
+  .btn-save-bdd { border: none; background: var(--color-primary); color: white; }
+  .btn-save-bdd:hover:not(:disabled) { background: var(--color-primary-hover); }
   .btn-save-bdd:disabled { opacity: 0.7; cursor: wait; }
   @media print {
     :global(.editor-sidebar), .editor-toolbar, .editor-actions, :global(.resize-handle), :global(.block-toolbar) { display: none !important; }
     :global(.placed-block.selected) { outline: none !important; }
-    :global(.placed-block) { border: none !important; box-shadow: none !important; background: #fff !important; cursor: default !important; }
+    :global(.placed-block) { border: none !important; box-shadow: none !important; background: var(--color-bg-elevated) !important; cursor: default !important; }
   }
 </style>

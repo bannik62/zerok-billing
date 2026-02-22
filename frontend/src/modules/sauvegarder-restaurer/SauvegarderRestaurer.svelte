@@ -293,21 +293,21 @@
       flex-direction: column;
     }
   }
-  .hint { color: #64748b; font-size: 0.9rem; margin-bottom: 1rem; }
-  .hint-small { color: #64748b; font-size: 0.85rem; margin: 0 0 0.75rem 0; }
-  .warning { background: #fef3c7; color: #92400e; padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.9rem; }
+  .hint { color: var(--color-text-muted); font-size: 0.9rem; margin-bottom: 1rem; }
+  .hint-small { color: var(--color-text-muted); font-size: 0.85rem; margin: 0 0 0.75rem 0; }
+  .warning { background: var(--color-error-bg); color: var(--color-error); padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.9rem; }
   .block { margin-bottom: 0; }
-  .block h3 { margin: 0 0 0.75rem 0; font-size: 1.1rem; color: #0f766e; }
+  .block h3 { margin: 0 0 0.75rem 0; font-size: 1.1rem; color: var(--color-primary); }
   .form label { display: block; margin: 0.5rem 0 0.25rem 0; font-size: 0.9rem; }
-  .form input[type="password"] { display: block; width: 100%; margin-bottom: 0.5rem; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
+  .form input[type="password"] { display: block; width: 100%; margin-bottom: 0.5rem; padding: 0.5rem; border: 1px solid var(--color-border-strong); border-radius: 6px; box-sizing: border-box; }
   .file-input-wrap { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
   .file-input-hidden { position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none; }
   .form-button.file-trigger { margin-top: 0; }
-  .file-name { font-size: 0.9rem; color: #475569; }
+  .file-name { font-size: 0.9rem; color: var(--color-text-soft); }
   .form button,
-  .form .form-button { margin-top: 0.75rem; padding: 0.6rem 1rem; background: #0f766e; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: inherit; }
+  .form .form-button { margin-top: 0.75rem; padding: 0.6rem 1rem; background: var(--color-primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: inherit; }
   .form button:disabled,
   .form .form-button:disabled { opacity: 0.7; cursor: not-allowed; }
-  .error { color: #b91c1c; font-size: 0.9rem; margin: 0.5rem 0 0 0; }
-  .success { color: #15803d; font-size: 0.9rem; margin: 0.5rem 0 0 0; }
+  .error { color: var(--color-error); font-size: 0.9rem; margin: 0.5rem 0 0 0; }
+  .success { color: var(--color-primary); font-size: 0.9rem; margin: 0.5rem 0 0 0; }
 </style>

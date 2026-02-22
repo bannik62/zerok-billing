@@ -73,13 +73,13 @@
     max-width: 595px;
     aspect-ratio: 210 / 297;
     background: #fff;
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--color-border-strong);
     border-radius: 2px;
     box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
     min-height: 300px;
   }
   .sheet-a4-facture {
-    border-color: #7dd3fc;
+    border-color: var(--color-primary);
     box-shadow: 0 4px 6px -1px rgba(3, 105, 161, 0.15);
   }
 

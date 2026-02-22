@@ -60,28 +60,28 @@
   .proofs-panel {
     flex: 0 0 280px;
     min-width: 240px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     border-radius: 8px;
     padding: 1rem;
-    background: #f8fafc;
+    background: var(--color-bg-muted);
   }
   .proofs-title {
     margin: 0 0 0.5rem 0;
     font-size: 1rem;
-    color: #0f766e;
+    color: var(--color-primary);
   }
   .proofs-hint {
     font-size: 0.8rem;
-    color: #64748b;
+    color: var(--color-text-muted);
     margin: 0 0 0.75rem 0;
   }
   .proofs-error {
-    color: #b91c1c;
+    color: var(--color-error);
     font-size: 0.85rem;
     margin: 0;
   }
   .proofs-empty {
-    color: #64748b;
+    color: var(--color-text-muted);
     font-size: 0.9rem;
     margin: 0;
   }
@@ -96,7 +96,7 @@
     align-items: center;
     gap: 0.35rem 0.5rem;
     padding: 0.4rem 0;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--color-border);
     font-size: 0.8rem;
   }
   .proof-item:last-child {
@@ -105,44 +105,44 @@
   .proof-label {
     flex: 0 0 100%;
     font-weight: 500;
-    color: #0f172a;
+    color: var(--color-text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .proof-hash {
     font-size: 0.75rem;
-    background: #e2e8f0;
+    background: var(--color-border);
     padding: 0.15rem 0.35rem;
     border-radius: 4px;
-    color: #475569;
+    color: var(--color-text-soft);
   }
   .proof-status {
     font-size: 0.75rem;
     font-weight: 500;
   }
   .proof-ok {
-    color: #15803d;
+    color: var(--color-primary);
   }
   .proof-diff {
-    color: #b91c1c;
+    color: var(--color-error);
   }
   .proof-pending {
-    color: #94a3b8;
+    color: var(--color-text-muted);
   }
   .proof-delete-btn {
     flex: 0 0 100%;
     margin-top: 0.25rem;
     padding: 0.2rem 0.5rem;
     font-size: 0.7rem;
-    color: #b91c1c;
+    color: var(--color-error);
     background: transparent;
-    border: 1px solid #fecaca;
+    border: 1px solid var(--color-error-bg);
     border-radius: 4px;
     cursor: pointer;
   }
   .proof-delete-btn:hover:not(:disabled) {
-    background: #fef2f2;
+    background: var(--color-error-bg);
   }
   .proof-delete-btn:disabled {
     opacity: 0.7;

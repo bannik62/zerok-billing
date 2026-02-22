@@ -206,31 +206,31 @@
   .donnees-title {
     margin: 0;
     font-size: 1.25rem;
-    color: #0f766e;
+    color: var(--color-primary);
     font-weight: 700;
   }
   .btn-modifier {
     padding: 0.4rem 0.75rem;
     border-radius: 6px;
-    border: 1px solid #0f766e;
-    background: #fff;
-    color: #0f766e;
+    border: 1px solid var(--color-primary);
+    background: var(--color-bg-elevated);
+    color: var(--color-primary);
     font-size: 0.9rem;
     font-weight: 600;
     cursor: pointer;
   }
   .btn-modifier:hover {
-    background: #f0fdfa;
+    background: var(--color-bg-muted);
   }
   .form-message {
     margin: 0;
     font-size: 0.9rem;
   }
-  .form-message.success { color: #0f766e; }
-  .form-message.error { color: #b91c1c; }
+  .form-message.success { color: var(--color-primary); }
+  .form-message.error { color: var(--color-error); }
   .donnees-section {
     padding: 0.75rem 0;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--color-border);
   }
   .donnees-section:last-child {
     border-bottom: none;
@@ -239,12 +239,12 @@
     margin: 0 0 0.5rem 0;
     font-size: 0.9rem;
     font-weight: 600;
-    color: #475569;
+    color: var(--color-text-soft);
   }
   .section-value {
     margin: 0;
     font-size: 1rem;
-    color: #0f172a;
+    color: var(--color-text);
   }
   .mentions-list {
     margin: 0;
@@ -255,12 +255,12 @@
   }
   .mentions-list dt {
     margin: 0;
-    color: #64748b;
+    color: var(--color-text-muted);
     font-weight: 500;
   }
   .mentions-list dd {
     margin: 0;
-    color: #0f172a;
+    color: var(--color-text);
   }
   .logo-img {
     max-width: 180px;
@@ -274,11 +274,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #f1f5f9;
-    border: 1px dashed #cbd5e1;
+    background: var(--color-bg-muted);
+    border: 1px dashed var(--color-border-strong);
     border-radius: 8px;
     font-size: 0.85rem;
-    color: #94a3b8;
+    color: var(--color-text-muted);
   }
 
   /* Modal */
@@ -293,7 +293,7 @@
     padding: 1rem;
   }
   .modal {
-    background: #fff;
+    background: var(--color-bg-elevated);
     border-radius: 12px;
     box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
     max-width: 28rem;
@@ -305,7 +305,7 @@
   .modal-title {
     margin: 0 0 1rem 0;
     font-size: 1.1rem;
-    color: #0f172a;
+    color: var(--color-text);
   }
   .societe-form .form-row {
     margin-bottom: 0.75rem;
@@ -314,20 +314,22 @@
     display: block;
     font-size: 0.875rem;
     font-weight: 500;
-    color: #475569;
+    color: var(--color-text-soft);
     margin-bottom: 0.25rem;
   }
   .societe-form input {
     width: 100%;
     padding: 0.5rem 0.75rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     border-radius: 6px;
     font-size: 0.95rem;
     box-sizing: border-box;
+    background: var(--color-bg-elevated);
+    color: var(--color-text);
   }
   .societe-form input:focus {
     outline: none;
-    border-color: #0f766e;
+    border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.2);
   }
   .modal-actions {
@@ -338,26 +340,27 @@
   .btn-cancel {
     padding: 0.5rem 1rem;
     border-radius: 6px;
-    border: 1px solid #e2e8f0;
-    background: #fff;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-elevated);
+    color: var(--color-text);
     font-size: 0.9rem;
     cursor: pointer;
   }
   .btn-cancel:hover {
-    background: #f8fafc;
+    background: var(--color-bg-muted);
   }
   .btn-submit {
     padding: 0.5rem 1rem;
     border-radius: 6px;
     border: none;
-    background: #0f766e;
+    background: var(--color-primary);
     color: white;
     font-size: 0.9rem;
     font-weight: 600;
     cursor: pointer;
   }
   .btn-submit:hover {
-    background: #0d9488;
+    background: var(--color-primary-hover);
   }
   .btn-submit:disabled {
     opacity: 0.7;

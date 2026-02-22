@@ -235,23 +235,23 @@
   .proofs-panel {
     flex: 0 0 280px;
     min-width: 240px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     border-radius: 8px;
     padding: 1rem;
-    background: #f8fafc;
+    background: var(--color-bg-muted);
   }
   .proofs-panel h3 {
     margin: 0 0 0.5rem 0;
     font-size: 1rem;
-    color: #0f766e;
+    color: var(--color-primary);
   }
   .proofs-hint {
     font-size: 0.8rem;
-    color: #64748b;
+    color: var(--color-text-muted);
     margin: 0 0 0.75rem 0;
   }
-  .proofs-error { color: #b91c1c; font-size: 0.85rem; margin: 0; }
-  .proofs-empty { color: #64748b; font-size: 0.9rem; margin: 0; }
+  .proofs-error { color: var(--color-error); font-size: 0.85rem; margin: 0; }
+  .proofs-empty { color: var(--color-text-muted); font-size: 0.9rem; margin: 0; }
   .proofs-list {
     list-style: none;
     padding: 0;
@@ -263,7 +263,7 @@
     align-items: center;
     gap: 0.35rem 0.5rem;
     padding: 0.4rem 0;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--color-border);
     font-size: 0.8rem;
   }
   .proof-item:last-child { border-bottom: none; }
@@ -276,44 +276,44 @@
   }
   .proof-hash {
     font-size: 0.75rem;
-    background: #e2e8f0;
+    background: var(--color-border);
     padding: 0.15rem 0.35rem;
     border-radius: 4px;
-    color: #475569;
+    color: var(--color-text-soft);
   }
   .proof-status {
     font-size: 0.75rem;
     font-weight: 500;
   }
-  .proof-status.ok { color: #15803d; }
-  .proof-status.diff { color: #b91c1c; }
-  .proof-status.unknown { color: #94a3b8; }
+  .proof-status.ok { color: var(--color-primary); }
+  .proof-status.diff { color: var(--color-error); }
+  .proof-status.unknown { color: var(--color-text-muted); }
   .explorer-main {
     flex: 1;
     min-width: 280px;
   }
   .hint {
-    color: #64748b;
+    color: var(--color-text-muted);
     font-size: 0.9rem;
     margin-bottom: 1rem;
   }
-  .error { color: #b91c1c; margin-bottom: 0.5rem; }
+  .error { color: var(--color-error); margin-bottom: 0.5rem; }
   .stores ul { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
   .store-btn {
     padding: 0.4rem 0.75rem;
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--color-border-strong);
     border-radius: 6px;
-    background: #f8fafc;
+    background: var(--color-bg-muted);
     cursor: pointer;
   }
-  .store-btn.active { background: #0f766e; color: white; border-color: #0f766e; }
+  .store-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
   .store-content { margin-top: 1rem; }
-  .count { font-size: 0.9rem; color: #64748b; }
+  .count { font-size: 0.9rem; color: var(--color-text-muted); }
   .rows { margin-top: 0.5rem; }
-  .row { margin-bottom: 0.5rem; border: 1px solid #e2e8f0; border-radius: 6px; padding: 0.5rem; }
+  .row { margin-bottom: 0.5rem; border: 1px solid var(--color-border); border-radius: 6px; padding: 0.5rem; }
   .row summary { cursor: pointer; }
   .row pre { font-size: 0.8rem; overflow: auto; max-height: 200px; margin: 0.5rem 0 0 0; }
-  .decrypted-preview { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; }
+  .decrypted-preview { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--color-border); }
   .decrypted-preview h4 { margin: 0.5rem 0 0.25rem 0; font-size: 1rem; }
   .decrypted-preview ul { margin: 0; padding-left: 1.25rem; }
 </style>

@@ -57,13 +57,13 @@
 
 <style>
   .card {
-    background: #f8fafc;
+    background: var(--color-bg-muted);
     border-radius: 8px;
     padding: 1.5rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   }
   .hint {
-    color: #64748b;
+    color: var(--color-text-muted);
     font-size: 0.9rem;
     margin: 0 0 1rem 0;
   }
@@ -73,7 +73,7 @@
     box-sizing: border-box;
     padding: 0.5rem 0.75rem;
     margin-bottom: 0.75rem;
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--color-border-strong);
     border-radius: 6px;
   }
   .actions {
@@ -84,7 +84,7 @@
   button {
     width: 100%;
     padding: 0.6rem;
-    background: #0f766e;
+    background: var(--color-primary);
     color: white;
     border: none;
     border-radius: 6px;
@@ -96,15 +96,15 @@
   }
   .btn-logout {
     background: transparent;
-    color: #64748b;
-    border: 1px solid #cbd5e1;
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border-strong);
   }
   .btn-logout:hover:not(:disabled) {
-    background: #f1f5f9;
-    color: #475569;
+    background: var(--color-bg-muted);
+    color: var(--color-text-soft);
   }
   .error {
-    color: #b91c1c;
+    color: var(--color-error);
     font-size: 0.9rem;
     margin: 0 0 0.75rem 0;
   }

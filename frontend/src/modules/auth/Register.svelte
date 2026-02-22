@@ -129,7 +129,7 @@
 
 <style>
   .card {
-    background: #f8fafc;
+    background: var(--color-bg-muted);
     border-radius: 8px;
     padding: 1.5rem;
     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
@@ -141,18 +141,18 @@
     box-sizing: border-box;
     padding: 0.5rem;
     margin-bottom: 0.75rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     border-radius: 4px;
   }
   button[type="submit"] {
     padding: 0.5rem 1rem;
     border-radius: 4px;
-    border: 1px solid #0f766e;
-    background: #0f766e;
+    border: 1px solid var(--color-primary);
+    background: var(--color-primary);
     color: white;
     cursor: pointer;
   }
   button[type="submit"]:disabled { opacity: 0.7; cursor: not-allowed; }
-  button.link { background: transparent; color: #0f766e; border: none; margin-top: 0.5rem; font-size: 0.9rem; cursor: pointer; }
-  .error { color: #b91c1c; font-size: 0.9rem; margin: 0.5rem 0 0; }
+  button.link { background: transparent; color: var(--color-primary); border: none; margin-top: 0.5rem; font-size: 0.9rem; cursor: pointer; }
+  .error { color: var(--color-error); font-size: 0.9rem; margin: 0.5rem 0 0; }
 </style>

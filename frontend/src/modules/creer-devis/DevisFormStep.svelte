@@ -295,30 +295,30 @@
     flex-direction: column;
     gap: 1.25rem;
     min-height: 0;
-    border-left: 4px solid #0f766e;
+    border-left: 4px solid var(--color-primary);
     padding-left: 1rem;
   }
   .devis-header { margin-bottom: 0.25rem; }
   .devis-title {
     margin: 0;
     font-size: 1.25rem;
-    color: #0f766e;
+    color: var(--color-primary);
     font-weight: 700;
   }
   .devis-desc {
     margin: 0.25rem 0 0;
     font-size: 0.85rem;
-    color: #64748b;
+    color: var(--color-text-muted);
   }
   .devis-section {
     padding: 0.75rem 0;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--color-border);
   }
   .section-label {
     margin: 0 0 0.75rem 0;
     font-size: 0.95rem;
     font-weight: 600;
-    color: #475569;
+    color: var(--color-text-soft);
   }
   .form-grid {
     display: grid;
@@ -329,42 +329,44 @@
   .form-row-inline label {
     display: block;
     font-size: 0.85rem;
-    color: #64748b;
+    color: var(--color-text-muted);
     margin-bottom: 0.25rem;
   }
   .form-row input,
   .form-row select {
     width: 100%;
     padding: 0.4rem 0.6rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     border-radius: 6px;
     font-size: 0.9rem;
     box-sizing: border-box;
+    background: var(--color-bg-elevated);
+    color: var(--color-text);
   }
   .input-readonly {
-    background: #f1f5f9;
-    color: #475569;
+    background: var(--color-bg-muted);
+    color: var(--color-text-soft);
     cursor: default;
   }
   .entete-client-info {
     margin-top: 0.5rem;
     padding: 0.5rem;
-    background: #f0fdfa;
+    background: var(--color-bg-muted);
     border-radius: 6px;
-    border: 1px solid #99f6e4;
+    border: 1px solid var(--color-border-strong);
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
     font-size: 0.85rem;
-    color: #0f766e;
+    color: var(--color-primary);
   }
   .entete-client-rs { font-weight: 600; }
   .entete-client-adresse,
-  .entete-client-siret { font-size: 0.8rem; color: #475569; }
+  .entete-client-siret { font-size: 0.8rem; color: var(--color-text-soft); }
   .form-error {
     margin: 0.35rem 0 0;
     font-size: 0.85rem;
-    color: #b91c1c;
+    color: var(--color-error);
   }
   .form-row-inline {
     display: flex;
@@ -375,8 +377,10 @@
   .form-row-inline .input-num {
     width: 6rem;
     padding: 0.4rem 0.6rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     border-radius: 6px;
+    background: var(--color-bg-elevated);
+    color: var(--color-text);
   }
   .table-wrap { overflow: auto; }
   .lignes-table {
@@ -387,20 +391,23 @@
   .lignes-table th,
   .lignes-table td {
     padding: 0.35rem 0.5rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     text-align: left;
+    color: var(--color-text);
   }
   .lignes-table th {
-    background: #f8fafc;
+    background: var(--color-bg-muted);
     font-weight: 600;
-    color: #475569;
+    color: var(--color-text-soft);
   }
   .lignes-table input {
     width: 100%;
     padding: 0.3rem 0.4rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     border-radius: 4px;
     box-sizing: border-box;
+    background: var(--color-bg-elevated);
+    color: var(--color-text);
   }
   .input-num { width: 5rem; }
   .input-unite { width: 3rem; }
@@ -408,17 +415,17 @@
   .btn-remove {
     padding: 0.2rem 0.5rem;
     border: none;
-    background: #fef2f2;
-    color: #b91c1c;
+    background: var(--color-error-bg);
+    color: var(--color-error);
     cursor: pointer;
     border-radius: 4px;
   }
   .btn-add-line {
     margin-top: 0.5rem;
     padding: 0.4rem 0.75rem;
-    border: 1px dashed #cbd5e1;
-    background: #f8fafc;
-    color: #64748b;
+    border: 1px dashed var(--color-border-strong);
+    background: var(--color-bg-muted);
+    color: var(--color-text-muted);
     font-size: 0.9rem;
     cursor: pointer;
     border-radius: 6px;
@@ -432,14 +439,14 @@
     font-size: 1.1rem;
     margin-top: 0.5rem;
     padding-top: 0.5rem;
-    border-top: 1px solid #e2e8f0;
+    border-top: 1px solid var(--color-border);
   }
   .step-actions { margin-top: 0.5rem; }
   .btn-submit {
     padding: 0.5rem 1rem;
     border-radius: 6px;
     border: none;
-    background: #0f766e;
+    background: var(--color-primary);
     color: white;
     font-size: 0.9rem;
     font-weight: 600;

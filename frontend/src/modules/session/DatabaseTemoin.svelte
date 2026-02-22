@@ -55,19 +55,19 @@
     font-size: 0.75rem;
     font-weight: 500;
     font-family: system-ui, sans-serif;
-    background: #f1f5f9;
-    color: #475569;
-    border: 1px solid #e2e8f0;
+    background: var(--color-bg-muted);
+    color: var(--color-text-soft);
+    border: 1px solid var(--color-border);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     cursor: pointer;
   }
   .db-temoin-btn:hover:not(:disabled) {
-    background: #e2e8f0;
+    background: var(--color-border);
   }
   .db-temoin-btn:disabled {
     cursor: wait;
     opacity: 0.8;
   }
-  .db-temoin-btn.db-ok { color: #15803d; }
-  .db-temoin-btn.db-err { color: #b91c1c; }
+  .db-temoin-btn.db-ok { color: var(--color-primary); }
+  .db-temoin-btn.db-err { color: var(--color-error); }
 </style>

@@ -43,7 +43,7 @@
     <span>Couleur</span>
     <input
       type="color"
-      value={pos.color ?? '#0f172a'}
+      value={pos.color ?? 'var(--color-text)'}
       oninput={(e) => onUpdateStyle('color', e.currentTarget.value)}
     />
   </label>
@@ -94,7 +94,7 @@
     flex-wrap: wrap;
     gap: 0.35rem;
     padding: 0.35rem 0.5rem;
-    background: #0f172a;
+    background: var(--color-text);
     color: #fff;
     border-radius: 8px;
     font-size: 0.75rem;
@@ -110,13 +110,13 @@
     gap: 0.25rem;
   }
   .block-toolbar-field span {
-    color: #94a3b8;
+    color: var(--color-text-muted);
   }
   .block-toolbar select {
     padding: 0.2rem 0.35rem;
     border-radius: 4px;
-    border: 1px solid #475569;
-    background: #1e293b;
+    border: 1px solid var(--color-text-soft);
+    background: var(--color-bg-elevated);
     color: #fff;
     font-size: 0.75rem;
   }
@@ -126,44 +126,44 @@
     gap: 0.15rem;
   }
   .block-toolbar-align-label {
-    color: #94a3b8;
+    color: var(--color-text-muted);
     margin-right: 0.1rem;
   }
   .block-toolbar-align-btn {
     padding: 0.2rem 0.4rem;
-    border: 1px solid #475569;
-    background: #1e293b;
-    color: #94a3b8;
+    border: 1px solid var(--color-text-soft);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-muted);
     border-radius: 4px;
     font-size: 0.75rem;
     cursor: pointer;
   }
   .block-toolbar-align-btn:hover {
     color: #fff;
-    border-color: #64748b;
+    border-color: var(--color-text-muted);
   }
   .block-toolbar-align-btn.active {
-    background: #0f766e;
+    background: var(--color-primary);
     color: #fff;
-    border-color: #0f766e;
+    border-color: var(--color-primary);
   }
   .block-toolbar-btn {
     padding: 0.2rem 0.4rem;
-    border: 1px solid #475569;
-    background: #1e293b;
-    color: #94a3b8;
+    border: 1px solid var(--color-text-soft);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-muted);
     border-radius: 4px;
     font-size: 0.75rem;
     cursor: pointer;
   }
   .block-toolbar-btn:hover {
     color: #fff;
-    border-color: #64748b;
+    border-color: var(--color-text-muted);
   }
   .block-toolbar-btn.active {
-    background: #0f766e;
+    background: var(--color-primary);
     color: #fff;
-    border-color: #0f766e;
+    border-color: var(--color-primary);
   }
   .block-toolbar-bold-btn {
     font-weight: 700;
@@ -172,7 +172,7 @@
     width: 24px;
     height: 22px;
     padding: 0;
-    border: 1px solid #475569;
+    border: 1px solid var(--color-text-soft);
     border-radius: 4px;
     cursor: pointer;
     background: transparent;
@@ -182,7 +182,7 @@
     padding: 0 0.35rem;
     border: none;
     background: transparent;
-    color: #94a3b8;
+    color: var(--color-text-muted);
     font-size: 1.1rem;
     line-height: 1;
     cursor: pointer;

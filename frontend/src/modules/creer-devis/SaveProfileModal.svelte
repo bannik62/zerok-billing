@@ -73,7 +73,7 @@
     z-index: 100;
   }
   .modal {
-    background: #fff;
+    background: var(--color-bg-elevated);
     border-radius: 8px;
     padding: 1.25rem;
     min-width: 280px;
@@ -83,23 +83,23 @@
     margin: 0 0 0.5rem 0;
     font-size: 1.1rem;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--color-text);
   }
   .modal-desc {
     margin: 0 0 1rem 0;
     font-size: 0.9rem;
-    color: #64748b;
+    color: var(--color-text-muted);
   }
   .modal-form label {
     display: block;
     font-size: 0.85rem;
-    color: #475569;
+    color: var(--color-text-soft);
     margin-bottom: 0.35rem;
   }
   .modal-form input {
     width: 100%;
     padding: 0.5rem 0.6rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     border-radius: 6px;
     font-size: 0.9rem;
     box-sizing: border-box;
@@ -112,27 +112,27 @@
   }
   .btn-cancel {
     padding: 0.4rem 0.75rem;
-    border: 1px solid #e2e8f0;
-    background: #fff;
-    color: #475569;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-soft);
     border-radius: 6px;
     font-size: 0.9rem;
     cursor: pointer;
   }
   .btn-cancel:hover {
-    background: #f8fafc;
+    background: var(--color-bg-muted);
   }
   .btn-submit {
     padding: 0.4rem 0.75rem;
     border: none;
-    background: #0f766e;
+    background: var(--color-primary);
     color: white;
     border-radius: 6px;
     font-size: 0.9rem;
     cursor: pointer;
   }
   .btn-submit:hover:not(:disabled) {
-    background: #0d9488;
+    background: var(--color-primary-hover);
   }
   .btn-submit:disabled {
     opacity: 0.5;

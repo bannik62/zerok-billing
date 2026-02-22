@@ -12,6 +12,7 @@
     isLegacyMigratedForUser,
     setLegacyMigratedForUser
   } from '$lib/db.js';
+  import { themeStore, toggleTheme } from '$lib/theme.js';
 
   /**
    * Module Menu principal. Reçoit user du SessionTemoin.
@@ -64,6 +65,9 @@
   <header class="menu-header">
     <h1>Accueil</h1>
     <p class="welcome">Bienvenue, <strong>{user.prenom} {user.nom}</strong>.</p>
+    <button type="button" class="btn-theme" onclick={toggleTheme} aria-label={$themeStore === 'dark' ? 'Passer en mode jour' : 'Passer en mode nuit'}>
+      {$themeStore === 'dark' ? '☀ Jour' : '☽ Nuit'}
+    </button>
     <button type="button" class="btn-logout" onclick={logout}>Déconnexion</button>
   </header>
 
@@ -160,10 +164,22 @@
   }
   .menu-header h1 {
     font-size: clamp(1.25rem, 4vw, 1.5rem);
-    color: #0f766e;
+    color: var(--color-primary);
     margin: 0;
   }
-  .welcome { margin: 0; font-size: clamp(0.875rem, 2.2vw, 0.95rem); }
+  .welcome { margin: 0; font-size: clamp(0.875rem, 2.2vw, 0.95rem); color: var(--color-text); }
+  .btn-theme {
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-bg-elevated);
+    color: var(--color-text);
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .btn-theme:hover {
+    background: var(--color-bg-muted);
+  }
   .menu-body {
     flex: 1;
     display: flex;
@@ -178,10 +194,10 @@
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     padding: 0.5rem 0.75rem 0 0.75rem;
-    border-bottom: 2px solid #94a3b8;
+    border-bottom: 2px solid var(--color-border-strong);
     border-top-left-radius: 10px;
     border-top-right-radius: 10px;
-    background: #cbd5e1;
+    background: var(--color-border);
   }
   .menu-tabs {
     display: flex;
@@ -195,13 +211,13 @@
   .tab {
     flex-shrink: 0;
     padding: 0.6rem 1rem;
-    border: 1px solid #94a3b8;
+    border: 1px solid var(--color-border-strong);
     border-bottom: none;
     border-top-left-radius: 8px;
     border-top-right-radius: 8px;
     margin-bottom: -2px;
-    background: #e2e8f0;
-    color: #334155;
+    background: var(--color-border);
+    color: var(--color-text-soft);
     font-size: clamp(0.8rem, 2vw, 0.9rem);
     font-weight: 500;
     cursor: pointer;
@@ -209,23 +225,23 @@
     transition: background 0.15s, color 0.15s;
   }
   .tab:hover {
-    background: #f1f5f9;
-    color: #0f172a;
+    background: var(--color-bg-muted);
+    color: var(--color-text);
   }
   .tab.active {
-    background: #f8fafc;
-    color: #0f766e;
-    border-color: #94a3b8;
-    border-bottom: 2px solid #f8fafc;
+    background: var(--color-bg-muted);
+    color: var(--color-primary);
+    border-color: var(--color-border-strong);
+    border-bottom: 2px solid var(--color-bg-muted);
     font-weight: 600;
   }
   .display_info {
     flex: 1;
     min-height: 0;
     overflow: auto;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     border-radius: 0 12px 12px 12px;
-    background: #f8fafc;
+    background: var(--color-bg-muted);
     padding: clamp(1rem, 3vw, 1.5rem);
   }
   .welcome-presentation {
@@ -235,14 +251,14 @@
   .welcome-presentation-title {
     margin: 0 0 1rem 0;
     font-size: clamp(1.15rem, 3vw, 1.35rem);
-    color: #0f766e;
+    color: var(--color-primary);
     font-weight: 700;
   }
   .welcome-presentation-intro {
     margin: 0 0 1.5rem 0;
     font-size: clamp(0.95rem, 2.2vw, 1.05rem);
     line-height: 1.5;
-    color: #334155;
+    color: var(--color-text-soft);
   }
   .welcome-presentation-section {
     margin-bottom: 1.5rem;
@@ -250,14 +266,14 @@
   .welcome-presentation-h3 {
     margin: 0 0 0.5rem 0;
     font-size: clamp(1rem, 2.5vw, 1.1rem);
-    color: #0f766e;
+    color: var(--color-primary);
     font-weight: 600;
   }
   .welcome-presentation-list {
     margin: 0;
     padding-left: 1.25rem;
     line-height: 1.55;
-    color: #475569;
+    color: var(--color-text-soft);
     font-size: clamp(0.9rem, 2vw, 1rem);
   }
   .welcome-presentation-list li {
@@ -266,21 +282,21 @@
   .welcome-presentation-text {
     margin: 0;
     line-height: 1.55;
-    color: #475569;
+    color: var(--color-text-soft);
     font-size: clamp(0.9rem, 2vw, 1rem);
   }
   .welcome-presentation-cta {
     margin: 1.5rem 0 0 0;
     padding-top: 1rem;
-    border-top: 1px solid #e2e8f0;
+    border-top: 1px solid var(--color-border);
     font-size: 0.9rem;
-    color: #64748b;
+    color: var(--color-text-muted);
   }
   .btn-logout {
     padding: 0.5rem 1rem;
     border-radius: 4px;
-    border: 1px solid #b91c1c;
-    background: #b91c1c;
+    border: 1px solid var(--color-error);
+    background: var(--color-error);
     color: white;
     cursor: pointer;
     font-size: clamp(0.8rem, 2vw, 0.9rem);

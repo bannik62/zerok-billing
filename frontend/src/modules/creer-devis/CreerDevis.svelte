@@ -579,14 +579,14 @@
   }
   .editor-toolbar label {
     font-size: 0.9rem;
-    color: #475569;
+    color: var(--color-text-soft);
   }
   .profile-select {
     padding: 0.35rem 0.6rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     border-radius: 6px;
     font-size: 0.9rem;
-    background: #fff;
+    background: var(--color-bg-elevated);
     min-width: 160px;
   }
   .editor-actions {
@@ -603,44 +603,44 @@
     cursor: pointer;
   }
   .btn-retour {
-    border: 1px solid #64748b;
-    background: #fff;
-    color: #475569;
+    border: 1px solid var(--color-text-muted);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-soft);
   }
   .btn-retour:hover {
-    background: #f1f5f9;
+    background: var(--color-bg-muted);
   }
   .btn-editor.btn-secondary {
-    border: 1px solid #e2e8f0;
-    background: #fff;
-    color: #0f172a;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-elevated);
+    color: var(--color-text);
   }
   .btn-editor.btn-secondary:hover {
-    background: #f8fafc;
+    background: var(--color-bg-muted);
   }
   .btn-profile {
-    border: 1px solid #94a3b8;
-    background: #fff;
-    color: #475569;
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-soft);
   }
   .btn-profile:hover {
-    background: #f1f5f9;
+    background: var(--color-bg-muted);
   }
   .btn-manage-profiles {
-    border: 1px solid #94a3b8;
-    background: #fff;
-    color: #475569;
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-soft);
   }
   .btn-manage-profiles:hover {
-    background: #f1f5f9;
+    background: var(--color-bg-muted);
   }
   .btn-save-bdd {
     border: none;
-    background: #0f766e;
+    background: var(--color-primary);
     color: white;
   }
   .btn-save-bdd:hover:not(:disabled) {
-    background: #0d9488;
+    background: var(--color-primary-hover);
   }
   .btn-save-bdd:disabled {
     opacity: 0.7;
@@ -650,8 +650,8 @@
     margin: 0.5rem 0 0;
     font-size: 0.9rem;
   }
-  .save-ok { color: #0f766e; font-weight: 500; }
-  .save-err { color: #b91c1c; }
+  .save-ok { color: var(--color-primary); font-weight: 500; }
+  .save-err { color: var(--color-error); }
 
   @media print {
     :global(.editor-sidebar),
@@ -668,7 +668,7 @@
     :global(.placed-block) {
       border: none !important;
       box-shadow: none !important;
-      background: #fff !important;
+      background: var(--color-bg-elevated) !important;
       cursor: default !important;
     }
   }

@@ -102,7 +102,7 @@
     z-index: 100;
   }
   .modal.modal-manage {
-    background: #fff;
+    background: var(--color-bg-elevated);
     border-radius: 8px;
     padding: 1.25rem;
     min-width: 320px;
@@ -115,12 +115,12 @@
     margin: 0 0 1rem 0;
     font-size: 1.1rem;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--color-text);
   }
   .modal-empty {
     margin: 0 0 1rem 0;
     font-size: 0.9rem;
-    color: #64748b;
+    color: var(--color-text-muted);
   }
   .profile-list {
     list-style: none;
@@ -133,7 +133,7 @@
     justify-content: space-between;
     gap: 0.5rem;
     padding: 0.5rem 0;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--color-border);
   }
   .profile-row:last-child {
     border-bottom: none;
@@ -141,7 +141,7 @@
   .profile-name {
     flex: 1;
     font-size: 0.95rem;
-    color: #0f172a;
+    color: var(--color-text);
     min-width: 0;
   }
   .profile-actions {
@@ -159,7 +159,7 @@
   .profile-edit-input {
     flex: 1;
     padding: 0.35rem 0.5rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     border-radius: 6px;
     font-size: 0.9rem;
     min-width: 0;
@@ -172,51 +172,51 @@
     border: 1px solid transparent;
   }
   .btn-rename {
-    background: #f1f5f9;
-    color: #475569;
-    border-color: #e2e8f0;
+    background: var(--color-bg-muted);
+    color: var(--color-text-soft);
+    border-color: var(--color-border);
   }
   .btn-rename:hover {
-    background: #e2e8f0;
+    background: var(--color-border);
   }
   .btn-delete {
-    background: #fef2f2;
-    color: #b91c1c;
-    border-color: #fecaca;
+    background: var(--color-error-bg);
+    color: var(--color-error);
+    border-color: var(--color-error-bg);
   }
   .btn-delete:hover {
-    background: #fee2e2;
+    background: var(--color-error-bg);
   }
   .btn-save {
-    background: #0f766e;
+    background: var(--color-primary);
     color: white;
-    border-color: #0f766e;
+    border-color: var(--color-primary);
   }
   .btn-save:hover {
-    background: #0d9488;
+    background: var(--color-primary-hover);
   }
   .btn-cancel {
-    background: #fff;
-    color: #64748b;
-    border-color: #e2e8f0;
+    background: var(--color-bg-elevated);
+    color: var(--color-text-muted);
+    border-color: var(--color-border);
   }
   .btn-cancel:hover {
-    background: #f8fafc;
+    background: var(--color-bg-muted);
   }
   .modal-footer {
     padding-top: 0.75rem;
-    border-top: 1px solid #e2e8f0;
+    border-top: 1px solid var(--color-border);
   }
   .btn-close {
     padding: 0.4rem 0.75rem;
-    border: 1px solid #e2e8f0;
-    background: #fff;
-    color: #475569;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-soft);
     border-radius: 6px;
     font-size: 0.9rem;
     cursor: pointer;
   }
   .btn-close:hover {
-    background: #f8fafc;
+    background: var(--color-bg-muted);
   }
 </style>

@@ -128,8 +128,8 @@
     min-width: 60px;
     min-height: 40px;
     padding: 0.35rem 0.5rem;
-    background: #f0fdfa;
-    border: 1px solid #0f766e;
+    background: var(--color-bg-muted);
+    border: 1px solid var(--color-primary);
     border-radius: 6px;
     cursor: move;
     font-size: 0.75rem;
@@ -157,14 +157,14 @@
   .placed-block-label {
     display: block;
     font-weight: 600;
-    color: #0f766e;
+    color: var(--color-primary);
     margin-bottom: 0.25rem;
     flex-shrink: 0;
   }
   .placed-block-content {
     display: block;
     font-size: 0.8rem;
-    color: #475569;
+    color: var(--color-text-soft);
   }
   .placed-block-totaux {
     display: flex;
@@ -178,7 +178,7 @@
     margin: 0.5rem 0 0;
     font-size: 0.6rem;
     line-height: 1.3;
-    color: #64748b;
+    color: var(--color-text-muted);
     font-style: italic;
   }
   .placed-block-entete {
@@ -186,24 +186,24 @@
     flex-direction: column;
     gap: 0.2rem;
     font-size: 0.7rem;
-    color: #475569;
+    color: var(--color-text-soft);
   }
   .placed-client-name {
     font-weight: 700;
-    color: #0f172a;
+    color: var(--color-text);
     font-size: 0.75rem;
   }
   .placed-client-adresse,
   .placed-client-siret {
     font-size: 0.65rem;
-    color: #64748b;
+    color: var(--color-text-muted);
   }
   .placed-block-societe {
     display: flex;
     flex-direction: column;
     gap: 0.15rem;
     font-size: 0.65rem;
-    color: #475569;
+    color: var(--color-text-soft);
   }
   .placed-block-logo-frame {
     display: flex;
@@ -222,11 +222,11 @@
   }
   .placed-block-logo-placeholder {
     font-size: 0.7rem;
-    color: #94a3b8;
+    color: var(--color-text-muted);
   }
   .placed-societe-name {
     font-weight: 700;
-    color: #0f172a;
+    color: var(--color-text);
     font-size: 0.75rem;
   }
   .placed-block-lignes {
@@ -240,13 +240,13 @@
   .placed-lignes-table th,
   .placed-lignes-table td {
     padding: 0.15rem 0.25rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     text-align: left;
   }
   .placed-lignes-table th {
-    background: #ccfbf1;
+    background: var(--color-bg-muted);
     font-weight: 600;
-    color: #0f766e;
+    color: var(--color-primary);
   }
   .resize-handle {
     position: absolute;
@@ -254,36 +254,36 @@
     bottom: 0;
     width: 14px;
     height: 14px;
-    background: linear-gradient(135deg, transparent 50%, #0f766e 50%);
+    background: linear-gradient(135deg, transparent 50%, var(--color-primary) 50%);
     cursor: se-resize;
     flex-shrink: 0;
   }
   .resize-handle:hover {
-    background: linear-gradient(135deg, transparent 50%, #0d9488 50%);
+    background: linear-gradient(135deg, transparent 50%, var(--color-primary-hover) 50%);
   }
   .placed-block.selected {
-    outline: 2px solid #0f766e;
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
   .placed-block-facture {
-    background: #f0f9ff;
-    border-color: #0369a1;
+    background: var(--color-bg-muted);
+    border-color: var(--color-primary);
   }
   .placed-block-facture .placed-block-label {
-    color: #0369a1;
+    color: var(--color-primary);
   }
   .placed-block-facture .placed-lignes-table th {
-    background: #bae6fd;
-    color: #0369a1;
+    background: var(--color-bg-muted);
+    color: var(--color-primary);
   }
   .placed-block-facture.selected {
-    outline-color: #0369a1;
+    outline-color: var(--color-primary);
   }
   .placed-block-facture .resize-handle {
-    background: linear-gradient(135deg, transparent 50%, #0369a1 50%);
+    background: linear-gradient(135deg, transparent 50%, var(--color-primary) 50%);
   }
   .placed-block-facture .resize-handle:hover {
-    background: linear-gradient(135deg, transparent 50%, #0284c7 50%);
+    background: linear-gradient(135deg, transparent 50%, var(--color-primary-hover) 50%);
   }
 
   @media print {
@@ -291,7 +291,7 @@
     .placed-block-label { display: none !important; }
     .placed-lignes-table th,
     .placed-lignes-table td { border: none !important; }
-    .placed-lignes-table th { background: #f8fafc !important; }
+    .placed-lignes-table th { background: var(--color-bg-muted) !important; }
     .resize-handle { display: none !important; }
   }
 </style>

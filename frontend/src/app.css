@@ -1,13 +1,47 @@
 /* Styles globaux minimaux - le reste est dans les modules */
 @import './lib/breakpoints.css';
 
+/* Thème jour (défaut) */
 :root {
   font-family: system-ui, sans-serif;
   line-height: 1.5;
+  --color-bg: #f1f5f9;
+  --color-bg-elevated: #fff;
+  --color-bg-muted: #f8fafc;
+  --color-text: #0f172a;
+  --color-text-muted: #64748b;
+  --color-text-soft: #475569;
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+  --color-primary: #0f766e;
+  --color-primary-hover: #0d9488;
+  --color-error: #b91c1c;
+  --color-error-bg: #fef2f2;
+  color-scheme: light;
 }
+
+/* Thème nuit (bouton bascule) */
+[data-theme="dark"] {
+  --color-bg: #0f172a;
+  --color-bg-elevated: #1e293b;
+  --color-bg-muted: #334155;
+  --color-text: #f1f5f9;
+  --color-text-muted: #94a3b8;
+  --color-text-soft: #cbd5e1;
+  --color-border: #334155;
+  --color-border-strong: #475569;
+  --color-primary: #2dd4bf;
+  --color-primary-hover: #5eead4;
+  --color-error: #f87171;
+  --color-error-bg: #450a0a;
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
 }
 #app {
   min-height: 100vh;

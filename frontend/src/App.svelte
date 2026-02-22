@@ -10,6 +10,7 @@
   import { apiClient } from '$lib/apiClient.js';
   import { fetchCsrfToken } from '$lib/csrf.js';
   import { clearEncryptionKey, encryptionKeyLoadedStore } from '$lib/dbEncrypted.js';
+  import { themeStore, toggleTheme } from '$lib/theme.js';
 
   let user = $state(null);
   let loading = $state(true);
@@ -70,7 +71,12 @@
       <Unlock user={user} onLogout={logout} />
     {/if}
   {:else}
-    <h1>Zero-Knowledge Facturation</h1>
+    <div class="auth-header">
+      <h1>Zero-Knowledge Facturation</h1>
+      <button type="button" class="btn-theme" onclick={toggleTheme} aria-label={$themeStore === 'dark' ? 'Passer en mode jour' : 'Passer en mode nuit'}>
+        {$themeStore === 'dark' ? '☀ Jour' : '☽ Nuit'}
+      </button>
+    </div>
     <p class="tagline">Facturation local-first · Le serveur ne voit jamais le contenu de vos factures.</p>
 
     {#if view === 'login'}
@@ -102,6 +108,26 @@
     box-sizing: border-box;
   }
   .loading { margin: 2rem 0; }
-  h1 { font-size: 1.5rem; color: #0f766e; }
-  .tagline { color: #64748b; font-size: 0.9rem; margin-bottom: 1.5rem; }
+  .auth-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+  }
+  h1 { font-size: 1.5rem; color: var(--color-primary); margin: 0; }
+  .btn-theme {
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-bg-elevated);
+    color: var(--color-text);
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .btn-theme:hover {
+    background: var(--color-bg-muted);
+  }
+  .tagline { color: var(--color-text-muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
 </style>

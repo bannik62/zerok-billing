@@ -112,7 +112,7 @@
     z-index: 100;
   }
   .pwd-modal {
-    background: #fff;
+    background: var(--color-bg-elevated);
     border-radius: 8px;
     padding: 1.25rem;
     min-width: 280px;
@@ -123,12 +123,12 @@
     margin: 0 0 0.5rem 0;
     font-size: 1.1rem;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--color-text);
   }
   .pwd-modal-message {
     margin: 0 0 1rem 0;
     font-size: 0.9rem;
-    color: #64748b;
+    color: var(--color-text-muted);
     line-height: 1.4;
   }
   .pwd-modal-input {
@@ -137,22 +137,24 @@
     box-sizing: border-box;
     padding: 0.5rem 0.75rem;
     margin-bottom: 0.5rem;
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--color-border-strong);
     border-radius: 6px;
     font-size: 1rem;
+    background: var(--color-bg-elevated);
+    color: var(--color-text);
   }
   .pwd-modal-input:focus {
     outline: none;
-    border-color: #0f766e;
+    border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.2);
   }
   .pwd-modal-input[aria-invalid="true"] {
-    border-color: #b91c1c;
+    border-color: var(--color-error);
   }
   .pwd-modal-error {
     margin: 0 0 0.75rem 0;
     font-size: 0.9rem;
-    color: #b91c1c;
+    color: var(--color-error);
   }
   .pwd-modal-actions {
     display: flex;
@@ -162,15 +164,15 @@
   }
   .pwd-modal-cancel {
     padding: 0.4rem 0.75rem;
-    border: 1px solid #cbd5e1;
-    background: #fff;
-    color: #475569;
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-soft);
     border-radius: 6px;
     font-size: 0.9rem;
     cursor: pointer;
   }
   .pwd-modal-cancel:hover:not(:disabled) {
-    background: #f1f5f9;
+    background: var(--color-bg-muted);
   }
   .pwd-modal-cancel:disabled {
     opacity: 0.7;
@@ -179,14 +181,14 @@
   .pwd-modal-submit {
     padding: 0.4rem 0.75rem;
     border: none;
-    background: #0f766e;
+    background: var(--color-primary);
     color: white;
     border-radius: 6px;
     font-size: 0.9rem;
     cursor: pointer;
   }
   .pwd-modal-submit:hover:not(:disabled) {
-    background: #0d9488;
+    background: var(--color-primary-hover);
   }
   .pwd-modal-submit:disabled {
     opacity: 0.7;

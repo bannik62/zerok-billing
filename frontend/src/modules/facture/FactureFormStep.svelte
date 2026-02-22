@@ -207,36 +207,36 @@
     flex-direction: column;
     gap: 1.25rem;
     min-height: 0;
-    border-left: 4px solid #0369a1;
+    border-left: 4px solid var(--color-primary);
     padding-left: 1rem;
   }
   .facture-form-header { margin-bottom: 0.25rem; }
-  .facture-form-title { margin: 0; font-size: 1.25rem; color: #0369a1; font-weight: 700; }
-  .facture-form-desc { margin: 0.25rem 0 0; font-size: 0.85rem; color: #64748b; }
-  .facture-section { padding: 0.75rem 0; border-bottom: 1px solid #e2e8f0; }
-  .section-label { margin: 0 0 0.75rem 0; font-size: 0.95rem; font-weight: 600; color: #475569; }
+  .facture-form-title { margin: 0; font-size: 1.25rem; color: var(--color-primary); font-weight: 700; }
+  .facture-form-desc { margin: 0.25rem 0 0; font-size: 0.85rem; color: var(--color-text-muted); }
+  .facture-section { padding: 0.75rem 0; border-bottom: 1px solid var(--color-border); }
+  .section-label { margin: 0 0 0.75rem 0; font-size: 0.95rem; font-weight: 600; color: var(--color-text-soft); }
   .form-grid { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
-  .form-row label, .form-row-inline label { display: block; font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem; }
-  .form-row input, .form-row select { width: 100%; padding: 0.4rem 0.6rem; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.9rem; box-sizing: border-box; }
-  .input-readonly { background: #f1f5f9; color: #475569; cursor: default; }
-  .entete-client-info { margin-top: 0.5rem; padding: 0.5rem; background: #f0f9ff; border-radius: 6px; border: 1px solid #7dd3fc; display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; color: #0369a1; }
+  .form-row label, .form-row-inline label { display: block; font-size: 0.85rem; color: var(--color-text-muted); margin-bottom: 0.25rem; }
+  .form-row input, .form-row select { width: 100%; padding: 0.4rem 0.6rem; border: 1px solid var(--color-border); border-radius: 6px; font-size: 0.9rem; box-sizing: border-box; background: var(--color-bg-elevated); color: var(--color-text); }
+  .input-readonly { background: var(--color-bg-muted); color: var(--color-text-soft); cursor: default; }
+  .entete-client-info { margin-top: 0.5rem; padding: 0.5rem; background: var(--color-bg-muted); border-radius: 6px; border: 1px solid var(--color-border-strong); display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; color: var(--color-primary); }
   .entete-client-rs { font-weight: 600; }
-  .entete-client-adresse, .entete-client-siret { font-size: 0.8rem; color: #475569; }
+  .entete-client-adresse, .entete-client-siret { font-size: 0.8rem; color: var(--color-text-soft); }
   .form-row-inline { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; }
-  .form-row-inline .input-num { width: 6rem; padding: 0.4rem 0.6rem; border: 1px solid #e2e8f0; border-radius: 6px; }
+  .form-row-inline .input-num { width: 6rem; padding: 0.4rem 0.6rem; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-bg-elevated); color: var(--color-text); }
   .table-wrap { overflow: auto; }
   .lignes-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-  .lignes-table th, .lignes-table td { padding: 0.35rem 0.5rem; border: 1px solid #e2e8f0; text-align: left; }
-  .lignes-table th { background: #f8fafc; font-weight: 600; color: #475569; }
-  .lignes-table input { width: 100%; padding: 0.3rem 0.4rem; border: 1px solid #e2e8f0; border-radius: 4px; box-sizing: border-box; }
+  .lignes-table th, .lignes-table td { padding: 0.35rem 0.5rem; border: 1px solid var(--color-border); text-align: left; color: var(--color-text); }
+  .lignes-table th { background: var(--color-bg-muted); font-weight: 600; color: var(--color-text-soft); }
+  .lignes-table input { width: 100%; padding: 0.3rem 0.4rem; border: 1px solid var(--color-border); border-radius: 4px; box-sizing: border-box; background: var(--color-bg-elevated); color: var(--color-text); }
   .input-num { width: 5rem; }
   .input-unite { width: 3rem; }
   .montant { white-space: nowrap; }
-  .btn-remove { padding: 0.2rem 0.5rem; border: none; background: #fef2f2; color: #b91c1c; cursor: pointer; border-radius: 4px; }
-  .btn-add-line { margin-top: 0.5rem; padding: 0.4rem 0.75rem; border: 1px dashed #cbd5e1; background: #f8fafc; color: #64748b; font-size: 0.9rem; cursor: pointer; border-radius: 6px; }
+  .btn-remove { padding: 0.2rem 0.5rem; border: none; background: var(--color-error-bg); color: var(--color-error); cursor: pointer; border-radius: 4px; }
+  .btn-add-line { margin-top: 0.5rem; padding: 0.4rem 0.75rem; border: 1px dashed var(--color-border-strong); background: var(--color-bg-muted); color: var(--color-text-muted); font-size: 0.9rem; cursor: pointer; border-radius: 6px; }
   .totaux-row { display: flex; justify-content: space-between; padding: 0.35rem 0; }
-  .total-row { font-size: 1.1rem; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #e2e8f0; }
+  .total-row { font-size: 1.1rem; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--color-border); }
   .step-actions { margin-top: 0.5rem; }
-  .btn-submit { padding: 0.5rem 1rem; border-radius: 6px; border: none; background: #0369a1; color: white; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+  .btn-submit { padding: 0.5rem 1rem; border-radius: 6px; border: none; background: var(--color-primary); color: white; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
   .btn-submit:disabled { opacity: 0.7; cursor: not-allowed; }
 </style>

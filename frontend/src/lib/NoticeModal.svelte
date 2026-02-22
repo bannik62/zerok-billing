@@ -49,7 +49,7 @@
     z-index: 100;
   }
   .notice-modal {
-    background: #fff;
+    background: var(--color-bg-elevated);
     border-radius: 8px;
     padding: 1.25rem;
     min-width: 280px;
@@ -60,12 +60,12 @@
     margin: 0 0 0.5rem 0;
     font-size: 1.1rem;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--color-text);
   }
   .notice-modal-message {
     margin: 0 0 1rem 0;
     font-size: 0.9rem;
-    color: #64748b;
+    color: var(--color-text-muted);
     line-height: 1.4;
   }
   .notice-modal-actions {
@@ -75,13 +75,13 @@
   .notice-modal-ok {
     padding: 0.4rem 0.75rem;
     border: none;
-    background: #0f766e;
+    background: var(--color-primary);
     color: white;
     border-radius: 6px;
     font-size: 0.9rem;
     cursor: pointer;
   }
   .notice-modal-ok:hover {
-    background: #0d9488;
+    background: var(--color-primary-hover);
   }
 </style>

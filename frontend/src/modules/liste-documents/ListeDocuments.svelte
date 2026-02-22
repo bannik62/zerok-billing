@@ -432,20 +432,20 @@
   .liste-documents-title {
     margin: 0;
     font-size: 1.25rem;
-    color: #0f766e;
+    color: var(--color-primary);
     font-weight: 700;
   }
   .liste-documents-msg {
     margin: 0;
-    color: #64748b;
+    color: var(--color-text-muted);
   }
   .liste-documents-msg--error {
-    color: #b91c1c;
+    color: var(--color-error);
     font-weight: 500;
   }
   .liste-documents-hint {
     margin: 0.25rem 0 0 0;
     font-size: 0.85rem;
-    color: #64748b;
+    color: var(--color-text-muted);
   }
 </style>

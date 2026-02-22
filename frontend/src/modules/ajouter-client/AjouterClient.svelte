@@ -306,7 +306,7 @@
   .clients-title {
     margin: 0;
     font-size: 1.25rem;
-    color: #0f766e;
+    color: var(--color-primary);
     font-weight: 700;
   }
   .clients-section {
@@ -316,7 +316,7 @@
     margin: 0 0 1rem 0;
     font-size: 0.95rem;
     font-weight: 600;
-    color: #475569;
+    color: var(--color-text-soft);
   }
   .client-form {
     display: flex;
@@ -332,17 +332,17 @@
   .form-row label {
     font-size: 0.875rem;
     font-weight: 500;
-    color: #475569;
+    color: var(--color-text-soft);
   }
   .client-form input {
     padding: 0.5rem 0.75rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     border-radius: 6px;
     font-size: 0.95rem;
   }
   .client-form input:focus {
     outline: none;
-    border-color: #0f766e;
+    border-color: var(--color-primary);
     box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.2);
   }
   .form-row-group {
@@ -367,14 +367,14 @@
     padding: 0.5rem 1rem;
     border-radius: 6px;
     border: none;
-    background: #0f766e;
+    background: var(--color-primary);
     color: white;
     font-size: 0.9rem;
     font-weight: 600;
     cursor: pointer;
   }
   .btn-submit:hover {
-    background: #0d9488;
+    background: var(--color-primary-hover);
   }
   .btn-submit:disabled {
     opacity: 0.7;
@@ -384,16 +384,16 @@
     margin: 0.75rem 0 0 0;
     font-size: 0.9rem;
   }
-  .form-message.success { color: #0f766e; }
-  .form-message.error { color: #b91c1c; }
+  .form-message.success { color: var(--color-primary); }
+  .form-message.error { color: var(--color-error); }
   .clients-list-section {
-    border-top: 1px solid #e2e8f0;
+    border-top: 1px solid var(--color-border);
     padding-top: 1rem;
   }
   .clients-empty {
     margin: 0;
     font-size: 0.9rem;
-    color: #64748b;
+    color: var(--color-text-muted);
   }
   .clients-list {
     margin: 0;
@@ -405,9 +405,9 @@
   }
   .client-item {
     padding: 0.75rem;
-    background: #f8fafc;
+    background: var(--color-bg-muted);
     border-radius: 8px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
@@ -423,7 +423,7 @@
   }
   .client-item-email {
     font-size: 0.85rem;
-    color: #64748b;
+    color: var(--color-text-muted);
   }
   .client-item-actions {
     display: flex;
@@ -433,7 +433,7 @@
   .btn-item {
     padding: 0.35rem 0.6rem;
     border-radius: 4px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     background: #fff;
     font-size: 0.8rem;
     font-weight: 500;
@@ -442,13 +442,13 @@
   .btn-item:hover {
     background: #f1f5f9;
   }
-  .btn-modifier { color: #0f766e; border-color: #99f6e4; }
+  .btn-modifier { color: var(--color-primary); border-color: #99f6e4; }
   .btn-modifier:hover { background: #f0fdfa; }
   .btn-facture { color: #0369a1; border-color: #bae6fd; }
   .btn-facture:hover { background: #f0f9ff; }
-  .btn-devis { color: #0d9488; border-color: #99f6e4; }
+  .btn-devis { color: var(--color-primary-hover); border-color: #99f6e4; }
   .btn-devis:hover { background: #f0fdfa; }
-  .btn-supprimer { color: #b91c1c; border-color: #fecaca; }
+  .btn-supprimer { color: var(--color-error); border-color: #fecaca; }
   .btn-supprimer:hover { background: #fef2f2; }
 
   /* Modal */
@@ -486,12 +486,12 @@
   .btn-cancel {
     padding: 0.5rem 1rem;
     border-radius: 6px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--color-border);
     background: #fff;
     font-size: 0.9rem;
     cursor: pointer;
   }
   .btn-cancel:hover {
-    background: #f8fafc;
+    background: var(--color-bg-muted);
   }
 </style>
