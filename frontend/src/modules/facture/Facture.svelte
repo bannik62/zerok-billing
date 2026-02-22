@@ -27,9 +27,10 @@
   import SheetA4 from '../creer-devis/SheetA4.svelte';
   import SaveProfileModal from '../creer-devis/SaveProfileModal.svelte';
   import ManageProfilesModal from '../creer-devis/ManageProfilesModal.svelte';
+  import NoticeModal from '$lib/NoticeModal.svelte';
 
   /** Module Facture – client ou devis pré-sélectionné. Step 0: choix, Step 1: formulaire, Step 2: éditeur. */
-  let { user = null, client = null, devis: devisFromMenu = null } = $props();
+  let { user = null, client = null, devis: devisFromMenu = null, onSavedAndGoToList = null } = $props();
   const uid = $derived(user?.id ?? null);
 
   let step = $state(0);
@@ -309,7 +310,12 @@
   }
 
   let savingBdd = $state(false);
-  async function enregistrerEnBdd() {
+  let redirectNoticeOpen = $state(false);
+
+  const REDIRECT_NOTICE_TITLE = 'Enregistrement';
+  const REDIRECT_NOTICE_MESSAGE = 'Après enregistrement, vous serez redirigé vers la liste des documents.';
+
+  async function doSave() {
     if (!currentFacture) return;
     savingBdd = true;
     try {
@@ -334,6 +340,21 @@
     } finally {
       savingBdd = false;
     }
+  }
+
+  async function enregistrerEnBdd() {
+    if (!currentFacture) return;
+    if (onSavedAndGoToList) {
+      redirectNoticeOpen = true;
+      return;
+    }
+    await doSave();
+  }
+
+  async function handleRedirectNoticeOk() {
+    redirectNoticeOpen = false;
+    await doSave();
+    if (onSavedAndGoToList) onSavedAndGoToList();
   }
 
   async function applyProfile(profileId) {
@@ -477,6 +498,13 @@
 
   <SaveProfileModal open={showSaveProfileModal} bind:name={saveProfileName} onSave={saveCurrentAsProfile} onCancel={() => (showSaveProfileModal = false)} />
   <ManageProfilesModal open={showManageProfilesModal} profiles={layoutProfiles} onRename={handleRenameProfile} onDelete={handleDeleteProfile} onClose={() => (showManageProfilesModal = false)} />
+  <NoticeModal
+    open={redirectNoticeOpen}
+    title={REDIRECT_NOTICE_TITLE}
+    message={REDIRECT_NOTICE_MESSAGE}
+    okLabel="OK"
+    onOk={handleRedirectNoticeOk}
+  />
 {/if}
 
 <style>

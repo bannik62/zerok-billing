@@ -15,11 +15,12 @@
   import SheetA4 from './SheetA4.svelte';
   import SaveProfileModal from './SaveProfileModal.svelte';
   import ManageProfilesModal from './ManageProfilesModal.svelte';
+  import NoticeModal from '$lib/NoticeModal.svelte';
 
   /**
    * Créer devis – Étape 1 : saisie. Valider → Étape 2 : éditeur.
    */
-  let { user = null, client = null } = $props();
+  let { user = null, client = null, onSavedAndGoToList = null } = $props();
   const uid = $derived(user?.id ?? null);
 
   const PROFILE_ID_MAX_LENGTH = 100;
@@ -359,8 +360,12 @@
   let savingBdd = $state(false);
   let saveMessage = $state('');
   let saveError = $state('');
+  let redirectNoticeOpen = $state(false);
 
-  async function enregistrerEnBdd() {
+  const REDIRECT_NOTICE_TITLE = 'Enregistrement';
+  const REDIRECT_NOTICE_MESSAGE = 'Après enregistrement, vous serez redirigé vers la liste des documents.';
+
+  async function doSave() {
     if (!currentDevis) return;
     savingBdd = true;
     saveMessage = '';
@@ -389,6 +394,21 @@
     } finally {
       savingBdd = false;
     }
+  }
+
+  async function enregistrerEnBdd() {
+    if (!currentDevis) return;
+    if (onSavedAndGoToList) {
+      redirectNoticeOpen = true;
+      return;
+    }
+    await doSave();
+  }
+
+  async function handleRedirectNoticeOk() {
+    redirectNoticeOpen = false;
+    await doSave();
+    if (onSavedAndGoToList) onSavedAndGoToList();
   }
 
   async function applyProfile(profileId) {
@@ -526,6 +546,14 @@
     onRename={handleRenameProfile}
     onDelete={handleDeleteProfile}
     onClose={() => (showManageProfilesModal = false)}
+  />
+
+  <NoticeModal
+    open={redirectNoticeOpen}
+    title={REDIRECT_NOTICE_TITLE}
+    message={REDIRECT_NOTICE_MESSAGE}
+    okLabel="OK"
+    onOk={handleRedirectNoticeOk}
   />
 {/if}
 

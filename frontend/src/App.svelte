@@ -5,6 +5,7 @@
   import SessionTemoin from './modules/session/SessionTemoin.svelte';
   import CsrfTemoin from './modules/session/CsrfTemoin.svelte';
   import CleTemoin from './modules/session/CleTemoin.svelte';
+  import DatabaseTemoin from './modules/session/DatabaseTemoin.svelte';
   import Menu from './modules/menu/Menu.svelte';
   import { apiClient } from '$lib/apiClient.js';
   import { fetchCsrfToken } from '$lib/csrf.js';
@@ -58,6 +59,7 @@
 
 <CsrfTemoin />
 <CleTemoin />
+<DatabaseTemoin />
 <main class:fullscreen={page === 'menu'}>
   {#if loading}
     <p class="loading">Chargement…</p>

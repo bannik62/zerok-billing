@@ -1,11 +1,12 @@
 import Joi from 'joi';
-
-const PASSWORD_MIN_LENGTH = 8;
-const PASSWORD_MAX_LENGTH = 128;
-const EMAIL_MAX_LENGTH = 255;
-const NOM_MAX_LENGTH = 100;
-const PRENOM_MAX_LENGTH = 100;
-const ADRESSE_MAX_LENGTH = 255;
+import {
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_MAX_LENGTH,
+  EMAIL_MAX_LENGTH,
+  NOM_MAX_LENGTH,
+  PRENOM_MAX_LENGTH,
+  ADRESSE_MAX_LENGTH
+} from '../config/constants.js';
 
 const registerSchema = Joi.object({
   email: Joi.string().trim().email().max(EMAIL_MAX_LENGTH).required().messages({
@@ -15,7 +16,7 @@ const registerSchema = Joi.object({
   }),
   password: Joi.string().min(PASSWORD_MIN_LENGTH).max(PASSWORD_MAX_LENGTH).required().messages({
     'string.empty': 'password requis',
-    'string.min': 'mot de passe minimum 8 caractères',
+    'string.min': `mot de passe minimum ${PASSWORD_MIN_LENGTH} caractères`,
     'string.max': 'mot de passe trop long'
   }),
   nom: Joi.string().trim().max(NOM_MAX_LENGTH).required().messages({
@@ -70,5 +71,3 @@ export function validateLogin(body) {
   }
   return { value: result.value, error: null };
 }
-
-export { PASSWORD_MIN_LENGTH };

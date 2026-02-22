@@ -88,9 +88,9 @@
       {:else if displayModule === 'ajouter-client'}
         <AjouterClient {user} onOpenFacture={openFactureForClient} onOpenDevis={openDevisForClient} />
       {:else if displayModule === 'creer-devis'}
-        <CreerDevis {user} client={selectedClient} />
+        <CreerDevis {user} client={selectedClient} onSavedAndGoToList={showListeDocuments} />
       {:else if displayModule === 'facture'}
-        <Facture {user} client={selectedClient} devis={selectedDevisForFacture} />
+        <Facture {user} client={selectedClient} devis={selectedDevisForFacture} onSavedAndGoToList={showListeDocuments} />
       {:else if displayModule === 'liste-documents'}
         <ListeDocuments {user} onOpenFactureFromDevis={openFactureFromDevis} />
       {:else if displayModule === 'coffre-fort'}

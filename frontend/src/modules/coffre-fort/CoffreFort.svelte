@@ -16,6 +16,7 @@
   import UploadSection from './UploadSection.svelte';
   import DocumentTable from './DocumentTable.svelte';
   import DocumentPreviewModal from './DocumentPreviewModal.svelte';
+  import ProofsPanel from '$lib/ProofsPanel.svelte';
 
   /** Orchestration du coffre-fort : données, recherche, upload, liste, aperçu. Pas de logique métier dans les sous-composants. */
   let { user = null } = $props();
@@ -113,6 +114,15 @@
     if (doc) return `${doc.filename} — ${clientDisplayName(clientsMap[doc.clientId])}`;
     return p.filename || (p.documentId.length > 20 ? p.documentId.slice(0, 18) + '…' : p.documentId);
   }
+
+  /** Items pour l’encart Preuves : id, hash, label (documents coffre-fort). */
+  const proofItems = $derived.by(() =>
+    backendDocumentProofs.map((p) => ({
+      id: p.documentId,
+      hash: p.fileHash || '',
+      label: getDocumentProofLabel(p)
+    }))
+  );
 
   async function loadData() {
     if (!user) return;
@@ -279,31 +289,14 @@
       />
     </section>
       </div>
-      <aside class="coffre-proofs-panel" aria-label="Preuves documents — comparaison hash local / backend">
-        <h3 class="coffre-proofs-title">Preuves documents (intégrité)</h3>
-        <p class="coffre-proofs-hint">Hash enregistrés côté serveur. Comparaison avec le hash local (IndexedDB).</p>
-        {#if proofsPanelError}
-          <p class="coffre-proofs-error">{proofsPanelError}</p>
-        {:else if backendDocumentProofs.length === 0}
-          <p class="coffre-proofs-empty">Aucune preuve enregistrée.</p>
-        {:else}
-          <ul class="coffre-proofs-list">
-            {#each backendDocumentProofs as p (p.documentId)}
-              <li class="coffre-proof-item">
-                <span class="coffre-proof-label" title={p.documentId}>{getDocumentProofLabel(p)}</span>
-                <code class="coffre-proof-hash" title={p.fileHash}>{p.fileHash ? p.fileHash.slice(0, 12) + '…' : '—'}</code>
-                {#if verifiedLoading && verifiedMap[p.documentId] === undefined}
-                  <span class="coffre-proof-status coffre-proof-pending" title="Vérification…">—</span>
-                {:else if verifiedMap[p.documentId] === true}
-                  <span class="coffre-proof-status coffre-proof-ok" title="Hash local = hash backend">✓ conforme</span>
-                {:else}
-                  <span class="coffre-proof-status coffre-proof-diff" title="Hash local ≠ hash backend">✗ différent</span>
-                {/if}
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      </aside>
+      <ProofsPanel
+        title="Preuves documents (intégrité)"
+        error={proofsPanelError}
+        items={proofItems}
+        verifiedMap={verifiedMap}
+        verifiedLoading={verifiedLoading}
+        ariaLabel="Preuves documents — comparaison hash local / backend"
+      />
     </div>
   {/if}
 </div>
@@ -325,79 +318,6 @@
     gap: 1.5rem;
     align-items: flex-start;
     flex-wrap: wrap;
-  }
-  .coffre-proofs-panel {
-    flex: 0 0 280px;
-    min-width: 240px;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 1rem;
-    background: #f8fafc;
-  }
-  .coffre-proofs-title {
-    margin: 0 0 0.5rem 0;
-    font-size: 1rem;
-    color: #0f766e;
-  }
-  .coffre-proofs-hint {
-    font-size: 0.8rem;
-    color: #64748b;
-    margin: 0 0 0.75rem 0;
-  }
-  .coffre-proofs-error {
-    color: #b91c1c;
-    font-size: 0.85rem;
-    margin: 0;
-  }
-  .coffre-proofs-empty {
-    color: #64748b;
-    font-size: 0.9rem;
-    margin: 0;
-  }
-  .coffre-proofs-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-  .coffre-proof-item {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.35rem 0.5rem;
-    padding: 0.4rem 0;
-    border-bottom: 1px solid #e2e8f0;
-    font-size: 0.8rem;
-  }
-  .coffre-proof-item:last-child {
-    border-bottom: none;
-  }
-  .coffre-proof-label {
-    flex: 0 0 100%;
-    font-weight: 500;
-    color: #0f172a;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .coffre-proof-hash {
-    font-size: 0.75rem;
-    background: #e2e8f0;
-    padding: 0.15rem 0.35rem;
-    border-radius: 4px;
-    color: #475569;
-  }
-  .coffre-proof-status {
-    font-size: 0.75rem;
-    font-weight: 500;
-  }
-  .coffre-proof-ok {
-    color: #15803d;
-  }
-  .coffre-proof-diff {
-    color: #b91c1c;
-  }
-  .coffre-proof-pending {
-    color: #94a3b8;
   }
   .coffre-main {
     flex: 1;

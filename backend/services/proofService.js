@@ -37,3 +37,11 @@ export async function findAllProofsByUserId(userId) {
     orderBy: { signedAt: 'desc' }
   });
 }
+
+/** Supprime la preuve d'un devis/facture pour l'utilisateur (double suppression ou filet de secours orphelins). */
+export async function deleteProofByUserIdAndInvoiceId(userId, invoiceId) {
+  const result = await prisma.proof.deleteMany({
+    where: { userId, invoiceId }
+  });
+  return result.count > 0;
+}

@@ -1,5 +1,4 @@
 import { findUserById } from '../services/userService.js';
-import { error as logError } from '../lib/logger.js';
 
 /**
  * Vérifie que la session contient un userId et charge l'utilisateur.
@@ -17,8 +16,5 @@ export function requireAuth(req, res, next) {
       req.user = user;
       next();
     })
-    .catch((err) => {
-      logError(err);
-      res.status(500).json({ error: 'Erreur serveur' });
-    });
+    .catch(next);
 }

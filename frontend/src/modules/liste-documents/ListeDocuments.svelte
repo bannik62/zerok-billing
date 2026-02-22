@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
-  import { writable, get } from 'svelte/store';
+  import { ListeDocumentsControlsFields, LISTE_DOCS_SEARCH_MAX_LENGTH } from '$lib/liste-documents/ListeDocumentsControlsFields.js';
+  import { clientDisplayName, getProofLabel } from '$lib/liste-documents/listeDocumentsHelpers.js';
   import {
     getAllDevis,
     getAllFactures,
@@ -11,110 +12,11 @@
     decryptDocumentBlob
   } from '$lib/dbEncrypted.js';
   import { hashDocument } from '$lib/crypto/index.js';
-  import { getProofs, verifyProofs } from '$lib/proofs.js';
+  import { getProofs, verifyProofs, deleteProof } from '$lib/proofs.js';
   import { buildAttachmentsZip, downloadBlob } from '$lib/coffreFortExport.js';
   import PrintPreviewModal from './PrintPreviewModal.svelte';
-
-  /**
-   * Liste documents – devis et factures.
-   * Cases à cocher, Supprimer, Exporter ; pour devis sans facture : bouton Créer facture.
-   */
-
-  const LISTE_DOCS_SEARCH_MAX_LENGTH = 200;
-  const LISTE_DOCS_ID_MAX_LENGTH = 100;
-
-  /** Encapsule les champs de contrôle : recherche + sélections (devis/factures). */
-  class ListeDocumentsControlsFields {
-    constructor() {
-      this._searchStore = writable('');
-      this.selectedDevisIdsStore = writable(new Set());
-      this.selectedFactureIdsStore = writable(new Set());
-    }
-
-    normalizeSearchQuery(value) {
-      let next = typeof value === 'string' ? value : '';
-      next = next.replace(/[\u0000-\u001f\u007f]/g, '');
-      if (next.length > LISTE_DOCS_SEARCH_MAX_LENGTH) next = next.slice(0, LISTE_DOCS_SEARCH_MAX_LENGTH);
-      return next;
-    }
-
-    normalizeId(value) {
-      if (typeof value !== 'string') return null;
-      const id = value.trim();
-      if (!id) return null;
-      if (id.length > LISTE_DOCS_ID_MAX_LENGTH) return null;
-      return id;
-    }
-
-    normalizeIdSet(ids) {
-      const source = ids instanceof Set ? ids : Array.isArray(ids) ? ids : [];
-      const out = new Set();
-      for (const raw of source) {
-        const id = this.normalizeId(raw);
-        if (id) out.add(id);
-      }
-      return out;
-    }
-
-    get searchStore() {
-      return this._searchStore;
-    }
-
-    get searchQuery() {
-      return get(this._searchStore);
-    }
-
-    set searchQuery(value) {
-      this._searchStore.set(this.normalizeSearchQuery(value));
-    }
-
-    get selectedDevisIds() {
-      return get(this.selectedDevisIdsStore);
-    }
-
-    set selectedDevisIds(ids) {
-      this.selectedDevisIdsStore.set(this.normalizeIdSet(ids));
-    }
-
-    get selectedFactureIds() {
-      return get(this.selectedFactureIdsStore);
-    }
-
-    set selectedFactureIds(ids) {
-      this.selectedFactureIdsStore.set(this.normalizeIdSet(ids));
-    }
-
-    clearSelections() {
-      this.selectedDevisIds = new Set();
-      this.selectedFactureIds = new Set();
-    }
-
-    toggleDevisSelection(id) {
-      const normalizedId = this.normalizeId(id);
-      if (!normalizedId) return;
-      const next = new Set(this.selectedDevisIds);
-      if (next.has(normalizedId)) next.delete(normalizedId);
-      else next.add(normalizedId);
-      this.selectedDevisIds = next;
-    }
-
-    toggleFactureSelection(id) {
-      const normalizedId = this.normalizeId(id);
-      if (!normalizedId) return;
-      const next = new Set(this.selectedFactureIds);
-      if (next.has(normalizedId)) next.delete(normalizedId);
-      else next.add(normalizedId);
-      this.selectedFactureIds = next;
-    }
-
-    selectAllDevis(ids = []) {
-      this.selectedDevisIds = new Set(ids.map((id) => this.normalizeId(id)).filter(Boolean));
-    }
-
-    selectAllFactures(ids = []) {
-      this.selectedFactureIds = new Set(ids.map((id) => this.normalizeId(id)).filter(Boolean));
-    }
-  }
+  import ListeDocumentsSearch from './ListeDocumentsSearch.svelte';
+  import ProofsPanel from '$lib/ProofsPanel.svelte';
 
   const controlsFields = new ListeDocumentsControlsFields();
   const searchStore = controlsFields.searchStore;
@@ -183,11 +85,6 @@
   let deleting = $state(false);
   let zipExportingId = $state(null); // id du devis/facture en cours d'export ZIP
 
-  function clientDisplayName(client) {
-    if (!client) return '—';
-    return client.raisonSociale || [client.prenom, client.nom].filter(Boolean).join(' ') || '—';
-  }
-
   const filteredDevisList = $derived.by(() => {
     const q = ($searchStore || '').trim().toLowerCase();
     if (!q) return devisList;
@@ -235,23 +132,19 @@
     return map;
   });
 
-  /** Libellé lisible pour une preuve (invoiceId) : Devis/Facture n° — Client */
-  function getProofLabel(invoiceId) {
-    if (!invoiceId) return '—';
-    const devis = devisList.find((d) => d.id === invoiceId);
-    if (devis) {
-      const numero = devis.entete?.numero || devis.id;
-      const client = clientsMap[devis.entete?.clientId];
-      return `Devis ${numero} — ${clientDisplayName(client)}`;
-    }
-    const facture = facturesList.find((f) => f.id === invoiceId);
-    if (facture) {
-      const numero = facture.entete?.numero || facture.id;
-      const client = clientsMap[facture.entete?.clientId];
-      return `Facture ${numero} — ${clientDisplayName(client)}`;
-    }
-    return invoiceId.length > 24 ? invoiceId.slice(0, 22) + '…' : invoiceId;
-  }
+  /** Items pour l’encart Preuves : id, hash, label, isOrphan (document plus présent en local). */
+  const proofItems = $derived.by(() => {
+    const devisIds = new Set(devisList.map((d) => d.id));
+    const factureIds = new Set(facturesList.map((f) => f.id));
+    return backendProofs.map((p) => ({
+      id: p.invoiceId,
+      hash: p.invoiceHash || '',
+      label: getProofLabel(p.invoiceId, devisList, facturesList, clientsMap),
+      isOrphan: !devisIds.has(p.invoiceId) && !factureIds.has(p.invoiceId)
+    }));
+  });
+
+  let deletingProofId = $state(null);
 
   let selectAllDevisCheckboxEl = $state(null);
   let selectAllCheckboxEl = $state(null);
@@ -277,9 +170,13 @@
     if (!confirm(msg)) return;
     deletingDevis = true;
     try {
-      for (const id of $selectedDevisIdsStore) await deleteDevis(id);
+      for (const id of $selectedDevisIdsStore) {
+        await deleteDevis(id);
+        await deleteProof(id).catch(() => {});
+      }
       controlsFields.selectedDevisIds = new Set();
       devisList = await getAllDevis(user?.id ?? null);
+      backendProofs = await getProofs();
     } catch (e) {
       error = e?.message || 'Erreur lors de la suppression.';
     } finally {
@@ -308,13 +205,29 @@
     try {
       for (const id of $selectedFactureIdsStore) {
         await deleteFacture(id);
+        await deleteProof(id).catch(() => {});
       }
       controlsFields.selectedFactureIds = new Set();
       facturesList = await getAllFactures(user?.id ?? null);
+      backendProofs = await getProofs();
     } catch (e) {
       error = e?.message || 'Erreur lors de la suppression.';
     } finally {
       deleting = false;
+    }
+  }
+
+  /** Filet de secours : supprime du serveur une preuve orpheline (document plus présent en local). */
+  async function handleDeleteProofFromServer(invoiceId) {
+    if (!invoiceId) return;
+    deletingProofId = invoiceId;
+    try {
+      await deleteProof(invoiceId);
+      backendProofs = await getProofs();
+    } catch (e) {
+      error = e?.message || 'Erreur suppression preuve sur le serveur.';
+    } finally {
+      deletingProofId = null;
     }
   }
 
@@ -399,19 +312,7 @@
   {:else}
     <div class="liste-layout">
       <div class="liste-main">
-    <div class="liste-search-wrap">
-      <label for="liste-search" class="liste-search-label">Rechercher</label>
-      <input
-        id="liste-search"
-        type="search"
-        class="liste-search-input"
-        placeholder="N°, client, objet, date, montant…"
-        value={$searchStore}
-        oninput={(e) => (controlsFields.searchQuery = e.currentTarget.value)}
-        maxlength="200"
-        aria-label="Filtrer devis et factures"
-      />
-    </div>
+    <ListeDocumentsSearch {controlsFields} maxLength={LISTE_DOCS_SEARCH_MAX_LENGTH} />
     <section class="liste-section" aria-label="Liste des devis">
       <div class="liste-section-head">
         <h3 class="liste-section-title">Devis</h3>
@@ -618,31 +519,15 @@
       </div>
     </section>
       </div>
-      <aside class="liste-proofs-panel" aria-label="Preuves — comparaison hash local / backend">
-        <h3 class="liste-proofs-title">Preuves (intégrité)</h3>
-        <p class="liste-proofs-hint">Hash enregistrés côté serveur. Comparaison avec le hash local (IndexedDB).</p>
-        {#if proofsPanelError}
-          <p class="liste-proofs-error">{proofsPanelError}</p>
-        {:else if backendProofs.length === 0}
-          <p class="liste-proofs-empty">Aucune preuve enregistrée.</p>
-        {:else}
-          <ul class="liste-proofs-list">
-            {#each backendProofs as p (p.invoiceId)}
-              <li class="liste-proof-item">
-                <span class="liste-proof-label" title={p.invoiceId}>{getProofLabel(p.invoiceId)}</span>
-                <code class="liste-proof-hash" title={p.invoiceHash}>{p.invoiceHash ? p.invoiceHash.slice(0, 12) + '…' : '—'}</code>
-                {#if verifiedLoading && verifiedMap[p.invoiceId] === undefined}
-                  <span class="liste-proof-status liste-proof-pending" title="Vérification…">—</span>
-                {:else if verifiedMap[p.invoiceId] === true}
-                  <span class="liste-proof-status liste-proof-ok" title="Hash local = hash backend">✓ conforme</span>
-                {:else}
-                  <span class="liste-proof-status liste-proof-diff" title="Hash local ≠ hash backend">✗ différent</span>
-                {/if}
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      </aside>
+      <ProofsPanel
+        title="Preuves (intégrité)"
+        error={proofsPanelError}
+        items={proofItems}
+        verifiedMap={verifiedMap}
+        verifiedLoading={verifiedLoading}
+        onDeleteFromServer={handleDeleteProofFromServer}
+        deletingProofId={deletingProofId}
+      />
     </div>
   {/if}
 
@@ -667,81 +552,6 @@
     gap: 1.5rem;
     align-items: flex-start;
     flex-wrap: wrap;
-  }
-  .liste-proofs-panel {
-    flex: 0 0 280px;
-    min-width: 240px;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 1rem;
-    background: #f8fafc;
-  }
-  .liste-proofs-title {
-    margin: 0 0 0.5rem 0;
-    font-size: 1rem;
-    color: #0f766e;
-  }
-  .liste-proofs-hint {
-    font-size: 0.8rem;
-    color: #64748b;
-    margin: 0 0 0.75rem 0;
-  }
-  .liste-proofs-error {
-    color: #b91c1c;
-    font-size: 0.85rem;
-    margin: 0;
-  }
-  .liste-proofs-empty {
-    color: #64748b;
-    font-size: 0.9rem;
-    margin: 0;
-  }
-  .liste-proofs-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-  .liste-proof-item {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.35rem 0.5rem;
-    padding: 0.4rem 0;
-    border-bottom: 1px solid #e2e8f0;
-    font-size: 0.8rem;
-  }
-  .liste-proof-item:last-child {
-    border-bottom: none;
-  }
-  .liste-proof-label {
-    flex: 0 0 100%;
-    font-weight: 500;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .liste-proof-label {
-    color: #0f172a;
-  }
-  .liste-proof-hash {
-    font-size: 0.75rem;
-    background: #e2e8f0;
-    padding: 0.15rem 0.35rem;
-    border-radius: 4px;
-    color: #475569;
-  }
-  .liste-proof-status {
-    font-size: 0.75rem;
-    font-weight: 500;
-  }
-  .liste-proof-ok {
-    color: #15803d;
-  }
-  .liste-proof-diff {
-    color: #b91c1c;
-  }
-  .liste-proof-pending {
-    color: #94a3b8;
   }
   .liste-main {
     flex: 1;
@@ -768,32 +578,6 @@
     margin: 0.25rem 0 0 0;
     font-size: 0.85rem;
     color: #64748b;
-  }
-  .liste-search-wrap {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .liste-search-label {
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: #475569;
-  }
-  .liste-search-input {
-    flex: 1;
-    max-width: 20rem;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    font-size: 0.9rem;
-  }
-  .liste-search-input:focus {
-    outline: none;
-    border-color: #0f766e;
-    box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.2);
-  }
-  .liste-search-input::placeholder {
-    color: #94a3b8;
   }
   .liste-section {
     display: flex;

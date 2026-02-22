@@ -1,14 +1,19 @@
 import Joi from 'joi';
+import {
+  INVOICE_ID_MAX,
+  DOCUMENT_ID_MAX,
+  FILENAME_MAX,
+  MIMETYPE_MAX,
+  HASH_HEX_LENGTH,
+  SIGNATURE_MAX,
+  VERIFY_BATCH_MAX
+} from '../config/constants.js';
 
-const INVOICE_ID_MAX = 100;
-const DOCUMENT_ID_MAX = 100;
-const FILENAME_MAX = 255;
-const MIMETYPE_MAX = 100;
-const HASH_HEX_LENGTH = 64;
-const SIGNATURE_MAX = 512;
-const VERIFY_BATCH_MAX = 200;
-
-const hashHexSchema = Joi.string().trim().lowercase().pattern(/^[a-f0-9]{64}$/).required();
+const hashHexSchema = Joi.string()
+  .trim()
+  .lowercase()
+  .pattern(new RegExp(`^[a-f0-9]{${HASH_HEX_LENGTH}}$`))
+  .required();
 
 const proofSchema = Joi.object({
   invoiceId: Joi.string().trim().max(INVOICE_ID_MAX).required().messages({
@@ -66,6 +71,11 @@ const documentProofSchema = Joi.object({
 const documentIdParamSchema = Joi.string().trim().max(DOCUMENT_ID_MAX).required().messages({
   'string.empty': 'documentId invalide',
   'string.max': 'documentId invalide'
+});
+
+const invoiceIdParamSchema = Joi.string().trim().max(INVOICE_ID_MAX).required().messages({
+  'string.empty': 'invoiceId invalide',
+  'string.max': 'invoiceId invalide'
 });
 
 const cleanupSchema = Joi.object({
@@ -133,6 +143,16 @@ export function validateDocumentProofBody(body) {
  */
 export function validateDocumentIdParam(documentId) {
   const result = documentIdParamSchema.validate(documentId);
+  const err = toError(result);
+  if (err) return { value: null, error: err };
+  return { value: result.value.trim(), error: null };
+}
+
+/**
+ * DELETE /api/proofs/:invoiceId — param
+ */
+export function validateInvoiceIdParam(invoiceId) {
+  const result = invoiceIdParamSchema.validate(invoiceId);
   const err = toError(result);
   if (err) return { value: null, error: err };
   return { value: result.value.trim(), error: null };

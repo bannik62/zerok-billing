@@ -33,6 +33,17 @@ export async function getProofs() {
 }
 
 /**
+ * Supprime la preuve d'un devis/facture sur le serveur (double suppression ou filet orphelins).
+ * @param {string} invoiceId - id du devis ou de la facture
+ * @returns {Promise<boolean>} true si une preuve a été supprimée
+ */
+export async function deleteProof(invoiceId) {
+  if (!invoiceId) return false;
+  const res = await apiClient.delete(`/api/proofs/${encodeURIComponent(invoiceId)}`);
+  return res.data?.deleted === true;
+}
+
+/**
  * Vérifie en lot que les hash des documents correspondent à ceux enregistrés sur le serveur.
  * @param {{ invoiceId: string, invoiceHash: string }[]} checks
  * @returns {Promise<{ invoiceId: string, verified: boolean }[]>}
