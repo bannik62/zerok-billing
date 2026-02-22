@@ -5,52 +5,7 @@ import { findUserByEmail, createUser } from '../services/userService.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { ensureCsrfToken } from '../middleware/csrf.js';
 import { error as logError } from '../lib/logger.js';
-
-const PASSWORD_MIN_LENGTH = 8;
-const PASSWORD_MAX_LENGTH = 128;
-const EMAIL_MAX_LENGTH = 255;
-const NOM_MAX_LENGTH = 100;
-const PRENOM_MAX_LENGTH = 100;
-const ADRESSE_MAX_LENGTH = 255;
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function trimString(v) {
-  return typeof v === 'string' ? v.trim() : '';
-}
-
-function validateRegisterBody(body) {
-  const email = trimString(body.email);
-  const password = typeof body.password === 'string' ? body.password : '';
-  const nom = trimString(body.nom);
-  const prenom = trimString(body.prenom);
-  const adresse = body.adresse != null ? trimString(body.adresse) : '';
-  const errors = [];
-  if (!email) errors.push('email requis');
-  else if (email.length > EMAIL_MAX_LENGTH) errors.push('email trop long');
-  else if (!EMAIL_REGEX.test(email)) errors.push('format email invalide');
-  if (!password) errors.push('password requis');
-  else if (password.length < PASSWORD_MIN_LENGTH) errors.push(`mot de passe minimum ${PASSWORD_MIN_LENGTH} caractères`);
-  else if (password.length > PASSWORD_MAX_LENGTH) errors.push('mot de passe trop long');
-  if (!nom) errors.push('nom requis');
-  else if (nom.length > NOM_MAX_LENGTH) errors.push('nom trop long');
-  if (!prenom) errors.push('prenom requis');
-  else if (prenom.length > PRENOM_MAX_LENGTH) errors.push('prenom trop long');
-  if (adresse.length > ADRESSE_MAX_LENGTH) errors.push('adresse trop longue');
-  return { errors, email, password, nom, prenom, adresse: adresse || null };
-}
-
-function validateLoginBody(body) {
-  const email = trimString(body.email);
-  const password = typeof body.password === 'string' ? body.password : '';
-  const errors = [];
-  if (!email) errors.push('email requis');
-  else if (email.length > EMAIL_MAX_LENGTH) errors.push('email trop long');
-  else if (!EMAIL_REGEX.test(email)) errors.push('format email invalide');
-  if (!password) errors.push('password requis');
-  else if (password.length > PASSWORD_MAX_LENGTH) errors.push('mot de passe trop long');
-  return { errors, email, password };
-}
+import { validateRegister, validateLogin, PASSWORD_MIN_LENGTH } from '../validators/authValidator.js';
 
 /** Limite les tentatives login/register par IP (10 req / 15 min). */
 const authRateLimiter = rateLimit({
@@ -72,10 +27,9 @@ authRouter.get('/csrf-token', ensureCsrfToken, (req, res) => {
 
 authRouter.post('/register', authRateLimiter, async (req, res) => {
   try {
-    const { errors, email, password, nom, prenom, adresse } = validateRegisterBody(req.body);
-    if (errors.length > 0) {
-      return res.status(400).json({ error: errors.join('. ') });
-    }
+    const { value, error } = validateRegister(req.body);
+    if (error) return res.status(400).json({ error });
+    const { email, password, nom, prenom, adresse } = value;
     const existing = await findUserByEmail(email);
     if (existing) {
       return res.status(409).json({ error: 'Cet email est déjà utilisé' });
@@ -108,10 +62,9 @@ authRouter.post('/register', authRateLimiter, async (req, res) => {
 
 authRouter.post('/login', authRateLimiter, async (req, res) => {
   try {
-    const { errors, email, password } = validateLoginBody(req.body);
-    if (errors.length > 0) {
-      return res.status(400).json({ error: errors.join('. ') });
-    }
+    const { value, error } = validateLogin(req.body);
+    if (error) return res.status(400).json({ error });
+    const { email, password } = value;
     if (password.length < PASSWORD_MIN_LENGTH) {
       return res.status(400).json({ error: `Le mot de passe doit contenir au moins ${PASSWORD_MIN_LENGTH} caractères` });
     }

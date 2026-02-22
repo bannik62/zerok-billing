@@ -1,15 +1,6 @@
 import 'dotenv/config';
+import { env } from './config/env.js';
 import { log } from './lib/logger.js';
-
-const DEV_SESSION_SECRET = 'dev-secret-change-in-prod';
-if (process.env.NODE_ENV === 'production') {
-  const secret = process.env.SESSION_SECRET;
-  if (!secret || secret === DEV_SESSION_SECRET) {
-    // Message critique au démarrage (avant logger)
-    process.stderr.write('[zerok-billing] En production, SESSION_SECRET doit être défini et différent du secret de dev.\n');
-    process.exit(1);
-  }
-}
 
 import express from 'express';
 import helmet from 'helmet';
@@ -24,22 +15,18 @@ import { authRouter } from './routes/auth.js';
 import { secureRouter } from './routes/secure.js';
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3001;
+const PORT = env.PORT;
 
-log('[zerok-billing] PORT from env:', process.env.PORT, '→ listening on', PORT);
+log('[zerok-billing] listening on port', PORT);
 
 app.set('trust proxy', 1);
 
 app.use(helmet());
 
-const allowedOrigins = (process.env.FRONTEND_ORIGIN || 'http://localhost:5173').split(',').map((o) => o.trim()).filter(Boolean);
-if (!allowedOrigins.includes('http://127.0.0.1:5173')) allowedOrigins.push('http://127.0.0.1:5173');
-if (!allowedOrigins.includes('http://localhost:5173')) allowedOrigins.push('http://localhost:5173');
-
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
-    if (allowedOrigins.includes(origin)) return cb(null, true);
+    if (env.allowedOrigins.includes(origin)) return cb(null, true);
     cb(new Error('Origin not allowed'));
   },
   credentials: true
@@ -48,22 +35,22 @@ app.use(cookieParser());
 app.use(express.json({ limit: '512kb' }));
 
 const sessionConfig = {
-  secret: process.env.SESSION_SECRET || DEV_SESSION_SECRET,
+  secret: env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   name: 'zerok.sid',
   cookie: {
     httpOnly: true,
-    secure: process.env.COOKIE_SECURE === 'true',
+    secure: env.cookieSecure,
     sameSite: 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000,
     path: '/'
   }
 };
 
-if (process.env.DATABASE_URL) {
+if (env.DATABASE_URL) {
   const PgSession = connectPgSimple(session);
-  const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+  const pool = new pg.Pool({ connectionString: env.DATABASE_URL });
   sessionConfig.store = new PgSession({ pool, createTableIfMissing: true });
   log('[zerok-billing] Sessions: store PostgreSQL (table session)');
 } else {
