@@ -166,15 +166,21 @@
       resolvedClient = null;
       return;
     }
-    getClientById(id, uid).then((c) => (resolvedClient = c));
+    let cancelled = false;
+    getClientById(id, uid).then((c) => { if (!cancelled) resolvedClient = c; });
+    return () => { cancelled = true; };
   });
   $effect(() => {
     if (step !== 2) return;
-    getSociete(uid).then((s) => (resolvedSociete = s));
+    let cancelled = false;
+    getSociete(uid).then((s) => { if (!cancelled) resolvedSociete = s; });
+    return () => { cancelled = true; };
   });
   $effect(() => {
     if (step !== 2) return;
-    getAllLayoutProfiles(uid).then((list) => (layoutProfiles = list));
+    let cancelled = false;
+    getAllLayoutProfiles(uid).then((list) => { if (!cancelled) layoutProfiles = list; });
+    return () => { cancelled = true; };
   });
 
   function handleDragStart(e, type) {

@@ -130,14 +130,17 @@
     if (step !== 1 || currentDevis != null) return;
     const clientId = entete.clientId;
     const list = clients;
+    let cancelled = false;
     getNextDevisNumber(clientId, list, uid)
       .then((num) => {
+        if (cancelled) return;
         const nextNum = num || '';
         if (entete.clientId === clientId && nextNum !== (entete.numero || '')) {
           entete = { ...entete, numero: nextNum };
         }
       })
       .catch(() => {});
+    return () => { cancelled = true; };
   });
 
   let saving = $state(false);
@@ -188,23 +191,29 @@
       resolvedClient = null;
       return;
     }
+    let cancelled = false;
     getClientById(id, uid)
-      .then((c) => (resolvedClient = c))
+      .then((c) => { if (!cancelled) resolvedClient = c; })
       .catch(() => {});
+    return () => { cancelled = true; };
   });
 
   $effect(() => {
     if (step !== 2) return;
+    let cancelled = false;
     getSociete(uid)
-      .then((s) => (resolvedSociete = s))
+      .then((s) => { if (!cancelled) resolvedSociete = s; })
       .catch(() => {});
+    return () => { cancelled = true; };
   });
 
   $effect(() => {
     if (step !== 2) return;
+    let cancelled = false;
     getAllLayoutProfiles(uid)
-      .then((list) => (layoutProfiles = list))
+      .then((list) => { if (!cancelled) layoutProfiles = list; })
       .catch(() => {});
+    return () => { cancelled = true; };
   });
 
   function handleDragStart(e, type) {
@@ -360,7 +369,16 @@
   let savingBdd = $state(false);
   let saveMessage = $state('');
   let saveError = $state('');
+  let saveMessageTimer = null;
+  let saveErrorTimer = null;
   let redirectNoticeOpen = $state(false);
+
+  $effect(() => {
+    return () => {
+      if (saveMessageTimer != null) clearTimeout(saveMessageTimer);
+      if (saveErrorTimer != null) clearTimeout(saveErrorTimer);
+    };
+  });
 
   const REDIRECT_NOTICE_TITLE = 'Enregistrement';
   const REDIRECT_NOTICE_MESSAGE = 'Après enregistrement, vous serez redirigé vers la liste des documents.';
@@ -386,11 +404,13 @@
         saveMessage = 'Devis enregistré.';
         await sendProof(currentDevis, 'devis').catch((err) => console.warn('Preuve non envoyée:', err));
       }
-      setTimeout(() => { saveMessage = ''; }, 3000);
+      if (saveMessageTimer != null) clearTimeout(saveMessageTimer);
+      saveMessageTimer = setTimeout(() => { saveMessage = ''; saveMessageTimer = null; }, 3000);
     } catch (e) {
       console.error(e);
       saveError = e?.message || 'Erreur lors de l\'enregistrement.';
-      setTimeout(() => { saveError = ''; }, 5000);
+      if (saveErrorTimer != null) clearTimeout(saveErrorTimer);
+      saveErrorTimer = setTimeout(() => { saveError = ''; saveErrorTimer = null; }, 5000);
     } finally {
       savingBdd = false;
     }

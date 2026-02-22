@@ -5,6 +5,10 @@
 :root {
   font-family: system-ui, sans-serif;
   line-height: 1.5;
+  /* Z-index (éviter valeurs en dur et conflits de superposition) */
+  --z-toolbar: 10;
+  --z-modal: 1000;
+  --z-critical: 9999;
   --color-bg: #f1f5f9;
   --color-bg-elevated: #fff;
   --color-bg-muted: #f8fafc;

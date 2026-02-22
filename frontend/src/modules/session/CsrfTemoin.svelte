@@ -32,7 +32,7 @@
     background: var(--color-bg-muted);
     color: var(--color-text-soft);
     border: 1px solid var(--color-border);
-    z-index: 9999;
+    z-index: var(--z-critical);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   }
   .csrf-temoin-label { font-weight: 500; }

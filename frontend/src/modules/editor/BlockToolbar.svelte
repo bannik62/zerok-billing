@@ -88,7 +88,7 @@
 <style>
   .block-toolbar {
     position: absolute;
-    z-index: 10;
+    z-index: var(--z-toolbar);
     display: flex;
     align-items: center;
     flex-wrap: wrap;

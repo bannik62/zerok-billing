@@ -113,11 +113,14 @@
       const archive = await createArchive(bundle, exportPwd.value);
       const blob = new Blob([JSON.stringify(archive)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `zerok-archive-${new Date().toISOString().slice(0, 10)}.zerok-archive`;
-      a.click();
-      URL.revokeObjectURL(url);
+      try {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `zerok-archive-${new Date().toISOString().slice(0, 10)}.zerok-archive`;
+        a.click();
+      } finally {
+        URL.revokeObjectURL(url);
+      }
       exportSuccess = 'Archive téléchargée. Pour l\'ouvrir ailleurs, utilisez « Restaurer » et le même mot de passe.';
     } catch (e) {
       exportError = e?.message || 'Erreur lors de la création de l\'archive.';

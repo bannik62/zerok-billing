@@ -11,10 +11,10 @@
   let sessionValid = $state(null);
   let user = $state(null);
 
-  async function verify(isMounted) {
+  async function verify(isMounted, signal) {
     sessionValid = null;
     try {
-      const res = await apiClient.get('/api/auth/me');
+      const res = await apiClient.get('/api/auth/me', { signal });
       if (!isMounted()) return;
       const data = res.data;
       if (data?.valid === true) {
@@ -23,16 +23,20 @@
       } else {
         sessionValid = false;
       }
-    } catch {
-      if (isMounted()) sessionValid = false;
+    } catch (err) {
+      if (isMounted() && err?.name !== 'CanceledError' && err?.code !== 'ERR_CANCELED') sessionValid = false;
     }
   }
 
   onMount(() => {
     let mounted = true;
     const isMounted = () => mounted;
-    verify(isMounted);
-    return () => { mounted = false; };
+    const controller = new AbortController();
+    verify(isMounted, controller.signal);
+    return () => {
+      mounted = false;
+      controller.abort();
+    };
   });
 
   function goLogin() {

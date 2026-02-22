@@ -238,11 +238,14 @@
     try {
       const blob = await decryptDocumentBlob(doc);
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = doc.filename || 'document';
-      a.click();
-      URL.revokeObjectURL(url);
+      try {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = doc.filename || 'document';
+        a.click();
+      } finally {
+        URL.revokeObjectURL(url);
+      }
     } catch (e) {
       error = e?.message || 'Impossible de télécharger';
     }

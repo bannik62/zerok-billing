@@ -47,7 +47,7 @@
     position: fixed;
     bottom: 4.75rem;
     right: 0.75rem;
-    z-index: 9999;
+    z-index: var(--z-critical);
   }
   .db-temoin-btn {
     padding: 0.35rem 0.6rem;
