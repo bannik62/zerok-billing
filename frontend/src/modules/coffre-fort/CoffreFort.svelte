@@ -1,14 +1,16 @@
 <script>
+  import { writable, get } from 'svelte/store';
   import {
     getAllDocuments,
     getAllClients,
     getAllDevis,
     getAllFactures,
+    getSociete,
     addDocument,
     deleteDocument,
     decryptDocumentBlob
   } from '$lib/dbEncrypted.js';
-  import { sendDocumentProof, verifyDocumentProofs, getDocumentProofs } from '$lib/proofs.js';
+  import { sendDocumentProof, verifyDocumentProofs, getDocumentProofs, deleteDocumentProof, cleanupDocumentProofs } from '$lib/proofs.js';
   import { filterDocuments } from '$lib/coffreFortSearch.js';
   import { getDocTypeLabel, getCategoryLabel } from './constants.js';
   import UploadSection from './UploadSection.svelte';
@@ -18,15 +20,47 @@
   /** Orchestration du coffre-fort : données, recherche, upload, liste, aperçu. Pas de logique métier dans les sous-composants. */
   let { user = null } = $props();
 
+  const SEARCH_MAX_LENGTH = 200;
+
+  class CoffreFortSearchField {
+    constructor() {
+      this._searchStore = writable('');
+    }
+
+    normalize(value) {
+      let next = typeof value === 'string' ? value : '';
+      next = next.replace(/[\u0000-\u001f\u007f]/g, '');
+      if (next.length > SEARCH_MAX_LENGTH) {
+        next = next.slice(0, SEARCH_MAX_LENGTH);
+      }
+      return next;
+    }
+
+    get store() {
+      return this._searchStore;
+    }
+
+    get searchQuery() {
+      return get(this._searchStore);
+    }
+
+    set searchQuery(value) {
+      this._searchStore.set(this.normalize(value));
+    }
+  }
+
+  const searchField = new CoffreFortSearchField();
+  const searchStore = searchField.store;
+
   let documents = $state([]);
   let clients = $state([]);
+  let societe = $state(null);
   let devisList = $state([]);
   let facturesList = $state([]);
   let loading = $state(true);
   let error = $state(null);
   let uploading = $state(false);
   let uploadError = $state(null);
-  let searchQuery = $state('');
   let previewOpen = $state(false);
   let previewDoc = $state(null);
   let verifiedMap = $state({});
@@ -34,7 +68,19 @@
   let backendDocumentProofs = $state([]);
   let proofsPanelError = $state('');
 
-  const clientsMap = $derived(Object.fromEntries((clients || []).map((c) => [c.id, c])));
+  const clientsMap = $derived.by(() => {
+    const map = Object.fromEntries((clients || []).map((c) => [c.id, c]));
+    const uid = user?.id;
+    if (uid != null && societe) {
+      map[`societe-${uid}`] = { raisonSociale: (societe.nom || '').trim() || 'Mon entreprise' };
+    }
+    return map;
+  });
+  const companyOption = $derived.by(() => {
+    const uid = user?.id;
+    if (uid == null || !societe) return null;
+    return { id: `societe-${uid}`, label: (societe.nom || '').trim() || 'Mon entreprise' };
+  });
   const invoiceOptions = $derived.by(() => {
     const out = [];
     for (const d of devisList) {
@@ -46,7 +92,7 @@
     return out;
   });
   const filteredDocuments = $derived.by(() =>
-    filterDocuments(documents, searchQuery, clientsMap, getDocTypeLabel, getCategoryLabel)
+    filterDocuments(documents, $searchStore, clientsMap, getDocTypeLabel, getCategoryLabel)
   );
 
   function clientDisplayName(client) {
@@ -74,19 +120,22 @@
     error = null;
     try {
       const uid = user?.id ?? null;
-      const [docs, cl, devis, factures] = await Promise.all([
+      const [docs, cl, soc, devis, factures] = await Promise.all([
         getAllDocuments(uid),
         getAllClients(uid),
+        getSociete(uid),
         getAllDevis(uid),
         getAllFactures(uid)
       ]);
       documents = docs;
       clients = cl;
+      societe = soc;
       devisList = devis;
       facturesList = factures;
       verifiedLoading = true;
       proofsPanelError = '';
       try {
+        await cleanupDocumentProofs(docs.map((d) => d.id));
         backendDocumentProofs = await getDocumentProofs();
         verifiedMap = await verifyDocumentProofs(docs);
       } catch (e) {
@@ -163,6 +212,11 @@
     if (!confirm(`Supprimer « ${doc.filename} » du coffre-fort ?`)) return;
     try {
       await deleteDocument(doc.id, user?.id ?? null);
+      try {
+        await deleteDocumentProof(doc.id);
+      } catch (_) {
+        error = 'Document supprimé localement ; la preuve n\'a pas pu être retirée du serveur.';
+      }
       await loadData();
     } catch (e) {
       error = e?.message || 'Erreur suppression';
@@ -182,6 +236,49 @@
     <p class="coffre-msg coffre-msg--error">{error}</p>
   {:else}
     <div class="coffre-layout">
+      <div class="coffre-main">
+    <UploadSection
+      clients={clients}
+      companyOption={companyOption}
+      invoiceOptions={invoiceOptions}
+      uploading={uploading}
+      uploadError={uploadError}
+      clientDisplayName={clientDisplayName}
+      onUpload={handleUpload}
+      onClearError={() => { uploadError = null; }}
+    />
+
+    <section class="coffre-list" aria-label="Documents perso">
+      <div class="coffre-list-head">
+        <h3 class="coffre-section-title">Documents perso ({filteredDocuments.length})</h3>
+        <div class="coffre-search-wrap">
+          <label for="coffre-search" class="coffre-search-label">Rechercher</label>
+          <input
+            id="coffre-search"
+            type="search"
+            class="coffre-search-input"
+            placeholder="Fichier, client, description, montant…"
+            value={$searchStore}
+            oninput={(e) => (searchField.searchQuery = e.currentTarget.value)}
+            maxlength="200"
+            aria-label="Filtrer les documents"
+          />
+        </div>
+      </div>
+      <DocumentTable
+        documents={filteredDocuments}
+        clientsMap={clientsMap}
+        invoiceOptions={invoiceOptions}
+        clientDisplayName={clientDisplayName}
+        formatSize={formatSize}
+        verifiedMap={verifiedMap}
+        verifiedLoading={verifiedLoading}
+        onPreview={openPreview}
+        onDownload={handleDownload}
+        onDelete={handleDelete}
+      />
+    </section>
+      </div>
       <aside class="coffre-proofs-panel" aria-label="Preuves documents — comparaison hash local / backend">
         <h3 class="coffre-proofs-title">Preuves documents (intégrité)</h3>
         <p class="coffre-proofs-hint">Hash enregistrés côté serveur. Comparaison avec le hash local (IndexedDB).</p>
@@ -207,47 +304,6 @@
           </ul>
         {/if}
       </aside>
-      <div class="coffre-main">
-    <UploadSection
-      clients={clients}
-      invoiceOptions={invoiceOptions}
-      uploading={uploading}
-      uploadError={uploadError}
-      clientDisplayName={clientDisplayName}
-      onUpload={handleUpload}
-      onClearError={() => { uploadError = null; }}
-    />
-
-    <section class="coffre-list" aria-label="Documents perso">
-      <div class="coffre-list-head">
-        <h3 class="coffre-section-title">Documents perso ({filteredDocuments.length})</h3>
-        <div class="coffre-search-wrap">
-          <label for="coffre-search" class="coffre-search-label">Rechercher</label>
-          <input
-            id="coffre-search"
-            type="search"
-            class="coffre-search-input"
-            placeholder="Fichier, client, description, montant…"
-            bind:value={searchQuery}
-            maxlength="200"
-            aria-label="Filtrer les documents"
-          />
-        </div>
-      </div>
-      <DocumentTable
-        documents={filteredDocuments}
-        clientsMap={clientsMap}
-        invoiceOptions={invoiceOptions}
-        clientDisplayName={clientDisplayName}
-        formatSize={formatSize}
-        verifiedMap={verifiedMap}
-        verifiedLoading={verifiedLoading}
-        onPreview={openPreview}
-        onDownload={handleDownload}
-        onDelete={handleDelete}
-      />
-    </section>
-      </div>
     </div>
   {/if}
 </div>

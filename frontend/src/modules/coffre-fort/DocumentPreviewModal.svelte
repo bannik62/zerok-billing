@@ -65,13 +65,17 @@
         {#if loading}
           <p class="preview-loading">Chargement…</p>
         {:else if error}
-          <p class="preview-error">{error}</p>
+          <div class="preview-error-block">
+            <p class="preview-error">{error}</p>
+            <p class="preview-error-hint">Vérifiez que la clé est chargée (déverrouillage), puis réessayez ou utilisez « Télécharger ».</p>
+          </div>
         {:else if previewKind === 'unsupported'}
           <p class="preview-unsupported">Aperçu non disponible pour ce type de fichier. Utilisez « Télécharger ».</p>
         {:else if previewKind === 'image' && blobUrl}
           <img src={blobUrl} alt={doc?.filename} class="preview-img" />
         {:else if previewKind === 'pdf' && blobUrl}
-          <iframe src={blobUrl} title={doc?.filename} class="preview-iframe" sandbox="allow-same-origin"></iframe>
+          <embed src={blobUrl} type="application/pdf" title={doc?.filename} class="preview-pdf" />
+          <p class="preview-pdf-fallback">Si l’aperçu ne s’affiche pas, utilisez « Télécharger » dans la liste.</p>
         {/if}
       </div>
     </div>
@@ -158,10 +162,23 @@
     max-height: 75vh;
     object-fit: contain;
   }
-  .preview-iframe {
+  .preview-pdf {
     width: 100%;
     min-width: 320px;
     height: 70vh;
     border: none;
+  }
+  .preview-pdf-fallback {
+    margin: 0.75rem 0 0 0;
+    font-size: 0.85rem;
+    color: #64748b;
+  }
+  .preview-error-block {
+    text-align: center;
+  }
+  .preview-error-hint {
+    margin: 0.5rem 0 0 0;
+    font-size: 0.9rem;
+    color: #64748b;
   }
 </style>

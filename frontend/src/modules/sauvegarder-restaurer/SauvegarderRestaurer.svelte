@@ -12,9 +12,61 @@
   let { user = null } = $props();
   const uid = $derived(user?.id ?? null);
 
-  const exportPwd = createPasswordField('', { autocomplete: 'new-password' });
-  const exportPwdConfirm = createPasswordField('', { autocomplete: 'new-password' });
-  const importPwd = createPasswordField('', { autocomplete: 'current-password' });
+  /**
+   * Encapsule les champs du module sauvegarde/restauration (mots de passe + fichier d'import).
+   */
+  class ArchiveRestoreFields {
+    constructor() {
+      this.exportPassword = createPasswordField('', { autocomplete: 'new-password' });
+      this.exportPasswordConfirm = createPasswordField('', { autocomplete: 'new-password' });
+      this.importPassword = createPasswordField('', { autocomplete: 'current-password' });
+      this._importFile = null;
+    }
+
+    isAcceptedArchiveFile(file) {
+      if (!file || typeof file !== 'object') return false;
+      const rawName = typeof file.name === 'string' ? file.name : '';
+      const name = rawName.trim().toLowerCase();
+      const mimeType = typeof file.type === 'string' ? file.type.trim().toLowerCase() : '';
+      if (name.endsWith('.zerok-archive') || name.endsWith('.json')) return true;
+      return mimeType === 'application/json';
+    }
+
+    get importFile() {
+      return this._importFile;
+    }
+
+    set importFile(file) {
+      if (!file || typeof file !== 'object') {
+        this._importFile = null;
+        return;
+      }
+      if (typeof File === 'undefined') {
+        this._importFile = null;
+        return;
+      }
+      if (file instanceof File && this.isAcceptedArchiveFile(file)) {
+        this._importFile = file;
+        return;
+      }
+      this._importFile = null;
+    }
+
+    syncImportFileFromInput(inputEl) {
+      this.importFile = inputEl?.files?.[0] ?? null;
+      return this._importFile;
+    }
+
+    clearImportFile(inputEl) {
+      this.importFile = null;
+      if (inputEl) inputEl.value = '';
+    }
+  }
+
+  const archiveRestoreFields = new ArchiveRestoreFields();
+  const exportPwd = archiveRestoreFields.exportPassword;
+  const exportPwdConfirm = archiveRestoreFields.exportPasswordConfirm;
+  const importPwd = archiveRestoreFields.importPassword;
   const exportPwdStore = exportPwd.store;
   const exportPwdConfirmStore = exportPwdConfirm.store;
   const importPwdStore = importPwd.store;
@@ -75,6 +127,7 @@
   }
 
   let fileInputEl = $state(null);
+  let selectedFileName = $state('');
 
   async function doImport() {
     importError = '';
@@ -84,8 +137,12 @@
       importError = err;
       return;
     }
-    const file = fileInputEl?.files?.[0];
+    const file = archiveRestoreFields.syncImportFileFromInput(fileInputEl);
     if (!file) {
+      if (fileInputEl?.files?.[0]) {
+        importError = 'Format invalide. Utilisez un fichier .zerok-archive ou .json.';
+        return;
+      }
       importError = 'Choisissez un fichier d\'archive.';
       return;
     }
@@ -119,7 +176,8 @@
       for (const f of bundle.factures) {
         await addFacture(f, uid);
       }
-      if (fileInputEl) fileInputEl.value = '';
+      archiveRestoreFields.clearImportFile(fileInputEl);
+      selectedFileName = '';
       importSuccess = 'Restauration terminée. Les documents ont été réimportés (chiffrés avec la clé actuelle).';
     } catch (e) {
       importError = e?.message || 'Erreur : archive invalide ou mot de passe incorrect.';
@@ -179,7 +237,23 @@
     <p class="hint-small">Remplace toutes les données actuelles par le contenu de l'archive. Mot de passe = celui utilisé à l'export.</p>
     <form onsubmit={(e) => { e.preventDefault(); doImport(); }} class="form">
       <label for="import-file">Fichier d'archive (.zerok-archive)</label>
-      <input id="import-file" type="file" accept=".zerok-archive,application/json" bind:this={fileInputEl} disabled={importLoading} />
+      <div class="file-input-wrap">
+        <input
+          id="import-file"
+          type="file"
+          accept=".zerok-archive,application/json"
+          bind:this={fileInputEl}
+          disabled={importLoading}
+          class="file-input-hidden"
+          onchange={() => (selectedFileName = fileInputEl?.files?.[0]?.name ?? '')}
+        />
+        <button type="button" class="form-button file-trigger" disabled={importLoading} onclick={() => fileInputEl?.click()}>
+          Choisir un fichier
+        </button>
+        {#if selectedFileName}
+          <span class="file-name">{selectedFileName}</span>
+        {/if}
+      </div>
       <label for="import-pwd">Mot de passe de l'archive</label>
       <input
         id="import-pwd"
@@ -225,10 +299,15 @@
   .block { margin-bottom: 0; }
   .block h3 { margin: 0 0 0.75rem 0; font-size: 1.1rem; color: #0f766e; }
   .form label { display: block; margin: 0.5rem 0 0.25rem 0; font-size: 0.9rem; }
-  .form input[type="password"],
-  .form input[type="file"] { display: block; width: 100%; margin-bottom: 0.5rem; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
-  .form button { margin-top: 0.75rem; padding: 0.6rem 1rem; background: #0f766e; color: white; border: none; border-radius: 6px; cursor: pointer; }
-  .form button:disabled { opacity: 0.7; cursor: not-allowed; }
+  .form input[type="password"] { display: block; width: 100%; margin-bottom: 0.5rem; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
+  .file-input-wrap { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
+  .file-input-hidden { position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none; }
+  .form-button.file-trigger { margin-top: 0; }
+  .file-name { font-size: 0.9rem; color: #475569; }
+  .form button,
+  .form .form-button { margin-top: 0.75rem; padding: 0.6rem 1rem; background: #0f766e; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: inherit; }
+  .form button:disabled,
+  .form .form-button:disabled { opacity: 0.7; cursor: not-allowed; }
   .error { color: #b91c1c; font-size: 0.9rem; margin: 0.5rem 0 0 0; }
   .success { color: #15803d; font-size: 0.9rem; margin: 0.5rem 0 0 0; }
 </style>

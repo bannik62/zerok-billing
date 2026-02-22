@@ -29,7 +29,7 @@
         email: emailField.value,
         password
       });
-      await initEncryption(password);
+      await initEncryption(password, (res.data?.user ?? res.data)?.id ?? null);
       onSuccess?.(res.data);
     } catch (e) {
       error = e.response?.data?.error || 'Erreur réseau';

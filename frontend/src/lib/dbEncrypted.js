@@ -7,6 +7,8 @@ import { writable } from 'svelte/store';
 import {
   getKeyDerivationSalt,
   setKeyDerivationSalt,
+  getKeyCheck,
+  setKeyCheck,
   getDevis as dbGetDevis,
   getAllDevis as dbGetAllDevis,
   addDevis as dbAddDevis,
@@ -67,15 +69,57 @@ export function hasEncryptionKey() {
   return _encryptionKey != null;
 }
 
-export async function initEncryption(password) {
-  let saltBase64 = await getKeyDerivationSalt();
+const PASSWORD_CHECK_PAYLOAD = { check: 'zerok-ok' };
+
+/**
+ * Initialise la clé de chiffrement à partir du mot de passe (sel lié au compte).
+ * Vérifie toujours le mot de passe : via un jeton chiffré (si présent) ou en déchiffrant un devis/facture.
+ * @param {string} password - Mot de passe du compte
+ * @param {string|number|null} [userId] - Id du compte connecté
+ */
+export async function initEncryption(password, userId = null) {
+  let saltBase64 = await getKeyDerivationSalt(userId);
   if (!saltBase64) {
     const salt = generateSalt(16);
     saltBase64 = saltToBase64(salt);
-    await setKeyDerivationSalt(saltBase64);
+    await setKeyDerivationSalt(saltBase64, userId);
   }
   const salt = saltFromBase64(saltBase64);
   const key = await deriveKey(password, salt);
+
+  const keyCheck = await getKeyCheck(userId);
+  if (keyCheck) {
+    try {
+      const dec = await decrypt(keyCheck, key);
+      if (dec?.check !== 'zerok-ok') throw new Error('Invalid');
+    } catch {
+      clearEncryptionKey();
+      throw new Error('Mot de passe incorrect');
+    }
+  } else {
+    let verified = false;
+    try {
+      const list = await getAllDevisRaw(userId);
+      const encryptedOne = list.find((r) => r.encrypted);
+      if (encryptedOne) {
+        await decrypt({ payload: encryptedOne.payload, iv: encryptedOne.iv }, key);
+        verified = true;
+      } else {
+        const facturesList = await getAllFacturesRaw(userId);
+        const encFacture = facturesList.find((r) => r.encrypted);
+        if (encFacture) {
+          await decrypt({ payload: encFacture.payload, iv: encFacture.iv }, key);
+          verified = true;
+        }
+      }
+    } catch {
+      clearEncryptionKey();
+      throw new Error('Mot de passe incorrect');
+    }
+    const checkEncrypted = await encrypt(PASSWORD_CHECK_PAYLOAD, key);
+    await setKeyCheck(userId, checkEncrypted);
+  }
+
   setEncryptionKey(key);
   return key;
 }

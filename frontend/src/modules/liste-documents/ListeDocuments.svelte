@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte';
+  import { writable, get } from 'svelte/store';
   import {
     getAllDevis,
     getAllFactures,
@@ -18,6 +19,108 @@
    * Liste documents – devis et factures.
    * Cases à cocher, Supprimer, Exporter ; pour devis sans facture : bouton Créer facture.
    */
+
+  const LISTE_DOCS_SEARCH_MAX_LENGTH = 200;
+  const LISTE_DOCS_ID_MAX_LENGTH = 100;
+
+  /** Encapsule les champs de contrôle : recherche + sélections (devis/factures). */
+  class ListeDocumentsControlsFields {
+    constructor() {
+      this._searchStore = writable('');
+      this.selectedDevisIdsStore = writable(new Set());
+      this.selectedFactureIdsStore = writable(new Set());
+    }
+
+    normalizeSearchQuery(value) {
+      let next = typeof value === 'string' ? value : '';
+      next = next.replace(/[\u0000-\u001f\u007f]/g, '');
+      if (next.length > LISTE_DOCS_SEARCH_MAX_LENGTH) next = next.slice(0, LISTE_DOCS_SEARCH_MAX_LENGTH);
+      return next;
+    }
+
+    normalizeId(value) {
+      if (typeof value !== 'string') return null;
+      const id = value.trim();
+      if (!id) return null;
+      if (id.length > LISTE_DOCS_ID_MAX_LENGTH) return null;
+      return id;
+    }
+
+    normalizeIdSet(ids) {
+      const source = ids instanceof Set ? ids : Array.isArray(ids) ? ids : [];
+      const out = new Set();
+      for (const raw of source) {
+        const id = this.normalizeId(raw);
+        if (id) out.add(id);
+      }
+      return out;
+    }
+
+    get searchStore() {
+      return this._searchStore;
+    }
+
+    get searchQuery() {
+      return get(this._searchStore);
+    }
+
+    set searchQuery(value) {
+      this._searchStore.set(this.normalizeSearchQuery(value));
+    }
+
+    get selectedDevisIds() {
+      return get(this.selectedDevisIdsStore);
+    }
+
+    set selectedDevisIds(ids) {
+      this.selectedDevisIdsStore.set(this.normalizeIdSet(ids));
+    }
+
+    get selectedFactureIds() {
+      return get(this.selectedFactureIdsStore);
+    }
+
+    set selectedFactureIds(ids) {
+      this.selectedFactureIdsStore.set(this.normalizeIdSet(ids));
+    }
+
+    clearSelections() {
+      this.selectedDevisIds = new Set();
+      this.selectedFactureIds = new Set();
+    }
+
+    toggleDevisSelection(id) {
+      const normalizedId = this.normalizeId(id);
+      if (!normalizedId) return;
+      const next = new Set(this.selectedDevisIds);
+      if (next.has(normalizedId)) next.delete(normalizedId);
+      else next.add(normalizedId);
+      this.selectedDevisIds = next;
+    }
+
+    toggleFactureSelection(id) {
+      const normalizedId = this.normalizeId(id);
+      if (!normalizedId) return;
+      const next = new Set(this.selectedFactureIds);
+      if (next.has(normalizedId)) next.delete(normalizedId);
+      else next.add(normalizedId);
+      this.selectedFactureIds = next;
+    }
+
+    selectAllDevis(ids = []) {
+      this.selectedDevisIds = new Set(ids.map((id) => this.normalizeId(id)).filter(Boolean));
+    }
+
+    selectAllFactures(ids = []) {
+      this.selectedFactureIds = new Set(ids.map((id) => this.normalizeId(id)).filter(Boolean));
+    }
+  }
+
+  const controlsFields = new ListeDocumentsControlsFields();
+  const searchStore = controlsFields.searchStore;
+  const selectedDevisIdsStore = controlsFields.selectedDevisIdsStore;
+  const selectedFactureIdsStore = controlsFields.selectedFactureIdsStore;
+
   let { user = null, onOpenFactureFromDevis = () => {} } = $props();
   let mounted = $state(true);
   onMount(() => {
@@ -69,7 +172,6 @@
   let devisList = $state([]);
   let facturesList = $state([]);
   let clientsMap = $state({});
-  let searchQuery = $state('');
   let loading = $state(true);
   let error = $state(null);
   let verifiedMap = $state({});
@@ -77,8 +179,6 @@
   /** Preuves backend (pour l'encart gauche). */
   let backendProofs = $state([]);
   let proofsPanelError = $state('');
-  let selectedDevisIds = $state(new Set());
-  let selectedFactureIds = $state(new Set());
   let deletingDevis = $state(false);
   let deleting = $state(false);
   let zipExportingId = $state(null); // id du devis/facture en cours d'export ZIP
@@ -89,7 +189,7 @@
   }
 
   const filteredDevisList = $derived.by(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = ($searchStore || '').trim().toLowerCase();
     if (!q) return devisList;
     return devisList.filter((d) => {
       const clientName = clientDisplayName(clientsMap[d.entete?.clientId]).toLowerCase();
@@ -103,7 +203,7 @@
   });
 
   const filteredFacturesList = $derived.by(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = ($searchStore || '').trim().toLowerCase();
     if (!q) return facturesList;
     return facturesList.filter((f) => {
       const clientName = clientDisplayName(clientsMap[f.entete?.clientId]).toLowerCase();
@@ -117,12 +217,14 @@
     });
   });
 
-  const allDevisSelected = $derived(filteredDevisList.length > 0 && selectedDevisIds.size === filteredDevisList.length);
-  const someDevisSelected = $derived(selectedDevisIds.size > 0);
-  const allFacturesSelected = $derived(
-    filteredFacturesList.length > 0 && selectedFactureIds.size === filteredFacturesList.length
+  const allDevisSelected = $derived(
+    filteredDevisList.length > 0 && $selectedDevisIdsStore.size === filteredDevisList.length
   );
-  const someFacturesSelected = $derived(selectedFactureIds.size > 0);
+  const someDevisSelected = $derived($selectedDevisIdsStore.size > 0);
+  const allFacturesSelected = $derived(
+    filteredFacturesList.length > 0 && $selectedFactureIdsStore.size === filteredFacturesList.length
+  );
+  const someFacturesSelected = $derived($selectedFactureIdsStore.size > 0);
 
   /** Pour chaque devis, la facture créée à partir de ce devis (devisId), s'il y en a une. */
   const factureByDevisId = $derived.by(() => {
@@ -162,24 +264,21 @@
   });
 
   function toggleDevis(id) {
-    const next = new Set(selectedDevisIds);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    selectedDevisIds = next;
+    controlsFields.toggleDevisSelection(id);
   }
   function toggleAllDevis() {
-    if (allDevisSelected) selectedDevisIds = new Set();
-    else selectedDevisIds = new Set(filteredDevisList.map((d) => d.id));
+    if (allDevisSelected) controlsFields.selectAllDevis([]);
+    else controlsFields.selectAllDevis(filteredDevisList.map((d) => d.id));
   }
   async function supprimerDevisSelection() {
     if (!someDevisSelected) return;
-    const n = selectedDevisIds.size;
+    const n = $selectedDevisIdsStore.size;
     const msg = n === 1 ? 'Supprimer ce devis ?' : `Supprimer les ${n} devis sélectionnés ?`;
     if (!confirm(msg)) return;
     deletingDevis = true;
     try {
-      for (const id of selectedDevisIds) await deleteDevis(id);
-      selectedDevisIds = new Set();
+      for (const id of $selectedDevisIdsStore) await deleteDevis(id);
+      controlsFields.selectedDevisIds = new Set();
       devisList = await getAllDevis(user?.id ?? null);
     } catch (e) {
       error = e?.message || 'Erreur lors de la suppression.';
@@ -189,23 +288,17 @@
   }
 
   function toggleFacture(id) {
-    const next = new Set(selectedFactureIds);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    selectedFactureIds = next;
+    controlsFields.toggleFactureSelection(id);
   }
 
   function toggleAllFactures() {
-    if (allFacturesSelected) {
-      selectedFactureIds = new Set();
-    } else {
-      selectedFactureIds = new Set(filteredFacturesList.map((f) => f.id));
-    }
+    if (allFacturesSelected) controlsFields.selectAllFactures([]);
+    else controlsFields.selectAllFactures(filteredFacturesList.map((f) => f.id));
   }
 
   async function supprimerFacturesSelection() {
     if (!someFacturesSelected) return;
-    const n = selectedFactureIds.size;
+    const n = $selectedFactureIdsStore.size;
     const msg =
       n === 1
         ? 'Supprimer cette facture ?'
@@ -213,10 +306,10 @@
     if (!confirm(msg)) return;
     deleting = true;
     try {
-      for (const id of selectedFactureIds) {
+      for (const id of $selectedFactureIdsStore) {
         await deleteFacture(id);
       }
-      selectedFactureIds = new Set();
+      controlsFields.selectedFactureIds = new Set();
       facturesList = await getAllFactures(user?.id ?? null);
     } catch (e) {
       error = e?.message || 'Erreur lors de la suppression.';
@@ -241,8 +334,7 @@
       devisList = devis;
       facturesList = factures;
       clientsMap = Object.fromEntries((clients || []).map((c) => [c.id, c]));
-      selectedDevisIds = new Set();
-      selectedFactureIds = new Set();
+      controlsFields.clearSelections();
 
       verifiedLoading = true;
       proofsPanelError = '';
@@ -306,31 +398,6 @@
     <p class="liste-documents-hint">Si l’erreur concerne la base de données, essayez de rafraîchir la page.</p>
   {:else}
     <div class="liste-layout">
-      <aside class="liste-proofs-panel" aria-label="Preuves — comparaison hash local / backend">
-        <h3 class="liste-proofs-title">Preuves (intégrité)</h3>
-        <p class="liste-proofs-hint">Hash enregistrés côté serveur. Comparaison avec le hash local (IndexedDB).</p>
-        {#if proofsPanelError}
-          <p class="liste-proofs-error">{proofsPanelError}</p>
-        {:else if backendProofs.length === 0}
-          <p class="liste-proofs-empty">Aucune preuve enregistrée.</p>
-        {:else}
-          <ul class="liste-proofs-list">
-            {#each backendProofs as p (p.invoiceId)}
-              <li class="liste-proof-item">
-                <span class="liste-proof-label" title={p.invoiceId}>{getProofLabel(p.invoiceId)}</span>
-                <code class="liste-proof-hash" title={p.invoiceHash}>{p.invoiceHash ? p.invoiceHash.slice(0, 12) + '…' : '—'}</code>
-                {#if verifiedLoading && verifiedMap[p.invoiceId] === undefined}
-                  <span class="liste-proof-status liste-proof-pending" title="Vérification…">—</span>
-                {:else if verifiedMap[p.invoiceId] === true}
-                  <span class="liste-proof-status liste-proof-ok" title="Hash local = hash backend">✓ conforme</span>
-                {:else}
-                  <span class="liste-proof-status liste-proof-diff" title="Hash local ≠ hash backend">✗ différent</span>
-                {/if}
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      </aside>
       <div class="liste-main">
     <div class="liste-search-wrap">
       <label for="liste-search" class="liste-search-label">Rechercher</label>
@@ -339,7 +406,8 @@
         type="search"
         class="liste-search-input"
         placeholder="N°, client, objet, date, montant…"
-        bind:value={searchQuery}
+        value={$searchStore}
+        oninput={(e) => (controlsFields.searchQuery = e.currentTarget.value)}
         maxlength="200"
         aria-label="Filtrer devis et factures"
       />
@@ -393,7 +461,7 @@
                   <label class="checkbox-label">
                     <input
                       type="checkbox"
-                      checked={selectedDevisIds.has(d.id)}
+                      checked={$selectedDevisIdsStore.has(d.id)}
                       onchange={() => toggleDevis(d.id)}
                       aria-label="Sélectionner le devis {d.entete?.numero || d.id}"
                     />
@@ -448,7 +516,7 @@
               </tr>
             {:else}
               <tr>
-                <td colspan="12" class="doc-table-empty">{searchQuery.trim() ? 'Aucun devis ne correspond à la recherche.' : 'Aucun devis.'}</td>
+                <td colspan="12" class="doc-table-empty">{($searchStore || '').trim() ? 'Aucun devis ne correspond à la recherche.' : 'Aucun devis.'}</td>
               </tr>
             {/each}
           </tbody>
@@ -503,7 +571,7 @@
                   <label class="checkbox-label">
                     <input
                       type="checkbox"
-                      checked={selectedFactureIds.has(f.id)}
+                      checked={$selectedFactureIdsStore.has(f.id)}
                       onchange={() => toggleFacture(f.id)}
                       aria-label="Sélectionner la facture {f.entete?.numero || f.id}"
                     />
@@ -542,7 +610,7 @@
               </tr>
             {:else}
               <tr>
-                <td colspan="11" class="doc-table-empty">{searchQuery.trim() ? 'Aucune facture ne correspond à la recherche.' : 'Aucune facture.'}</td>
+                <td colspan="11" class="doc-table-empty">{($searchStore || '').trim() ? 'Aucune facture ne correspond à la recherche.' : 'Aucune facture.'}</td>
               </tr>
             {/each}
           </tbody>
@@ -550,6 +618,31 @@
       </div>
     </section>
       </div>
+      <aside class="liste-proofs-panel" aria-label="Preuves — comparaison hash local / backend">
+        <h3 class="liste-proofs-title">Preuves (intégrité)</h3>
+        <p class="liste-proofs-hint">Hash enregistrés côté serveur. Comparaison avec le hash local (IndexedDB).</p>
+        {#if proofsPanelError}
+          <p class="liste-proofs-error">{proofsPanelError}</p>
+        {:else if backendProofs.length === 0}
+          <p class="liste-proofs-empty">Aucune preuve enregistrée.</p>
+        {:else}
+          <ul class="liste-proofs-list">
+            {#each backendProofs as p (p.invoiceId)}
+              <li class="liste-proof-item">
+                <span class="liste-proof-label" title={p.invoiceId}>{getProofLabel(p.invoiceId)}</span>
+                <code class="liste-proof-hash" title={p.invoiceHash}>{p.invoiceHash ? p.invoiceHash.slice(0, 12) + '…' : '—'}</code>
+                {#if verifiedLoading && verifiedMap[p.invoiceId] === undefined}
+                  <span class="liste-proof-status liste-proof-pending" title="Vérification…">—</span>
+                {:else if verifiedMap[p.invoiceId] === true}
+                  <span class="liste-proof-status liste-proof-ok" title="Hash local = hash backend">✓ conforme</span>
+                {:else}
+                  <span class="liste-proof-status liste-proof-diff" title="Hash local ≠ hash backend">✗ différent</span>
+                {/if}
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </aside>
     </div>
   {/if}
 
@@ -620,7 +713,6 @@
   .liste-proof-item:last-child {
     border-bottom: none;
   }
-  .liste-proof-id,
   .liste-proof-label {
     flex: 0 0 100%;
     font-weight: 500;

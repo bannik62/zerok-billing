@@ -71,6 +71,26 @@ export async function getDocumentProofs() {
 }
 
 /**
+ * Supprime la preuve d'un document sur le serveur (à appeler quand l'utilisateur supprime le fichier du coffre-fort).
+ * @param {string} documentId - id du document supprimé
+ */
+export async function deleteDocumentProof(documentId) {
+  if (!documentId) return;
+  await apiClient.delete(`/api/documents/proof/${encodeURIComponent(documentId)}`);
+}
+
+/**
+ * Supprime les preuves orphelines côté serveur (documents supprimés en local mais preuves restées en BDD).
+ * À appeler avec la liste des ids des documents encore présents en local (IndexedDB).
+ * @param {string[]} keepDocumentIds - ids des documents que l'utilisateur a encore dans le coffre-fort
+ */
+export async function cleanupDocumentProofs(keepDocumentIds) {
+  await apiClient.post('/api/documents/proofs/cleanup', {
+    keepDocumentIds: Array.isArray(keepDocumentIds) ? keepDocumentIds : []
+  });
+}
+
+/**
  * Compare les documents locaux (avec fileHash) aux preuves backend. Retourne un map documentId -> verified.
  * @param {{ id: string, fileHash?: string }[]} localDocuments
  * @returns {Promise<Record<string, boolean>>} documentId -> true si hash local === hash backend, false sinon

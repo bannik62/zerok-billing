@@ -100,7 +100,39 @@
       {:else if displayModule === 'sauvegarder-restaurer'}
         <SauvegarderRestaurer {user} />
       {:else}
-        <p class="display_info-placeholder">Cliquez sur un bouton pour afficher le module.</p>
+        <div class="welcome-presentation">
+          <h2 class="welcome-presentation-title">Zero-Knowledge Facturation</h2>
+          <p class="welcome-presentation-intro">
+            Application de facturation <strong>local-first</strong> : vos devis, factures et documents restent chez vous.
+            Le serveur ne voit jamais le contenu ; seul un hash (preuve d’intégrité) est enregistré.
+          </p>
+          <section class="welcome-presentation-section" aria-labelledby="welcome-points-forts">
+            <h3 id="welcome-points-forts" class="welcome-presentation-h3">Points forts</h3>
+            <ul class="welcome-presentation-list">
+              <li><strong>Chiffrement côté client</strong> — Clé dérivée de votre mot de passe ; devis, factures et coffre-fort déchiffrés uniquement dans votre navigateur.</li>
+              <li><strong>Preuves d’intégrité</strong> — Hash des documents envoyés au serveur pour vérifier qu’aucune donnée n’a été modifiée.</li>
+              <li><strong>Données en local</strong> — IndexedDB dans le navigateur ; pas de fuite de contenu, même en cas de compromission du serveur.</li>
+              <li><strong>Coffre-fort de documents</strong> — Justificatifs, contrats, fiches de paie… stockés et chiffrés comme le reste.</li>
+              <li><strong>Sauvegarde / restauration</strong> — Archive chiffrée exportable pour reprendre vos données sur un autre appareil.</li>
+            </ul>
+          </section>
+          <section class="welcome-presentation-section" aria-labelledby="welcome-pour-qui">
+            <h3 id="welcome-pour-qui" class="welcome-presentation-h3">Pour qui ?</h3>
+            <p class="welcome-presentation-text">
+              Auto-entrepreneurs, TPE, artisans et professionnels qui veulent facturer et gérer leurs documents
+              sans confier le contenu à un tiers. Idéal si la confidentialité et la maîtrise des données comptent pour vous.
+            </p>
+          </section>
+          <section class="welcome-presentation-section" aria-labelledby="welcome-pourquoi">
+            <h3 id="welcome-pourquoi" class="welcome-presentation-h3">Pourquoi ?</h3>
+            <p class="welcome-presentation-text">
+              Pour garder la main sur vos factures et pièces justificatives tout en bénéficiant d’un outil structuré :
+              création de devis et factures, liste des documents, coffre-fort chiffré et preuves vérifiables,
+              le tout sans exposer le détail à un hébergeur.
+            </p>
+          </section>
+          <p class="welcome-presentation-cta">Choisissez un onglet ci-dessus pour accéder à un module.</p>
+        </div>
       {/if}
     </div>
   </div>
@@ -145,8 +177,11 @@
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
-    border-bottom: 2px solid #cbd5e1;
-    background: #e2e8f0;
+    padding: 0.5rem 0.75rem 0 0.75rem;
+    border-bottom: 2px solid #94a3b8;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    background: #cbd5e1;
   }
   .menu-tabs {
     display: flex;
@@ -165,7 +200,7 @@
     border-top-left-radius: 8px;
     border-top-right-radius: 8px;
     margin-bottom: -2px;
-    background: #cbd5e1;
+    background: #e2e8f0;
     color: #334155;
     font-size: clamp(0.8rem, 2vw, 0.9rem);
     font-weight: 500;
@@ -174,7 +209,7 @@
     transition: background 0.15s, color 0.15s;
   }
   .tab:hover {
-    background: #b8c4d4;
+    background: #f1f5f9;
     color: #0f172a;
   }
   .tab.active {
@@ -193,10 +228,53 @@
     background: #f8fafc;
     padding: clamp(1rem, 3vw, 1.5rem);
   }
-  .display_info-placeholder {
+  .welcome-presentation {
+    max-width: 52rem;
+    padding: 0.5rem 0;
+  }
+  .welcome-presentation-title {
+    margin: 0 0 1rem 0;
+    font-size: clamp(1.15rem, 3vw, 1.35rem);
+    color: #0f766e;
+    font-weight: 700;
+  }
+  .welcome-presentation-intro {
+    margin: 0 0 1.5rem 0;
+    font-size: clamp(0.95rem, 2.2vw, 1.05rem);
+    line-height: 1.5;
+    color: #334155;
+  }
+  .welcome-presentation-section {
+    margin-bottom: 1.5rem;
+  }
+  .welcome-presentation-h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: clamp(1rem, 2.5vw, 1.1rem);
+    color: #0f766e;
+    font-weight: 600;
+  }
+  .welcome-presentation-list {
     margin: 0;
+    padding-left: 1.25rem;
+    line-height: 1.55;
+    color: #475569;
+    font-size: clamp(0.9rem, 2vw, 1rem);
+  }
+  .welcome-presentation-list li {
+    margin-bottom: 0.4rem;
+  }
+  .welcome-presentation-text {
+    margin: 0;
+    line-height: 1.55;
+    color: #475569;
+    font-size: clamp(0.9rem, 2vw, 1rem);
+  }
+  .welcome-presentation-cta {
+    margin: 1.5rem 0 0 0;
+    padding-top: 1rem;
+    border-top: 1px solid #e2e8f0;
+    font-size: 0.9rem;
     color: #64748b;
-    font-size: clamp(0.9rem, 2.2vw, 1rem);
   }
   .btn-logout {
     padding: 0.5rem 1rem;

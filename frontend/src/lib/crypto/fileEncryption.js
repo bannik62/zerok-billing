@@ -5,18 +5,32 @@
 
 const IV_LENGTH_BYTES = 12;
 
+/** Taille de chunk pour éviter "Maximum call stack size exceeded" avec de gros buffers. */
+const B64_CHUNK = 8192;
+
 function arrayBufferToBase64(buffer) {
   const bytes = new Uint8Array(buffer);
-  return btoa(String.fromCharCode(...bytes));
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += B64_CHUNK) {
+    const chunk = bytes.subarray(i, Math.min(i + B64_CHUNK, bytes.length));
+    binary += String.fromCharCode.apply(null, chunk);
+  }
+  return btoa(binary);
 }
 
 function base64ToArrayBuffer(base64) {
   const bin = atob(base64);
-  return new Uint8Array([...bin].map((c) => c.charCodeAt(0))).buffer;
+  const len = bin.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = bin.charCodeAt(i);
+  }
+  return bytes.buffer;
 }
 
 function bufferToHex(buffer) {
-  return [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('');
+  const bytes = new Uint8Array(buffer);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 /**

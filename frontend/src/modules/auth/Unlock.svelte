@@ -2,7 +2,7 @@
   import { createPasswordField } from '$lib/formField.js';
   import { initEncryption, getAllDevis, clearEncryptionKey } from '$lib/dbEncrypted.js';
 
-  let { user = null } = $props();
+  let { user = null, onLogout = () => {} } = $props();
   const passwordField = createPasswordField('', { autocomplete: 'current-password' });
   const passwordStore = passwordField.store;
 
@@ -20,7 +20,7 @@
     loading = true;
     try {
       const password = passwordField.value;
-      await initEncryption(password);
+      await initEncryption(password, user?.id ?? null);
       await getAllDevis(user?.id ?? null);
     } catch {
       clearEncryptionKey();
@@ -48,7 +48,10 @@
       oninput={(e) => (passwordField.value = e.currentTarget.value)}
     />
     {#if error}<p class="error">{error}</p>{/if}
-    <button type="submit" disabled={loading}>{loading ? 'Déverrouillage…' : 'Déverrouiller'}</button>
+    <div class="actions">
+      <button type="submit" disabled={loading}>{loading ? 'Déverrouillage…' : 'Déverrouiller'}</button>
+      <button type="button" class="btn-logout" disabled={loading} onclick={onLogout}>Déconnexion</button>
+    </div>
   </form>
 </div>
 
@@ -73,6 +76,11 @@
     border: 1px solid #cbd5e1;
     border-radius: 6px;
   }
+  .actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
   button {
     width: 100%;
     padding: 0.6rem;
@@ -85,6 +93,15 @@
   button:disabled {
     opacity: 0.7;
     cursor: not-allowed;
+  }
+  .btn-logout {
+    background: transparent;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+  }
+  .btn-logout:hover:not(:disabled) {
+    background: #f1f5f9;
+    color: #475569;
   }
   .error {
     color: #b91c1c;

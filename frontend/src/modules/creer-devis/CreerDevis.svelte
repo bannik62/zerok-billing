@@ -1,4 +1,5 @@
 <script>
+  import { writable, get } from 'svelte/store';
   import { getAllClients, getClientById, getSociete, addDevis, updateDevis, getNextDevisNumber, getAllLayoutProfiles, getLayoutProfile, addLayoutProfile, updateLayoutProfile, deleteLayoutProfile } from '$lib/dbEncrypted.js';
   import { sendProof } from '$lib/proofs.js';
   import {
@@ -20,6 +21,65 @@
    */
   let { user = null, client = null } = $props();
   const uid = $derived(user?.id ?? null);
+
+  const PROFILE_ID_MAX_LENGTH = 100;
+
+  class DevisProfileSelectField {
+    constructor() {
+      this._store = writable('');
+      this._availableProfileIds = new Set();
+    }
+
+    normalizeProfileId(value) {
+      if (typeof value !== 'string') return '';
+      const id = value.trim();
+      if (!id) return '';
+      if (id.length > PROFILE_ID_MAX_LENGTH) return '';
+      return id;
+    }
+
+    setAvailableProfileIds(ids) {
+      const source = Array.isArray(ids) ? ids : [];
+      const nextAvailable = new Set();
+      for (const raw of source) {
+        const id = this.normalizeProfileId(raw);
+        if (id) nextAvailable.add(id);
+      }
+      this._availableProfileIds = nextAvailable;
+      const current = this.selectedProfileId;
+      if (current && !nextAvailable.has(current)) {
+        this.selectedProfileId = '';
+      }
+    }
+
+    get store() {
+      return this._store;
+    }
+
+    get selectedProfileId() {
+      return get(this._store);
+    }
+
+    set selectedProfileId(value) {
+      const id = this.normalizeProfileId(value);
+      if (!id) {
+        this._store.set('');
+        return;
+      }
+      if (this._availableProfileIds.size > 0 && !this._availableProfileIds.has(id)) {
+        this._store.set('');
+        return;
+      }
+      this._store.set(id);
+    }
+
+    clear() {
+      this._store.set('');
+    }
+  }
+
+  const profileSelectField = new DevisProfileSelectField();
+  const profileSelectStore = profileSelectField.store;
 
   let step = $state(1);
   let clients = $state([]);
@@ -116,7 +176,10 @@
   let showSaveProfileModal = $state(false);
   let showManageProfilesModal = $state(false);
   let saveProfileName = $state('');
-  let profileSelectValue = $state('');
+
+  $effect(() => {
+    profileSelectField.setAvailableProfileIds(layoutProfiles.map((p) => p.id));
+  });
 
   $effect(() => {
     const id = currentDevis?.entete?.clientId;
@@ -285,6 +348,7 @@
   async function nouveauDevis() {
     step = 1;
     currentDevis = null;
+    profileSelectField.clear();
     const clientId = client?.id ?? '';
     const nextNum = await getNextDevisNumber(clientId, clients, uid);
     entete = { clientId, numero: nextNum || '', dateEmission: '', dateValidite: '', devise: 'EUR', objet: '', tvaTaux: 0 };
@@ -339,7 +403,7 @@
     } else if (currentDevis) {
       currentDevis = { ...currentDevis, blockPositions: { ...blockPositions } };
     }
-    profileSelectValue = '';
+    profileSelectField.clear();
   }
 
   function openSaveProfileModal() {
@@ -403,11 +467,11 @@
         <select
           id="profile-select"
           class="profile-select"
-          value={profileSelectValue}
+          value={$profileSelectStore}
           onchange={(e) => {
-            const v = e.currentTarget.value;
-            profileSelectValue = v;
-            if (v) applyProfile(v);
+            profileSelectField.selectedProfileId = e.currentTarget.value;
+            const selectedId = profileSelectField.selectedProfileId;
+            if (selectedId) applyProfile(selectedId);
           }}
         >
           <option value="">Vide</option>

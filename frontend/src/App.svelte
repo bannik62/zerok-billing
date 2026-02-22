@@ -65,7 +65,7 @@
     {#if $encryptionKeyLoadedStore}
       <SessionTemoin content={Menu} {logout} onUnauthorized={() => { user = null; page = 'auth'; view = 'login'; }} />
     {:else}
-      <Unlock user={user} />
+      <Unlock user={user} onLogout={logout} />
     {/if}
   {:else}
     <h1>Zero-Knowledge Facturation</h1>

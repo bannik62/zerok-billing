@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { upsertProof, findProofsByUserAndInvoiceIds, findAllProofsByUserId } from '../services/proofService.js';
-import { upsertDocumentProof, findAllDocumentProofsByUserId } from '../services/documentProofService.js';
+import { upsertDocumentProof, findAllDocumentProofsByUserId, deleteDocumentProof, deleteDocumentProofsNotInList } from '../services/documentProofService.js';
 import { error as logError } from '../lib/logger.js';
 
 /**
@@ -164,6 +164,43 @@ secureRouter.post('/documents/proof', async (req, res) => {
     });
 
     return res.status(201).json({ ok: true, documentId: documentId.trim() });
+  } catch (e) {
+    logError(e);
+    return res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+/**
+ * DELETE /api/documents/proof/:documentId — Supprime la preuve d'un document (quand le fichier est supprimé du coffre-fort).
+ */
+secureRouter.delete('/documents/proof/:documentId', async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Non authentifié' });
+    const documentId = req.params.documentId;
+    if (!documentId || documentId.length > DOCUMENT_ID_MAX) {
+      return res.status(400).json({ error: 'documentId invalide' });
+    }
+    await deleteDocumentProof(documentId.trim(), userId);
+    return res.json({ ok: true });
+  } catch (e) {
+    logError(e);
+    return res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+/**
+ * POST /api/documents/proofs/cleanup — Supprime les preuves orphelines (document supprimé en local mais preuve restée en BDD).
+ * Body : { keepDocumentIds: string[] } — ids des documents encore présents en local.
+ */
+secureRouter.post('/documents/proofs/cleanup', async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Non authentifié' });
+    const keepDocumentIds = req.body?.keepDocumentIds;
+    if (!Array.isArray(keepDocumentIds)) return res.status(400).json({ error: 'keepDocumentIds requis (tableau)' });
+    await deleteDocumentProofsNotInList(userId, keepDocumentIds);
+    return res.json({ ok: true });
   } catch (e) {
     logError(e);
     return res.status(500).json({ error: 'Erreur serveur' });

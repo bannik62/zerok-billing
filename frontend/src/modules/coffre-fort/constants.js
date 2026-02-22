@@ -3,6 +3,10 @@
 export const DOC_TYPES = [
   { value: 'justificatif', label: 'Justificatif' },
   { value: 'contrat', label: 'Contrat' },
+  { value: 'facture', label: 'Facture' },
+  { value: 'attestation', label: 'Attestation' },
+  { value: 'banque', label: 'Banque' },
+  { value: 'fiche-paie', label: 'Fiche de paie' },
   { value: 'rh', label: 'RH' },
   { value: 'autre', label: 'Autre' }
 ];

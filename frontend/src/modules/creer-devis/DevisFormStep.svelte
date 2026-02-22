@@ -12,6 +12,70 @@
     onValider = () => {}
   } = $props();
 
+  /** Limites alignées backend / usage (IDs 100, désignation 500, etc.). */
+  const CLIENT_ID_MAX_LENGTH = 100;
+  const NUMERO_MAX_LENGTH = 100;
+  const DESIGNATION_MAX_LENGTH = 500;
+  const UNITE_MAX_LENGTH = 10;
+  const TVA_OPTIONS = [0, 2.1, 5.5, 10, 20];
+
+  /**
+   * Normalisation des champs du formulaire devis (entête + lignes + réduction).
+   * N’héberge pas l’état : entete/lignes/reduction restent bindables ; les setters renvoient la valeur normalisée.
+   */
+  class DevisFormStepFields {
+    sanitizeText(value, maxLen) {
+      let s = typeof value === 'string' ? value : '';
+      s = s.replace(/[\u0000-\u001f\u007f]/g, '');
+      if (maxLen != null && s.length > maxLen) s = s.slice(0, maxLen);
+      return s.trim();
+    }
+
+    normalizeClientId(value) {
+      return this.sanitizeText(value, CLIENT_ID_MAX_LENGTH);
+    }
+
+    normalizeTvaTaux(value) {
+      const n = Number(value);
+      if (Number.isNaN(n) || n < 0) return 0;
+      if (TVA_OPTIONS.includes(n)) return n;
+      const closest = TVA_OPTIONS.reduce((a, b) => (Math.abs(a - n) < Math.abs(b - n) ? a : b));
+      return closest;
+    }
+
+    normalizeReductionType(value) {
+      return value === 'fixed' ? 'fixed' : 'percent';
+    }
+
+    normalizeReductionValue(value, type) {
+      const n = Number(value);
+      if (Number.isNaN(n) || n < 0) return 0;
+      return type === 'percent' ? Math.min(100, n) : n;
+    }
+
+    normalizeDesignation(value) {
+      return this.sanitizeText(value, DESIGNATION_MAX_LENGTH);
+    }
+
+    normalizeUnite(value) {
+      return this.sanitizeText(value, UNITE_MAX_LENGTH);
+    }
+
+    normalizeQuantite(value) {
+      const n = Number(value);
+      if (Number.isNaN(n) || n < 0) return 0;
+      return Math.floor(n);
+    }
+
+    normalizePrixUnitaire(value) {
+      const n = Number(value);
+      if (Number.isNaN(n) || n < 0) return 0;
+      return Math.round(n * 100) / 100;
+    }
+  }
+
+  const formFields = new DevisFormStepFields();
+
   const dateEmissionField = createTextField({ maxLength: 10 });
   const dateValiditeField = createTextField({ maxLength: 10 });
   const deviseField = createTextField({ maxLength: 10 });
@@ -72,7 +136,7 @@
         <select
           id="devis-client"
           value={entete.clientId}
-          onchange={(e) => { entete = { ...entete, clientId: e.currentTarget.value }; }}
+          onchange={(e) => { entete = { ...entete, clientId: formFields.normalizeClientId(e.currentTarget.value) }; }}
         >
           <option value="">— Choisir —</option>
           {#each clients as c (c.id)}
@@ -101,7 +165,7 @@
           value={$dateEmissionStore}
           max={entete.dateValidite || undefined}
           aria-describedby={datesInvalides ? 'devis-dates-erreur' : undefined}
-          oninput={(e) => { dateEmissionField.value = e.target.value; entete = { ...entete, dateEmission: dateEmissionField.value }; }}
+          oninput={(e) => { dateEmissionField.value = e.currentTarget.value; entete = { ...entete, dateEmission: dateEmissionField.value }; }}
         />
       </div>
       <div class="form-row">
@@ -112,7 +176,7 @@
           value={$dateValiditeStore}
           min={entete.dateEmission || undefined}
           aria-describedby={datesInvalides ? 'devis-dates-erreur' : undefined}
-          oninput={(e) => { dateValiditeField.value = e.target.value; entete = { ...entete, dateValidite: dateValiditeField.value }; }}
+          oninput={(e) => { dateValiditeField.value = e.currentTarget.value; entete = { ...entete, dateValidite: dateValiditeField.value }; }}
         />
         {#if datesInvalides}
           <p id="devis-dates-erreur" class="form-error" role="alert">La date d'émission ne peut pas être après la date de validité.</p>
@@ -120,15 +184,15 @@
       </div>
       <div class="form-row">
         <label for="devis-devise">Devise</label>
-        <input id="devis-devise" type="text" value={$deviseStore} oninput={(e) => { deviseField.value = e.target.value; entete = { ...entete, devise: deviseField.value }; }} />
+        <input id="devis-devise" type="text" value={$deviseStore} oninput={(e) => { deviseField.value = e.currentTarget.value; entete = { ...entete, devise: deviseField.value }; }} />
       </div>
       <div class="form-row">
         <label for="devis-objet">Objet</label>
-        <input id="devis-objet" type="text" value={$objetStore} oninput={(e) => { objetField.value = e.target.value; entete = { ...entete, objet: objetField.value }; }} placeholder="Objet du devis" />
+        <input id="devis-objet" type="text" value={$objetStore} oninput={(e) => { objetField.value = e.currentTarget.value; entete = { ...entete, objet: objetField.value }; }} placeholder="Objet du devis" />
       </div>
       <div class="form-row">
         <label for="devis-tva">Taux TVA (%)</label>
-        <select id="devis-tva" value={entete.tvaTaux} onchange={(e) => entete = { ...entete, tvaTaux: Number(e.currentTarget.value) }}>
+        <select id="devis-tva" value={entete.tvaTaux} onchange={(e) => (entete = { ...entete, tvaTaux: formFields.normalizeTvaTaux(e.currentTarget.value) })}>
           <option value={0}>0 — Non assujetti (auto-entrepreneur sous seuil, exonéré)</option>
           <option value={2.1}>2,1 % (presse, médicaments remboursables, redevance TV)</option>
           <option value={5.5}>5,5 % (alimentation, énergie, livres, spectacles)</option>
@@ -157,10 +221,10 @@
           {#each lignes as ligne, i (ligne.id)}
             {@const montant = (Number(ligne.quantite) || 0) * (Number(ligne.prixUnitaire) || 0)}
             <tr>
-              <td><input type="text" maxlength="500" value={ligne.designation} oninput={(e) => { const v = e.target.value.trim().slice(0, 500); lignes = lignes.map((l, j) => j === i ? { ...l, designation: v } : l); }} placeholder="Désignation" /></td>
-              <td><input type="number" min="0" step="1" bind:value={ligne.quantite} class="input-num" /></td>
-              <td><input type="text" maxlength="10" value={ligne.unite} oninput={(e) => { const v = e.target.value.trim().slice(0, 10); lignes = lignes.map((l, j) => j === i ? { ...l, unite: v } : l); }} class="input-unite" /></td>
-              <td><input type="number" min="0" step="0.01" bind:value={ligne.prixUnitaire} class="input-num" /></td>
+              <td><input type="text" maxlength="500" value={ligne.designation} oninput={(e) => { const v = formFields.normalizeDesignation(e.currentTarget.value); lignes = lignes.map((l, j) => j === i ? { ...l, designation: v } : l); }} placeholder="Désignation" /></td>
+              <td><input type="number" min="0" step="1" value={ligne.quantite} oninput={(e) => { const v = formFields.normalizeQuantite(e.currentTarget.value); lignes = lignes.map((l, j) => j === i ? { ...l, quantite: v } : l); }} class="input-num" /></td>
+              <td><input type="text" maxlength="10" value={ligne.unite} oninput={(e) => { const v = formFields.normalizeUnite(e.currentTarget.value); lignes = lignes.map((l, j) => j === i ? { ...l, unite: v } : l); }} class="input-unite" /></td>
+              <td><input type="number" min="0" step="0.01" value={ligne.prixUnitaire} oninput={(e) => { const v = formFields.normalizePrixUnitaire(e.currentTarget.value); lignes = lignes.map((l, j) => j === i ? { ...l, prixUnitaire: v } : l); }} class="input-num" /></td>
               <td class="montant">{formatMontant(montant)} €</td>
               <td><button type="button" class="btn-remove" onclick={() => removeLigne(ligne.id)} title="Supprimer">×</button></td>
             </tr>
@@ -178,11 +242,24 @@
     </div>
     <div class="form-row-inline">
       <label for="devis-reduction-type">Réduction</label>
-      <select id="devis-reduction-type" bind:value={reduction.type}>
+      <select
+        id="devis-reduction-type"
+        value={reduction.type}
+        onchange={(e) => (reduction = { ...reduction, type: formFields.normalizeReductionType(e.currentTarget.value) })}
+      >
         <option value="percent">%</option>
         <option value="fixed">Montant fixe</option>
       </select>
-      <input id="devis-reduction-value" type="number" min="0" step={reduction.type === 'percent' ? 1 : 0.01} bind:value={reduction.value} class="input-num" aria-label="Valeur réduction" />
+      <input
+        id="devis-reduction-value"
+        type="number"
+        min="0"
+        step={reduction.type === 'percent' ? 1 : 0.01}
+        value={reduction.value}
+        oninput={(e) => (reduction = { ...reduction, value: formFields.normalizeReductionValue(e.currentTarget.value, reduction.type) })}
+        class="input-num"
+        aria-label="Valeur réduction"
+      />
     </div>
     <div class="totaux-row">
       <span>Total HT</span>

@@ -42,21 +42,66 @@ export function openDB() {
 }
 
 /**
- * Récupère le sel de dérivation de clé (stocké en clair dans meta).
- * @returns {Promise<string|null>} base64 du sel, ou null si pas encore défini
+ * Clé meta pour le sel de dérivation (legacy, un seul utilisateur).
+ * Pour multi-utilisateurs on utilise key = `keyDerivationSalt-${userId}`.
  */
-export async function getKeyDerivationSalt() {
-  const row = await db[STORE_META].get(META_KEY_SALT);
-  const salt = row != null ? row.salt : undefined;
-  return salt != null ? salt : null;
+function getSaltMetaKey(userId) {
+  return userId != null && userId !== '' ? `keyDerivationSalt-${userId}` : META_KEY_SALT;
+}
+
+function getKeyCheckMetaKey(userId) {
+  return userId != null && userId !== '' ? `keyCheck-${userId}` : 'keyCheck';
 }
 
 /**
- * Enregistre le sel de dérivation de clé (à appeler une fois après première génération).
- * @param {string} saltBase64 - Sel en base64
+ * Récupère le sel de dérivation de clé pour un utilisateur (stocké en clair dans meta).
+ * @param {string|number|null} [userId] - id du compte ; si null, utilise le sel legacy (un seul pour toute la base)
+ * @returns {Promise<string|null>} base64 du sel, ou null si pas encore défini
  */
-export async function setKeyDerivationSalt(saltBase64) {
-  await db[STORE_META].put({ key: META_KEY_SALT, salt: saltBase64 });
+export async function getKeyDerivationSalt(userId = null) {
+  const key = getSaltMetaKey(userId);
+  let row = await db[STORE_META].get(key);
+  if (row != null && row.salt != null) return row.salt;
+  if (userId != null && userId !== '') {
+    row = await db[STORE_META].get(META_KEY_SALT);
+    if (row != null && row.salt != null) {
+      await db[STORE_META].put({ key, salt: row.salt });
+      return row.salt;
+    }
+  }
+  return null;
+}
+
+/**
+ * Enregistre le sel de dérivation de clé pour un utilisateur.
+ * @param {string} saltBase64 - Sel en base64
+ * @param {string|number|null} [userId] - id du compte ; si null, utilise la clé legacy
+ */
+export async function setKeyDerivationSalt(saltBase64, userId = null) {
+  const key = getSaltMetaKey(userId);
+  await db[STORE_META].put({ key, salt: saltBase64 });
+}
+
+/**
+ * Récupère le jeton de vérification du mot de passe (chiffré avec la clé dérivée).
+ * @param {string|number|null} [userId]
+ * @returns {Promise<{ payload: string, iv: string }|null>}
+ */
+export async function getKeyCheck(userId = null) {
+  const key = getKeyCheckMetaKey(userId);
+  const row = await db[STORE_META].get(key);
+  if (row != null && row.payload != null && row.iv != null) return { payload: row.payload, iv: row.iv };
+  return null;
+}
+
+/**
+ * Enregistre le jeton de vérification (après premier déverrouillage ou création du sel).
+ * @param {string|number|null} [userId]
+ * @param {{ payload: string, iv: string }} data
+ */
+export async function setKeyCheck(userId, data) {
+  const key = getKeyCheckMetaKey(userId);
+  await db[STORE_META].put({ key, payload: data.payload, iv: data.iv });
 }
 
 /**

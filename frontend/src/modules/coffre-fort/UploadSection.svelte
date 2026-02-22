@@ -1,4 +1,5 @@
 <script>
+  import { writable, get } from 'svelte/store';
   import {
     DOC_TYPES,
     METADATA_CATEGORIES,
@@ -9,6 +10,8 @@
   /** Section upload : formulaire + zone drag & drop + métadonnées. N’appelle pas la couche données. */
   let {
     clients = [],
+    /** Option "Mon entreprise" (société de l'utilisateur) pour documents perso */
+    companyOption = null,
     invoiceOptions = [],
     uploading = false,
     uploadError = null,
@@ -17,15 +20,145 @@
     onClearError = () => {}
   } = $props();
 
-  let selectedClientId = $state('');
-  let selectedType = $state('justificatif');
-  let selectedInvoiceId = $state('');
-  let selectedFile = $state(null);
+  const FIELD_ID_MAX_LENGTH = 100;
+  const FIELD_VALUE_MAX_LENGTH = 30;
+  const DESCRIPTION_MAX_LENGTH = 500;
+  const TAGS_MAX_LENGTH = 300;
+  const DEFAULT_DOC_TYPE = DOC_TYPES.find((t) => t.value === 'justificatif')?.value ?? DOC_TYPES[0]?.value ?? '';
+  const allowedDocTypes = new Set(DOC_TYPES.map((t) => t.value));
+  const allowedCategories = new Set(METADATA_CATEGORIES.map((c) => c.value));
+  const acceptedExtensions = ACCEPT_TYPES
+    .split(',')
+    .map((v) => v.trim().toLowerCase())
+    .filter((v) => v.startsWith('.'));
+
+  class CoffreFortUploadFields {
+    constructor() {
+      this.selectedClientIdStore = writable('');
+      this.selectedTypeStore = writable(DEFAULT_DOC_TYPE);
+      this.selectedInvoiceIdStore = writable('');
+      this.selectedFileStore = writable(null);
+      this.metaDescriptionStore = writable('');
+      this.metaCategoryStore = writable('');
+      this.metaTagsStore = writable('');
+    }
+
+    sanitizeText(value, maxLength) {
+      let next = typeof value === 'string' ? value : '';
+      next = next.replace(/[\u0000-\u001f\u007f]/g, '');
+      if (next.length > maxLength) next = next.slice(0, maxLength);
+      return next;
+    }
+
+    normalizeId(value) {
+      return this.sanitizeText(value, FIELD_ID_MAX_LENGTH).trim();
+    }
+
+    normalizeType(value) {
+      const next = this.sanitizeText(value, FIELD_VALUE_MAX_LENGTH).trim();
+      return allowedDocTypes.has(next) ? next : DEFAULT_DOC_TYPE;
+    }
+
+    normalizeCategory(value) {
+      const next = this.sanitizeText(value, FIELD_VALUE_MAX_LENGTH).trim();
+      return allowedCategories.has(next) ? next : '';
+    }
+
+    isAcceptedFile(file) {
+      if (!file || typeof file.name !== 'string') return false;
+      const filename = file.name.trim().toLowerCase();
+      if (!filename) return false;
+      return acceptedExtensions.some((ext) => filename.endsWith(ext));
+    }
+
+    get selectedClientId() {
+      return get(this.selectedClientIdStore);
+    }
+
+    set selectedClientId(value) {
+      this.selectedClientIdStore.set(this.normalizeId(value));
+    }
+
+    get selectedType() {
+      return get(this.selectedTypeStore);
+    }
+
+    set selectedType(value) {
+      this.selectedTypeStore.set(this.normalizeType(value));
+    }
+
+    get selectedInvoiceId() {
+      return get(this.selectedInvoiceIdStore);
+    }
+
+    set selectedInvoiceId(value) {
+      this.selectedInvoiceIdStore.set(this.normalizeId(value));
+    }
+
+    get selectedFile() {
+      return get(this.selectedFileStore);
+    }
+
+    set selectedFile(file) {
+      if (!file || typeof file !== 'object') {
+        this.selectedFileStore.set(null);
+        return;
+      }
+      if (typeof File === 'undefined') {
+        this.selectedFileStore.set(null);
+        return;
+      }
+      if (file instanceof File && this.isAcceptedFile(file)) {
+        this.selectedFileStore.set(file);
+        return;
+      }
+      this.selectedFileStore.set(null);
+    }
+
+    get metaDescription() {
+      return get(this.metaDescriptionStore);
+    }
+
+    set metaDescription(value) {
+      this.metaDescriptionStore.set(this.sanitizeText(value, DESCRIPTION_MAX_LENGTH));
+    }
+
+    get metaCategory() {
+      return get(this.metaCategoryStore);
+    }
+
+    set metaCategory(value) {
+      this.metaCategoryStore.set(this.normalizeCategory(value));
+    }
+
+    get metaTags() {
+      return get(this.metaTagsStore);
+    }
+
+    set metaTags(value) {
+      this.metaTagsStore.set(this.sanitizeText(value, TAGS_MAX_LENGTH));
+    }
+
+    clearAfterUpload(fileInputEl) {
+      this.selectedFile = null;
+      this.metaDescription = '';
+      this.metaCategory = '';
+      this.metaTags = '';
+      if (fileInputEl) fileInputEl.value = '';
+    }
+  }
+
+  const uploadFields = new CoffreFortUploadFields();
+  const selectedClientIdStore = uploadFields.selectedClientIdStore;
+  const selectedTypeStore = uploadFields.selectedTypeStore;
+  const selectedInvoiceIdStore = uploadFields.selectedInvoiceIdStore;
+  const selectedFileStore = uploadFields.selectedFileStore;
+  const metaDescriptionStore = uploadFields.metaDescriptionStore;
+  const metaCategoryStore = uploadFields.metaCategoryStore;
+  const metaTagsStore = uploadFields.metaTagsStore;
+
   let fileInputEl = $state(null);
   let dragOver = $state(false);
-  let metaDescription = $state('');
-  let metaCategory = $state('');
-  let metaTags = $state('');
   let fileError = $state(null);
 
   function formatSize(bytes) {
@@ -37,6 +170,9 @@
 
   function validateFile(file) {
     if (!file) return { ok: false, error: null };
+    if (!uploadFields.isAcceptedFile(file)) {
+      return { ok: false, error: `Format non supporté (extensions autorisées: ${ACCEPT_TYPES})` };
+    }
     if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
       return { ok: false, error: `Fichier trop volumineux (max ${MAX_FILE_SIZE_MB} Mo)` };
     }
@@ -46,17 +182,17 @@
   function setFile(file) {
     fileError = null;
     if (!file) {
-      selectedFile = null;
+      uploadFields.selectedFile = null;
       return null;
     }
     const { ok, error } = validateFile(file);
     if (!ok) {
       fileError = error;
       onClearError();
-      selectedFile = null;
+      uploadFields.selectedFile = null;
       return error;
     }
-    selectedFile = file;
+    uploadFields.selectedFile = file;
     onClearError();
     return null;
   }
@@ -85,28 +221,29 @@
   }
 
   async function submit() {
+    const selectedFile = uploadFields.selectedFile;
+    const selectedClientId = uploadFields.selectedClientId;
     if (!selectedFile || !selectedClientId) {
       onClearError();
       return;
     }
     const metadata = {};
-    if (metaDescription.trim()) metadata.description = metaDescription.trim();
-    if (metaCategory) metadata.category = metaCategory;
-    if (metaTags.trim()) {
-      metadata.tags = metaTags.split(',').map((t) => t.trim()).filter(Boolean);
+    const description = uploadFields.metaDescription.trim();
+    const category = uploadFields.metaCategory;
+    const tagsValue = uploadFields.metaTags.trim();
+    if (description) metadata.description = description;
+    if (category) metadata.category = category;
+    if (tagsValue) {
+      metadata.tags = tagsValue.split(',').map((t) => t.trim()).filter(Boolean);
     }
     await onUpload({
       clientId: selectedClientId,
-      type: selectedType,
-      linkedInvoiceId: selectedInvoiceId || undefined,
+      type: uploadFields.selectedType,
+      linkedInvoiceId: uploadFields.selectedInvoiceId || undefined,
       file: selectedFile,
       metadata: Object.keys(metadata).length ? metadata : undefined
     });
-    selectedFile = null;
-    metaDescription = '';
-    metaCategory = '';
-    metaTags = '';
-    if (fileInputEl) fileInputEl.value = '';
+    uploadFields.clearAfterUpload(fileInputEl);
   }
 </script>
 
@@ -115,8 +252,16 @@
   <div class="upload-form">
     <div class="upload-field">
       <label for="upload-client">Client *</label>
-      <select id="upload-client" bind:value={selectedClientId} disabled={uploading}>
+      <select
+        id="upload-client"
+        value={$selectedClientIdStore}
+        onchange={(e) => (uploadFields.selectedClientId = e.currentTarget.value)}
+        disabled={uploading}
+      >
         <option value="">— Choisir —</option>
+        {#if companyOption}
+          <option value={companyOption.id}>{companyOption.label}</option>
+        {/if}
         {#each clients as c (c.id)}
           <option value={c.id}>{clientDisplayName(c)}</option>
         {/each}
@@ -124,7 +269,12 @@
     </div>
     <div class="upload-field">
       <label for="upload-type">Type</label>
-      <select id="upload-type" bind:value={selectedType} disabled={uploading}>
+      <select
+        id="upload-type"
+        value={$selectedTypeStore}
+        onchange={(e) => (uploadFields.selectedType = e.currentTarget.value)}
+        disabled={uploading}
+      >
         {#each DOC_TYPES as t (t.value)}
           <option value={t.value}>{t.label}</option>
         {/each}
@@ -132,7 +282,12 @@
     </div>
     <div class="upload-field">
       <label for="upload-invoice">Lier à un devis / facture</label>
-      <select id="upload-invoice" bind:value={selectedInvoiceId} disabled={uploading}>
+      <select
+        id="upload-invoice"
+        value={$selectedInvoiceIdStore}
+        onchange={(e) => (uploadFields.selectedInvoiceId = e.currentTarget.value)}
+        disabled={uploading}
+      >
         <option value="">— Aucun —</option>
         {#each invoiceOptions as opt (opt.id)}
           <option value={opt.id}>{opt.label}</option>
@@ -163,8 +318,8 @@
           class="upload-input-hidden"
           aria-label="Choisir un fichier"
         />
-        {#if selectedFile}
-          <span class="upload-filename">{selectedFile.name} — {formatSize(selectedFile.size)}</span>
+        {#if $selectedFileStore}
+          <span class="upload-filename">{$selectedFileStore.name} — {formatSize($selectedFileStore.size)}</span>
         {:else}
           <span class="upload-drop-text">Glissez un fichier ici ou cliquez pour choisir</span>
         {/if}
@@ -176,11 +331,23 @@
 
     <div class="upload-field upload-field-full">
       <label for="upload-desc">Description (optionnel)</label>
-      <input id="upload-desc" type="text" bind:value={metaDescription} disabled={uploading} placeholder="Ex. Repas client Dupont" />
+      <input
+        id="upload-desc"
+        type="text"
+        value={$metaDescriptionStore}
+        oninput={(e) => (uploadFields.metaDescription = e.currentTarget.value)}
+        disabled={uploading}
+        placeholder="Ex. Repas client Dupont"
+      />
     </div>
     <div class="upload-field">
       <label for="upload-category">Catégorie (optionnel)</label>
-      <select id="upload-category" bind:value={metaCategory} disabled={uploading}>
+      <select
+        id="upload-category"
+        value={$metaCategoryStore}
+        onchange={(e) => (uploadFields.metaCategory = e.currentTarget.value)}
+        disabled={uploading}
+      >
         {#each METADATA_CATEGORIES as cat (cat.value)}
           <option value={cat.value}>{cat.label}</option>
         {/each}
@@ -188,14 +355,21 @@
     </div>
     <div class="upload-field">
       <label for="upload-tags">Tags (optionnel, séparés par des virgules)</label>
-      <input id="upload-tags" type="text" bind:value={metaTags} disabled={uploading} placeholder="ex. déductible, 2024" />
+      <input
+        id="upload-tags"
+        type="text"
+        value={$metaTagsStore}
+        oninput={(e) => (uploadFields.metaTags = e.currentTarget.value)}
+        disabled={uploading}
+        placeholder="ex. déductible, 2024"
+      />
     </div>
     <div class="upload-field upload-field-action">
       <button
         type="button"
         class="upload-btn upload-btn-primary"
         onclick={submit}
-        disabled={uploading || !selectedFile || !selectedClientId}
+        disabled={uploading || !$selectedFileStore || !$selectedClientIdStore}
       >
         {uploading ? 'Chiffrement…' : 'Ajouter et chiffrer'}
       </button>
@@ -243,8 +417,7 @@
     color: #475569;
   }
   .upload-field select,
-  .upload-field input[type="text"],
-  .upload-field input[type="number"] {
+  .upload-field input[type="text"] {
     padding: 0.4rem 0.6rem;
     border: 1px solid #e2e8f0;
     border-radius: 6px;
