@@ -11,7 +11,7 @@ export async function findUserByEmail(email) {
 export async function findUserById(id) {
   return prisma.user.findUnique({
     where: { id },
-    select: { id: true, email: true, nom: true, prenom: true, adresse: true }
+    select: { id: true, email: true, nom: true, prenom: true, adresse: true, emailVerified: true }
   });
 }
 
@@ -57,4 +57,47 @@ export async function getRecoveryDataByEmail(email) {
     select: { recoverySalt: true, recoveryKeyCheck: true }
   });
   return user ?? null;
+}
+
+// ——— Vérification email (code à 6 chiffres) ———
+
+/** Génère un code à 6 chiffres et enregistre avec expiration (ex. 15 min). */
+export async function setEmailVerificationCode(userId, code, expiresAt) {
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      emailVerificationCode: code,
+      emailVerificationCodeExpiresAt: expiresAt
+    }
+  });
+}
+
+/** Supprime le code après utilisation ou expiration. */
+export async function clearEmailVerificationCode(userId) {
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      emailVerificationCode: null,
+      emailVerificationCodeExpiresAt: null
+    }
+  });
+}
+
+/** Vérifie le code : doit correspondre et ne pas être expiré. Retourne true si ok. */
+export async function verifyEmailCode(userId, code) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { emailVerificationCode: true, emailVerificationCodeExpiresAt: true }
+  });
+  if (!user?.emailVerificationCode || user.emailVerificationCode !== String(code).trim()) return false;
+  if (!user.emailVerificationCodeExpiresAt || new Date() > user.emailVerificationCodeExpiresAt) return false;
+  return true;
+}
+
+/** Marque l'email comme vérifié (après code valide). */
+export async function setEmailVerified(userId) {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { emailVerified: true, emailVerificationCode: null, emailVerificationCodeExpiresAt: null }
+  });
 }

@@ -25,6 +25,9 @@ model User {
   nom                String
   prenom             String
   adresse            String?
+  emailVerified      Boolean         @default(false) @map("email_verified")
+  emailVerificationCode       String?  @map("email_verification_code")
+  emailVerificationCodeExpiresAt DateTime? @map("email_verification_code_expires_at")
   recoverySalt       String?         @map("recovery_salt")       // sel pour recovery (phrase + mdp)
   recoveryKeyCheck   Json?           @map("recovery_key_check")  // { payload, iv } pour vérifier la clé côté client
   createdAt          DateTime        @default(now()) @map("created_at")

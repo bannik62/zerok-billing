@@ -38,6 +38,10 @@ const cookieSecure = getEnv('COOKIE_SECURE') === 'true';
 
 const DATABASE_URL = getEnv('DATABASE_URL') || null;
 
+/** Gmail : utilisateur (email) + mot de passe d'application (voir docs/VERIFICATION_EMAIL_GMAIL.md) */
+const GMAIL_USER = getEnv('GMAIL_USER') || null;
+const GMAIL_APP_PASSWORD = getEnv('GMAIL_APP_PASSWORD') || null;
+
 const SESSION_SECRET = getEnv('SESSION_SECRET') || DEV_SESSION_SECRET;
 
 export const env = Object.freeze({
@@ -47,5 +51,7 @@ export const env = Object.freeze({
   SESSION_SECRET,
   allowedOrigins,
   cookieSecure,
-  DATABASE_URL
+  DATABASE_URL,
+  GMAIL_USER,
+  GMAIL_APP_PASSWORD
 });

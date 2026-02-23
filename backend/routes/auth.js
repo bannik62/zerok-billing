@@ -6,8 +6,13 @@ import {
   createUser,
   updateRecoveryData,
   getRecoveryDataByEmail,
-  updatePasswordByEmail
+  updatePasswordByEmail,
+  setEmailVerificationCode,
+  verifyEmailCode,
+  setEmailVerified
 } from '../services/userService.js';
+import { sendMail } from '../services/emailService.js';
+import { log } from '../lib/logger.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { ensureCsrfToken } from '../middleware/csrf.js';
 import {
@@ -67,6 +72,17 @@ authRouter.post('/register', authRateLimiter, async (req, res, next) => {
       prenom,
       adresse
     });
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    await setEmailVerificationCode(user.id, code, expiresAt);
+    sendMail({
+      to: user.email,
+      subject: 'Vérifiez votre email – ZeroK Billing',
+      text: `Votre code de vérification est : ${code}\n\nIl expire dans 15 minutes. Ne le partagez avec personne.`,
+      html: `<p>Votre code de vérification est : <strong>${code}</strong></p><p>Il expire dans 15 minutes. Ne le partagez avec personne.</p>`
+    }).catch((err) => {
+      log('[zerok-billing] Envoi email vérification échoué:', err?.message);
+    });
     req.session.userId = user.id;
     req.session.save((err) => {
       if (err) return next(err);
@@ -75,7 +91,8 @@ authRouter.post('/register', authRateLimiter, async (req, res, next) => {
         email: user.email,
         nom: user.nom,
         prenom: user.prenom,
-        adresse: user.adresse
+        adresse: user.adresse,
+        emailVerified: false
       });
     });
   } catch (e) {
@@ -103,7 +120,8 @@ authRouter.post('/login', authRateLimiter, async (req, res, next) => {
         email: user.email,
         nom: user.nom,
         prenom: user.prenom,
-        adresse: user.adresse
+        adresse: user.adresse,
+        emailVerified: user.emailVerified ?? false
       });
     });
   } catch (e) {
@@ -122,6 +140,48 @@ authRouter.post('/logout', (req, res, next) => {
 // Route sécurisée : nécessite une session valide (middleware requireAuth)
 authRouter.get('/me', requireAuth, (req, res) => {
   res.json({ valid: true, user: req.user });
+});
+
+// ——— Vérification email (code à 6 chiffres) ———
+const resendVerifyLimiter = rateLimit({
+  windowMs: 2 * 60 * 1000,
+  max: 3,
+  message: { error: 'Trop de demandes. Réessayez dans 2 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+authRouter.post('/verify-email', requireAuth, async (req, res, next) => {
+  try {
+    const code = req.body?.code?.trim();
+    if (!code) return res.status(400).json({ error: 'Code requis' });
+    const userId = req.session.userId;
+    const ok = await verifyEmailCode(userId, code);
+    if (!ok) return res.status(400).json({ error: 'Code invalide ou expiré' });
+    await setEmailVerified(userId);
+    res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+authRouter.post('/resend-verification', resendVerifyLimiter, requireAuth, async (req, res, next) => {
+  try {
+    const user = req.user;
+    if (user.emailVerified) return res.json({ ok: true });
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    await setEmailVerificationCode(user.id, code, expiresAt);
+    await sendMail({
+      to: user.email,
+      subject: 'Vérifiez votre email – ZeroK Billing',
+      text: `Votre code de vérification est : ${code}\n\nIl expire dans 15 minutes. Ne le partagez avec personne.`,
+      html: `<p>Votre code de vérification est : <strong>${code}</strong></p><p>Il expire dans 15 minutes. Ne le partagez avec personne.</p>`
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
 });
 
 // ——— Recovery (phrase de récupération) ———

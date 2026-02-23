@@ -2,6 +2,7 @@
   import Login from './modules/auth/Login.svelte';
   import Register from './modules/auth/Register.svelte';
   import ForgotPassword from './modules/auth/ForgotPassword.svelte';
+  import VerifyEmail from './modules/auth/VerifyEmail.svelte';
   import Unlock from './modules/auth/Unlock.svelte';
   import SessionTemoin from './modules/session/SessionTemoin.svelte';
   import CsrfTemoin from './modules/session/CsrfTemoin.svelte';
@@ -26,7 +27,12 @@
       if (data?.valid === true) {
         await fetchCsrfToken().catch(() => null);
         user = data.user;
-        page = 'menu';
+        if (user?.emailVerified === false) {
+          page = 'auth';
+          view = 'verifyEmail';
+        } else {
+          page = 'menu';
+        }
       } else {
         user = null;
       }
@@ -42,13 +48,28 @@
   async function onLoginSuccess(data) {
     await fetchCsrfToken().catch(() => null);
     user = data;
-    page = 'menu';
+    if (data?.emailVerified === false) {
+      page = 'auth';
+      view = 'verifyEmail';
+    } else {
+      page = 'menu';
+    }
   }
 
   async function onRegisterSuccess(data) {
     await fetchCsrfToken().catch(() => null);
     user = data;
-    page = 'menu';
+    if (data?.emailVerified === false) {
+      page = 'auth';
+      view = 'verifyEmail';
+    } else {
+      page = 'menu';
+    }
+  }
+
+  async function onEmailVerified() {
+    await fetchUser();
+    if (user?.emailVerified !== false) page = 'menu';
   }
 
   function logout() {
@@ -89,6 +110,12 @@
       />
     {:else if view === 'forgotPassword'}
       <ForgotPassword onSwitchToLogin={async () => { await fetchCsrfToken().catch(() => null); view = 'login'; }} />
+    {:else if view === 'verifyEmail'}
+      <VerifyEmail
+        {user}
+        onVerified={onEmailVerified}
+        onLogout={logout}
+      />
     {:else}
       <Register
         onSuccess={onRegisterSuccess}
