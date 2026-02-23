@@ -21,6 +21,7 @@
   import DevisTable from './DevisTable.svelte';
   import FacturesTable from './FacturesTable.svelte';
   import ProofsPanel from '$lib/ProofsPanel.svelte';
+  import { apiClient } from '$lib/apiClient.js';
 
   const controlsFields = new ListeDocumentsControlsFields();
   const searchStore = controlsFields.searchStore;
