@@ -19,7 +19,8 @@
     onOpenFactureFromDevis = () => {},
     onExportPdf = () => {},
     onExportZip = () => {},
-    onSendForSignature = () => {}
+    onSendForSignature = () => {},
+    sendingForSignatureId = null
   } = $props();
 
   let selectAllCheckboxEl = $state(null);
@@ -97,11 +98,11 @@
               <button
                 type="button"
                 class="btn-send-row"
-                disabled={d.accepted === true || !clientsMap[d.entete?.clientId]?.email}
+                disabled={d.accepted === true || !clientsMap[d.entete?.clientId]?.email || sendingForSignatureId === d.id}
                 title={d.accepted === true || !clientsMap[d.entete?.clientId]?.email ? (d.accepted === true ? 'Déjà accepté' : 'Ajoutez un email au client') : 'Envoyer le devis au client pour signature'}
                 onclick={() => onSendForSignature(d)}
               >
-                Envoyer
+                {sendingForSignatureId === d.id ? '…' : 'Envoyer'}
               </button>
             </td>
             <td class="col-verified" aria-label={verifiedMap[d.id] === true ? 'Hash vérifié' : verifiedMap[d.id] === false ? 'Hash non vérifié' : 'Vérification…'}>

@@ -7,8 +7,10 @@ import {
   validateDocumentProofBody,
   validateDocumentIdParam,
   validateInvoiceIdParam,
-  validateCleanupBody
+  validateCleanupBody,
+  validateSendForSignatureBody
 } from '../validators/secureValidator.js';
+import { sendMail } from '../services/emailService.js';
 
 /**
  * Routeur des routes sécurisées (monté sous /api avec requireAuth dans server.js).
@@ -171,6 +173,32 @@ secureRouter.post('/documents/proofs/cleanup', async (req, res, next) => {
 
     await deleteDocumentProofsNotInList(userId, value.keepDocumentIds);
     return res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * POST /api/documents/send-for-signature — Envoie un email au client avec le document à signer (notification ; PDF en pièce jointe possible plus tard).
+ * Body : { to: string (email), documentType: 'devis' | 'facture', numero?: string }
+ */
+secureRouter.post('/documents/send-for-signature', async (req, res, next) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Non authentifié' });
+
+    const { value, error } = validateSendForSignatureBody(req.body);
+    if (error) return res.status(400).json({ error });
+
+    const { to, documentType, numero } = value;
+    const docLabel = documentType === 'devis' ? 'Devis' : 'Facture';
+    const numeroLabel = (numero && numero.trim()) ? ` n° ${numero.trim()}` : '';
+    const subject = `${docLabel}${numeroLabel} à signer`;
+    const text = `Vous avez reçu ${docLabel.toLowerCase()}${numeroLabel} pour signature.\n\nMerci de prendre connaissance du document et de contacter l'expéditeur pour toute question.`;
+    const html = `<p>Vous avez reçu <strong>${docLabel.toLowerCase()}${numeroLabel}</strong> pour signature.</p><p>Merci de prendre connaissance du document et de contacter l'expéditeur pour toute question.</p>`;
+
+    await sendMail({ to, subject, text, html });
+    return res.status(200).json({ ok: true, sentTo: to });
   } catch (e) {
     next(e);
   }

@@ -30,10 +30,10 @@ function getTransport() {
 
 /**
  * Envoie un email (transport Gmail configuré).
- * @param {{ to: string, subject: string, text: string, html?: string, from?: string, replyTo?: string }} options
+ * @param {{ to: string, subject: string, text: string, html?: string, from?: string, replyTo?: string, attachments?: Array<{ filename: string, content: Buffer }> }} options
  * @returns {Promise<void>} lance une erreur si envoi échoue ; ne fait rien si transport indisponible
  */
-export async function sendMail({ to, subject, text, html, from, replyTo }) {
+export async function sendMail({ to, subject, text, html, from, replyTo, attachments }) {
   const transport = getTransport();
   if (!transport) return;
   const payload = {
@@ -42,7 +42,8 @@ export async function sendMail({ to, subject, text, html, from, replyTo }) {
     subject,
     text,
     ...(html && { html }),
-    ...(replyTo && { replyTo })
+    ...(replyTo && { replyTo }),
+    ...(attachments?.length && { attachments })
   };
   await transport.sendMail(payload);
   log('[zerok-billing] Email envoyé à', to, '|', subject);

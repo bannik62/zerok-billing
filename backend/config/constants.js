@@ -13,6 +13,7 @@ export const ADRESSE_MAX_LENGTH = 255;
 
 // ——— Proofs / documents (secure) ———
 export const INVOICE_ID_MAX = 100;
+export const NUMERO_LABEL_MAX = 80;
 export const DOCUMENT_ID_MAX = 100;
 export const FILENAME_MAX = 255;
 export const MIMETYPE_MAX = 100;

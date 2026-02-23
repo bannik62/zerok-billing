@@ -17,7 +17,8 @@
     onDeleteSelection = () => {},
     onExportPdf = () => {},
     onExportZip = () => {},
-    onSendForSignature = () => {}
+    onSendForSignature = () => {},
+    sendingForSignatureId = null
   } = $props();
 
   let selectAllCheckboxEl = $state(null);
@@ -91,11 +92,11 @@
               <button
                 type="button"
                 class="btn-send-row"
-                disabled={!clientsMap[f.entete?.clientId]?.email}
+                disabled={!clientsMap[f.entete?.clientId]?.email || sendingForSignatureId === f.id}
                 title={!clientsMap[f.entete?.clientId]?.email ? 'Ajoutez un email au client' : 'Envoyer la facture au client pour signature'}
                 onclick={() => onSendForSignature(f)}
               >
-                Envoyer
+                {sendingForSignatureId === f.id ? '…' : 'Envoyer'}
               </button>
             </td>
             <td class="col-verified" aria-label={verifiedMap[f.id] === true ? 'Hash vérifié' : verifiedMap[f.id] === false ? 'Hash non vérifié' : 'Vérification…'}>

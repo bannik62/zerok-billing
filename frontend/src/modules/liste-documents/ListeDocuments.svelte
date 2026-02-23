@@ -111,14 +111,31 @@
     requestExportZip(invoiceId, type, numero);
   }
 
-  /** Envoyer le document au client pour signature (étape suivante : appel API + email). */
-  function handleSendForSignature(document, docType) {
+  /** Envoi du document au client pour signature (email envoyé par le backend). */
+  let sendingForSignatureId = $state(null);
+  let sendSignatureFeedback = $state(null); // { type: 'success'|'error', text }
+
+  async function handleSendForSignature(document, docType) {
     const client = document?.entete?.clientId ? clientsMap[document.entete.clientId] : null;
     const email = client?.email;
-    const label = docType === 'devis' ? `Devis ${document?.entete?.numero ?? document?.id}` : `Facture ${document?.entete?.numero ?? document?.id}`;
     if (!email) return;
-    // TODO: appeler l'API d'envoi à signer (email + document)
-    console.log('Envoyer à signer', { docType, documentId: document?.id, label, to: email });
+    const numero = document?.entete?.numero ?? '';
+    sendingForSignatureId = document?.id ?? null;
+    sendSignatureFeedback = null;
+    try {
+      await apiClient.post('/api/documents/send-for-signature', {
+        to: email,
+        documentType: docType,
+        numero: String(numero).trim()
+      });
+      sendSignatureFeedback = { type: 'success', text: `Email envoyé à ${email}` };
+      setTimeout(() => { sendSignatureFeedback = null; }, 4000);
+    } catch (e) {
+      const msg = e.response?.data?.error ?? e?.message ?? 'Erreur lors de l’envoi';
+      sendSignatureFeedback = { type: 'error', text: msg };
+    } finally {
+      sendingForSignatureId = null;
+    }
   }
 
   let devisList = $state([]);
@@ -356,6 +373,11 @@
     <p class="liste-documents-msg liste-documents-msg--error">{error}</p>
     <p class="liste-documents-hint">Si l’erreur concerne la base de données, essayez de rafraîchir la page.</p>
   {:else}
+    {#if sendSignatureFeedback}
+      <p class="liste-documents-msg liste-documents-msg--{sendSignatureFeedback.type}">
+        {sendSignatureFeedback.text}
+      </p>
+    {/if}
     <div class="liste-layout">
       <div class="liste-main">
     <ListeDocumentsSearch {controlsFields} maxLength={LISTE_DOCS_SEARCH_MAX_LENGTH} />
@@ -368,6 +390,7 @@
       selectedDevisIdsStore={selectedDevisIdsStore}
       searchQuery={$searchStore}
       {zipExportingId}
+      sendingForSignatureId={sendingForSignatureId}
       {deletingDevis}
       {allDevisSelected}
       {someDevisSelected}
@@ -387,6 +410,7 @@
       selectedFactureIdsStore={selectedFactureIdsStore}
       searchQuery={$searchStore}
       {zipExportingId}
+      sendingForSignatureId={sendingForSignatureId}
       deleting={deleting}
       {allFacturesSelected}
       {someFacturesSelected}
@@ -460,6 +484,9 @@
   .liste-documents-msg--error {
     color: var(--color-error);
     font-weight: 500;
+  }
+  .liste-documents-msg--success {
+    color: var(--color-primary);
   }
   .liste-documents-hint {
     margin: 0.25rem 0 0 0;

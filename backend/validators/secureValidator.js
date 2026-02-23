@@ -6,7 +6,9 @@ import {
   MIMETYPE_MAX,
   HASH_HEX_LENGTH,
   SIGNATURE_MAX,
-  VERIFY_BATCH_MAX
+  VERIFY_BATCH_MAX,
+  EMAIL_MAX_LENGTH,
+  NUMERO_LABEL_MAX
 } from '../config/constants.js';
 
 const hashHexSchema = Joi.string()
@@ -81,6 +83,20 @@ const invoiceIdParamSchema = Joi.string().trim().max(INVOICE_ID_MAX).required().
 const cleanupSchema = Joi.object({
   keepDocumentIds: Joi.array().items(Joi.string().trim().max(DOCUMENT_ID_MAX)).required().messages({
     'array.base': 'keepDocumentIds requis (tableau)'
+  })
+}).options({ stripUnknown: true });
+
+const sendForSignatureSchema = Joi.object({
+  to: Joi.string().trim().email().max(EMAIL_MAX_LENGTH).required().messages({
+    'string.empty': 'to (email) requis',
+    'string.email': 'email invalide',
+    'string.max': 'email trop long'
+  }),
+  documentType: Joi.string().valid('devis', 'facture').required().messages({
+    'any.only': 'documentType doit être devis ou facture'
+  }),
+  numero: Joi.string().trim().max(NUMERO_LABEL_MAX).allow('').default('').messages({
+    'string.max': 'numero trop long'
   })
 }).options({ stripUnknown: true });
 
@@ -163,6 +179,16 @@ export function validateInvoiceIdParam(invoiceId) {
  */
 export function validateCleanupBody(body) {
   const result = cleanupSchema.validate(body || {}, { abortEarly: false });
+  const err = toError(result);
+  if (err) return { value: null, error: err };
+  return { value: result.value, error: null };
+}
+
+/**
+ * POST /api/documents/send-for-signature
+ */
+export function validateSendForSignatureBody(body) {
+  const result = sendForSignatureSchema.validate(body || {}, { abortEarly: false });
   const err = toError(result);
   if (err) return { value: null, error: err };
   return { value: result.value, error: null };
