@@ -1,0 +1,63 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - 'docker-compose.yml'
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure target directory exists
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 2222
+          script: |
+            mkdir -p ${{ secrets.DEPLOY_PATH }}/backend
+
+      - name: Copy Backend to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 2222
+          source: "backend/**"
+          target: "${{ secrets.DEPLOY_PATH }}/backend"
+          strip_components: 1
+
+      - name: Copy docker-compose to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 2222
+          source: "docker-compose.yml"
+          target: "${{ secrets.DEPLOY_PATH }}"
+
+      - name: Restart Backend
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 2222
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+            # Stop the existing container
+            docker-compose stop backend
+            # Remove the container to ensure a fresh start
+            docker-compose rm -f backend
+            # Rebuild the image with the new code
+            docker-compose build backend
+            # Start the service in detached mode, using the .env file present in the directory
+            docker-compose --env-file .env up -d backend

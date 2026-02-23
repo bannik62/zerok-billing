@@ -3,6 +3,7 @@
   import { getAllDevis, getAllFactures, hasEncryptionKey } from '$lib/dbEncrypted.js';
   import { hashDocument } from '$lib/crypto/index.js';
   import { apiClient } from '$lib/apiClient.js';
+  import ProofsPanel from '$lib/ProofsPanel.svelte';
 
   let { user = null } = $props();
   const uid = $derived(user?.id ?? null);
@@ -20,6 +21,40 @@
   let proofsError = $state('');
   /** Pour chaque invoiceId : 'ok' | 'diff' | null (non vérifié) */
   let integrityStatus = $state({});
+
+  const devisIds = $derived(new Set((decryptedDevis || []).map((d) => d.id)));
+  const factureIds = $derived(new Set((decryptedFactures || []).map((f) => f.id)));
+  const devisById = $derived(Object.fromEntries((decryptedDevis || []).map((d) => [d.id, d])));
+  const facturesById = $derived(Object.fromEntries((decryptedFactures || []).map((f) => [f.id, f])));
+
+  /** Items pour ProofsPanel : id, hash, label, isOrphan, documentType. Sections Devis / Factures comme Liste documents. */
+  const proofItems = $derived(
+    backendProofs.map((p) => {
+      const isDevis = devisIds.has(p.invoiceId);
+      const isFacture = factureIds.has(p.invoiceId);
+      const documentType = isDevis ? 'devis' : isFacture ? 'facture' : 'orphan';
+      const doc = devisById[p.invoiceId] ?? facturesById[p.invoiceId];
+      const numero = doc?.entete?.numero ?? doc?.id ?? p.invoiceId;
+      const label = documentType === 'devis' ? `Devis ${numero}` : documentType === 'facture' ? `Facture ${numero}` : (p.invoiceId.length > 24 ? p.invoiceId.slice(0, 22) + '…' : p.invoiceId);
+      return {
+        id: p.invoiceId,
+        hash: p.invoiceHash || '',
+        label,
+        isOrphan: !isDevis && !isFacture,
+        documentType
+      };
+    })
+  );
+
+  /** ProofsPanel attend verifiedMap[id] === true | false. On mappe integrityStatus. */
+  const verifiedMap = $derived(
+    Object.fromEntries(
+      backendProofs.map((p) => [
+        p.invoiceId,
+        integrityStatus[p.invoiceId] === 'ok' ? true : integrityStatus[p.invoiceId] === 'diff' ? false : undefined
+      ])
+    )
+  );
 
   async function loadStores() {
     loading = true;
@@ -139,31 +174,6 @@
     <p>Chargement…</p>
   {:else}
     <div class="explorer-layout">
-      <aside class="proofs-panel">
-        <h3>Preuves backend (intégrité)</h3>
-        <p class="proofs-hint">Hash enregistrés côté serveur pour prouver l'intégrité des documents.</p>
-        {#if proofsError}
-          <p class="proofs-error">{proofsError}</p>
-        {:else if backendProofs.length === 0}
-          <p class="proofs-empty">Aucune preuve enregistrée.</p>
-        {:else}
-          <ul class="proofs-list">
-            {#each backendProofs as p}
-              <li class="proof-item">
-                <span class="proof-id" title={p.invoiceId}>{p.invoiceId.length > 20 ? p.invoiceId.slice(0, 18) + '…' : p.invoiceId}</span>
-                <code class="proof-hash" title={p.invoiceHash}>{p.invoiceHash ? p.invoiceHash.slice(0, 12) + '…' : '—'}</code>
-                {#if integrityStatus[p.invoiceId] === 'ok'}
-                  <span class="proof-status ok" title="Hash local = hash backend">✓ conforme</span>
-                {:else if integrityStatus[p.invoiceId] === 'diff'}
-                  <span class="proof-status diff" title="Hash local ≠ hash backend">✗ différent</span>
-                {:else}
-                  <span class="proof-status unknown">—</span>
-                {/if}
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      </aside>
       <div class="explorer-main">
     <div class="stores">
       <h3>Stores</h3>
@@ -217,6 +227,15 @@
       <p class="hint">Déverrouillez avec votre mot de passe pour voir un aperçu déchiffré des devis/factures.</p>
     {/if}
       </div>
+      <ProofsPanel
+        title="Preuves (intégrité)"
+        hint="Hash enregistrés côté serveur. Comparaison avec le hash local (IndexedDB)."
+        error={proofsError}
+        items={proofItems}
+        verifiedMap={verifiedMap}
+        verifiedLoading={false}
+        ariaLabel="Preuves — comparaison hash local / backend"
+      />
     </div>
   {/if}
 </div>
@@ -232,62 +251,6 @@
     align-items: flex-start;
     flex-wrap: wrap;
   }
-  .proofs-panel {
-    flex: 0 0 280px;
-    min-width: 240px;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    padding: 1rem;
-    background: var(--color-bg-muted);
-  }
-  .proofs-panel h3 {
-    margin: 0 0 0.5rem 0;
-    font-size: 1rem;
-    color: var(--color-primary);
-  }
-  .proofs-hint {
-    font-size: 0.8rem;
-    color: var(--color-text-muted);
-    margin: 0 0 0.75rem 0;
-  }
-  .proofs-error { color: var(--color-error); font-size: 0.85rem; margin: 0; }
-  .proofs-empty { color: var(--color-text-muted); font-size: 0.9rem; margin: 0; }
-  .proofs-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-  .proof-item {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.35rem 0.5rem;
-    padding: 0.4rem 0;
-    border-bottom: 1px solid var(--color-border);
-    font-size: 0.8rem;
-  }
-  .proof-item:last-child { border-bottom: none; }
-  .proof-id {
-    flex: 0 0 100%;
-    font-weight: 500;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .proof-hash {
-    font-size: 0.75rem;
-    background: var(--color-border);
-    padding: 0.15rem 0.35rem;
-    border-radius: 4px;
-    color: var(--color-text-soft);
-  }
-  .proof-status {
-    font-size: 0.75rem;
-    font-weight: 500;
-  }
-  .proof-status.ok { color: var(--color-primary); }
-  .proof-status.diff { color: var(--color-error); }
-  .proof-status.unknown { color: var(--color-text-muted); }
   .explorer-main {
     flex: 1;
     min-width: 280px;

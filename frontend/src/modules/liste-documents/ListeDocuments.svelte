@@ -172,16 +172,22 @@
     return map;
   });
 
-  /** Items pour l’encart Preuves : id, hash, label, isOrphan (document plus présent en local). */
+  /** Items pour l’encart Preuves : id, hash, label, isOrphan, documentType ('devis' | 'facture' | 'orphan'). */
   const proofItems = $derived.by(() => {
     const devisIds = new Set(devisList.map((d) => d.id));
     const factureIds = new Set(facturesList.map((f) => f.id));
-    return backendProofs.map((p) => ({
-      id: p.invoiceId,
-      hash: p.invoiceHash || '',
-      label: getProofLabel(p.invoiceId, devisList, facturesList, clientsMap),
-      isOrphan: !devisIds.has(p.invoiceId) && !factureIds.has(p.invoiceId)
-    }));
+    return backendProofs.map((p) => {
+      const isDevis = devisIds.has(p.invoiceId);
+      const isFacture = factureIds.has(p.invoiceId);
+      const documentType = isDevis ? 'devis' : isFacture ? 'facture' : 'orphan';
+      return {
+        id: p.invoiceId,
+        hash: p.invoiceHash || '',
+        label: getProofLabel(p.invoiceId, devisList, facturesList, clientsMap),
+        isOrphan: !isDevis && !isFacture,
+        documentType
+      };
+    });
   });
 
   let deletingProofId = $state(null);

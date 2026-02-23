@@ -43,6 +43,7 @@
   function showCoffreFort() { displayModule = 'coffre-fort'; selectedClient = null; selectedDevisForFacture = null; }
   function showExplorerBase() { displayModule = 'explorer-base'; selectedClient = null; selectedDevisForFacture = null; }
   function showSauvegarderRestaurer() { displayModule = 'sauvegarder-restaurer'; selectedClient = null; selectedDevisForFacture = null; }
+  function showAccueil() { displayModule = null; selectedClient = null; selectedDevisForFacture = null; }
 
   function openFactureForClient(client) {
     selectedClient = client;
@@ -63,7 +64,7 @@
 
 <div class="menu-module page">
   <header class="menu-header">
-    <h1>Accueil</h1>
+    <h1><button type="button" class="h1-link" onclick={showAccueil} aria-label="Retour à l'accueil">Accueil</button></h1>
     <p class="welcome">Bienvenue, <strong>{user.prenom} {user.nom}</strong>.</p>
     <button type="button" class="btn-theme" onclick={toggleTheme} aria-label={$themeStore === 'dark' ? 'Passer en mode jour' : 'Passer en mode nuit'}>
       {$themeStore === 'dark' ? '☀ Jour' : '☽ Nuit'}
@@ -115,7 +116,7 @@
             <ul class="welcome-presentation-list">
               <li><strong>Chiffrement côté client</strong> — Clé dérivée de votre mot de passe ; devis, factures et coffre-fort déchiffrés uniquement dans votre navigateur.</li>
               <li><strong>Preuves d’intégrité</strong> — Hash des documents envoyés au serveur pour vérifier qu’aucune donnée n’a été modifiée.</li>
-              <li><strong>Données en local</strong> — IndexedDB dans le navigateur ; pas de fuite de contenu, même en cas de compromission du serveur.</li>
+              <li><strong>Données en local (IndexedDB)</strong> — Contrairement au simple localStorage (limité, chaînes de caractères), IndexedDB stocke vos données structurées et volumineuses dans le navigateur, sans les envoyer au serveur. Même origine stricte, pas de fuite en cas de compromission du serveur.</li>
               <li><strong>Coffre-fort de documents</strong> — Justificatifs, contrats, fiches de paie… stockés et chiffrés comme le reste.</li>
               <li><strong>Sauvegarde / restauration</strong> — Archive chiffrée exportable pour reprendre vos données sur un autre appareil.</li>
             </ul>
@@ -166,6 +167,19 @@
     font-size: clamp(1.25rem, 4vw, 1.5rem);
     color: var(--color-primary);
     margin: 0;
+  }
+  .menu-header .h1-link {
+    font: inherit;
+    color: inherit;
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .menu-header .h1-link:hover {
+    text-decoration: underline;
   }
   .welcome { margin: 0; font-size: clamp(0.875rem, 2.2vw, 0.95rem); color: var(--color-text); }
   .btn-theme {
