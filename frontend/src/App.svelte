@@ -1,6 +1,7 @@
 <script>
   import Login from './modules/auth/Login.svelte';
   import Register from './modules/auth/Register.svelte';
+  import ForgotPassword from './modules/auth/ForgotPassword.svelte';
   import Unlock from './modules/auth/Unlock.svelte';
   import SessionTemoin from './modules/session/SessionTemoin.svelte';
   import CsrfTemoin from './modules/session/CsrfTemoin.svelte';
@@ -18,13 +19,14 @@
   let view = $state('login');
 
   async function fetchUser() {
+    await fetchCsrfToken().catch(() => null);
     try {
       const res = await apiClient.get('/api/auth/me');
       const data = res.data;
       if (data?.valid === true) {
+        await fetchCsrfToken().catch(() => null);
         user = data.user;
         page = 'menu';
-        fetchCsrfToken().catch(() => {});
       } else {
         user = null;
       }
@@ -37,16 +39,16 @@
 
   fetchUser();
 
-  function onLoginSuccess(data) {
+  async function onLoginSuccess(data) {
+    await fetchCsrfToken().catch(() => null);
     user = data;
     page = 'menu';
-    fetchCsrfToken().catch(() => {});
   }
 
-  function onRegisterSuccess(data) {
+  async function onRegisterSuccess(data) {
+    await fetchCsrfToken().catch(() => null);
     user = data;
     page = 'menu';
-    fetchCsrfToken().catch(() => {});
   }
 
   function logout() {
@@ -83,7 +85,10 @@
       <Login
         onSuccess={onLoginSuccess}
         onSwitchToRegister={() => { view = 'register'; }}
+        onSwitchToForgot={() => { view = 'forgotPassword'; }}
       />
+    {:else if view === 'forgotPassword'}
+      <ForgotPassword onSwitchToLogin={async () => { await fetchCsrfToken().catch(() => null); view = 'login'; }} />
     {:else}
       <Register
         onSuccess={onRegisterSuccess}

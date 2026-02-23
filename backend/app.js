@@ -18,6 +18,7 @@ import { requireAuth } from './middleware/requireAuth.js';
 import { validateCsrf, ensureCsrfToken } from './middleware/csrf.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { authRouter } from './routes/auth.js';
+import { recoveryRouter } from './routes/recovery.js';
 import { secureRouter } from './routes/secure.js';
 import { prisma } from './lib/prisma.js';
 
@@ -69,6 +70,7 @@ app.get('/api/auth/csrf-token', ensureCsrfToken, (req, res) => {
 });
 
 app.use('/api/auth', authRouter);
+app.use('/api/recovery', recoveryRouter);
 
 app.get('/api/health', async (_req, res) => {
   const payload = { ok: true };

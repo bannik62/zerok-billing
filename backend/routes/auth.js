@@ -1,20 +1,41 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import argon2 from 'argon2';
-import { findUserByEmail, createUser } from '../services/userService.js';
+import {
+  findUserByEmail,
+  createUser,
+  updateRecoveryData,
+  getRecoveryDataByEmail,
+  updatePasswordByEmail
+} from '../services/userService.js';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { ensureCsrfToken } from '../middleware/csrf.js';
-import { validateRegister, validateLogin } from '../validators/authValidator.js';
+import {
+  validateRegister,
+  validateLogin,
+  validateRecoveryData,
+  validateResetPassword
+} from '../validators/authValidator.js';
 import {
   PASSWORD_MIN_LENGTH,
   AUTH_RATE_LIMIT_WINDOW_MS,
-  AUTH_RATE_LIMIT_MAX
+  AUTH_RATE_LIMIT_MAX,
+  RECOVERY_RATE_LIMIT_WINDOW_MS,
+  RECOVERY_RATE_LIMIT_MAX
 } from '../config/constants.js';
 
 const authRateLimiter = rateLimit({
   windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
   max: AUTH_RATE_LIMIT_MAX,
   message: { error: 'Trop de tentatives. Réessayez dans 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const recoveryRateLimiter = rateLimit({
+  windowMs: RECOVERY_RATE_LIMIT_WINDOW_MS,
+  max: RECOVERY_RATE_LIMIT_MAX,
+  message: { error: 'Trop de tentatives. Réessayez plus tard.' },
   standardHeaders: true,
   legacyHeaders: false
 });
@@ -101,4 +122,52 @@ authRouter.post('/logout', (req, res, next) => {
 // Route sécurisée : nécessite une session valide (middleware requireAuth)
 authRouter.get('/me', requireAuth, (req, res) => {
   res.json({ valid: true, user: req.user });
+});
+
+// ——— Recovery (phrase de récupération) ———
+
+// Enregistrer salt + keyCheck pour l'utilisateur connecté (après initEncryption avec phrase)
+authRouter.post('/recovery-data', requireAuth, async (req, res, next) => {
+  try {
+    const { value, error } = validateRecoveryData(req.body);
+    if (error) return res.status(400).json({ error });
+    const userId = req.session.userId;
+    await updateRecoveryData(userId, { salt: value.salt, keyCheck: value.keyCheck });
+    res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Récupérer salt + keyCheck par email (pour flow "mot de passe oublié", rate limit strict)
+authRouter.get('/recovery-data', recoveryRateLimiter, async (req, res, next) => {
+  try {
+    const email = req.query.email?.trim();
+    if (!email) return res.status(400).json({ error: 'email requis' });
+    const data = await getRecoveryDataByEmail(email);
+    if (!data || data.recoverySalt == null || data.recoveryKeyCheck == null) {
+      return res.status(404).json({ error: 'Aucune donnée de récupération pour cet email.' });
+    }
+    res.json({ salt: data.recoverySalt, keyCheck: data.recoveryKeyCheck });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Réinitialiser le mot de passe (après vérification phrase côté client)
+authRouter.post('/reset-password', recoveryRateLimiter, async (req, res, next) => {
+  try {
+    const { value, error } = validateResetPassword(req.body);
+    if (error) return res.status(400).json({ error });
+    const { email, newPassword } = value;
+    const user = await findUserByEmail(email);
+    if (!user) {
+      return res.status(404).json({ error: 'Aucun compte associé à cet email.' });
+    }
+    const passwordHash = await argon2.hash(newPassword);
+    await updatePasswordByEmail(email, passwordHash);
+    res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
 });

@@ -5,7 +5,10 @@ import {
   EMAIL_MAX_LENGTH,
   NOM_MAX_LENGTH,
   PRENOM_MAX_LENGTH,
-  ADRESSE_MAX_LENGTH
+  ADRESSE_MAX_LENGTH,
+  RECOVERY_SALT_MAX_LENGTH,
+  RECOVERY_KEY_CHECK_PAYLOAD_MAX_LENGTH,
+  RECOVERY_KEY_CHECK_IV_MAX_LENGTH
 } from '../config/constants.js';
 
 const registerSchema = Joi.object({
@@ -65,6 +68,49 @@ export function validateRegister(body) {
 
 export function validateLogin(body) {
   const result = loginSchema.validate(body, { abortEarly: false });
+  if (result.error) {
+    const message = result.error.details.map((d) => d.message).join('. ');
+    return { value: null, error: message };
+  }
+  return { value: result.value, error: null };
+}
+
+const recoveryDataSchema = Joi.object({
+  salt: Joi.string().max(RECOVERY_SALT_MAX_LENGTH).required().messages({
+    'string.empty': 'salt requis',
+    'string.max': 'salt trop long'
+  }),
+  keyCheck: Joi.object({
+    payload: Joi.string().max(RECOVERY_KEY_CHECK_PAYLOAD_MAX_LENGTH).required(),
+    iv: Joi.string().max(RECOVERY_KEY_CHECK_IV_MAX_LENGTH).required()
+  }).required().messages({
+    'object.base': 'keyCheck invalide'
+  })
+}).options({ stripUnknown: true });
+
+const resetPasswordSchema = Joi.object({
+  email: Joi.string().trim().email().max(EMAIL_MAX_LENGTH).required().messages({
+    'string.empty': 'email requis',
+    'string.email': 'format email invalide'
+  }),
+  newPassword: Joi.string().min(PASSWORD_MIN_LENGTH).max(PASSWORD_MAX_LENGTH).required().messages({
+    'string.empty': 'nouveau mot de passe requis',
+    'string.min': `mot de passe minimum ${PASSWORD_MIN_LENGTH} caractères`,
+    'string.max': 'mot de passe trop long'
+  })
+}).options({ stripUnknown: true });
+
+export function validateRecoveryData(body) {
+  const result = recoveryDataSchema.validate(body, { abortEarly: false });
+  if (result.error) {
+    const message = result.error.details.map((d) => d.message).join('. ');
+    return { value: null, error: message };
+  }
+  return { value: result.value, error: null };
+}
+
+export function validateResetPassword(body) {
+  const result = resetPasswordSchema.validate(body, { abortEarly: false });
   if (result.error) {
     const message = result.error.details.map((d) => d.message).join('. ');
     return { value: null, error: message };

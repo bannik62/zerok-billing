@@ -18,15 +18,17 @@ enum Role {
 }
 
 model User {
-  id             String          @id @default(cuid())
-  email          String          @unique
-  passwordHash   String          @map("password_hash")
-  role           Role            @default(USER)
-  nom            String
-  prenom         String
-  adresse        String?
-  createdAt      DateTime        @default(now()) @map("created_at")
-  updatedAt      DateTime        @updatedAt @map("updated_at")
+  id                 String          @id @default(cuid())
+  email              String          @unique
+  passwordHash       String          @map("password_hash")
+  role               Role            @default(USER)
+  nom                String
+  prenom             String
+  adresse            String?
+  recoverySalt       String?         @map("recovery_salt")       // sel pour recovery (phrase + mdp)
+  recoveryKeyCheck   Json?           @map("recovery_key_check")  // { payload, iv } pour vérifier la clé côté client
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
 
   proofs         Proof[]
   documentProofs DocumentProof[]

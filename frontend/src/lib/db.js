@@ -105,6 +105,17 @@ export async function setKeyCheck(userId, data) {
 }
 
 /**
+ * Supprime le sel et le keyCheck pour un utilisateur (ex. après reset mdp pour permettre une nouvelle clé).
+ * @param {string|number|null} [userId]
+ */
+export async function clearKeyDataForUser(userId = null) {
+  const saltKey = getSaltMetaKey(userId);
+  const checkKey = getKeyCheckMetaKey(userId);
+  await db[STORE_META].delete(saltKey);
+  await db[STORE_META].delete(checkKey);
+}
+
+/**
  * Ajoute un client.
  * @param {Object} client - { raisonSociale, nom, prenom, email, telephone, adresse, codePostal, ville, siret }
  * @param {string|number|null} [userId] - id du compte propriétaire (partition par utilisateur)

@@ -9,6 +9,7 @@ import {
   setKeyDerivationSalt,
   getKeyCheck,
   setKeyCheck,
+  clearKeyDataForUser,
   getDevis as dbGetDevis,
   getAllDevis as dbGetAllDevis,
   addDevis as dbAddDevis,
@@ -76,8 +77,9 @@ const PASSWORD_CHECK_PAYLOAD = { check: 'zerok-ok' };
  * Vérifie toujours le mot de passe : via un jeton chiffré (si présent) ou en déchiffrant un devis/facture.
  * @param {string} password - Mot de passe du compte
  * @param {string|number|null} [userId] - Id du compte connecté
+ * @param {string|null|undefined} [recoveryPhrase] - Phrase de récupération (inscription ou reset mdp). Null = dérivation classique.
  */
-export async function initEncryption(password, userId = null) {
+export async function initEncryption(password, userId = null, recoveryPhrase = null) {
   let saltBase64 = await getKeyDerivationSalt(userId);
   if (!saltBase64) {
     const salt = generateSalt(16);
@@ -85,7 +87,7 @@ export async function initEncryption(password, userId = null) {
     await setKeyDerivationSalt(saltBase64, userId);
   }
   const salt = saltFromBase64(saltBase64);
-  const key = await deriveKey(password, salt);
+  const key = await deriveKey(password, salt, recoveryPhrase);
 
   const keyCheck = await getKeyCheck(userId);
   if (keyCheck) {
@@ -94,7 +96,15 @@ export async function initEncryption(password, userId = null) {
       if (dec?.check !== 'zerok-ok') throw new Error('Invalid');
     } catch {
       clearEncryptionKey();
-      throw new Error('Mot de passe incorrect');
+      await clearKeyDataForUser(userId);
+      const newSalt = generateSalt(16);
+      const newSaltBase64 = saltToBase64(newSalt);
+      await setKeyDerivationSalt(newSaltBase64, userId);
+      const newKey = await deriveKey(password, newSalt, recoveryPhrase);
+      const newCheckEncrypted = await encrypt(PASSWORD_CHECK_PAYLOAD, newKey);
+      await setKeyCheck(userId, newCheckEncrypted);
+      setEncryptionKey(newKey);
+      return newKey;
     }
   } else {
     let verified = false;
@@ -125,17 +135,18 @@ export async function initEncryption(password, userId = null) {
 }
 
 /**
- * Vérifie que le mot de passe correspond à la clé de session (sans la remplacer).
- * Dérive la clé à partir du mot de passe et du sel, puis vérifie via keyCheck ou un enregistrement chiffré.
+ * Vérifie que le mot de passe (et éventuellement la phrase) correspondent à la clé.
+ * Dérive la clé à partir du mot de passe, du sel et optionnellement de la phrase, puis vérifie via keyCheck ou un enregistrement chiffré.
  * @param {string} password
  * @param {string|number|null} [userId]
+ * @param {string|null|undefined} [recoveryPhrase] - Phrase de récupération si le compte en utilise une.
  * @returns {Promise<boolean>}
  */
-export async function verifyPassword(password, userId = null) {
+export async function verifyPassword(password, userId = null, recoveryPhrase = null) {
   let saltBase64 = await getKeyDerivationSalt(userId);
   if (!saltBase64) return false;
   const salt = saltFromBase64(saltBase64);
-  const key = await deriveKey(password, salt);
+  const key = await deriveKey(password, salt, recoveryPhrase);
 
   const keyCheck = await getKeyCheck(userId);
   if (keyCheck) {

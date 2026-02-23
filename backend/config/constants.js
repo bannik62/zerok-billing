@@ -24,6 +24,15 @@ export const VERIFY_BATCH_MAX = 200;
 export const AUTH_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 export const AUTH_RATE_LIMIT_MAX = 10;
 
+// ——— Rate limit recovery (GET recovery-data, POST reset-password) ———
+export const RECOVERY_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+export const RECOVERY_RATE_LIMIT_MAX = 5;
+
+// ——— Recovery data (salt + keyCheck) ———
+export const RECOVERY_SALT_MAX_LENGTH = 512;
+export const RECOVERY_KEY_CHECK_PAYLOAD_MAX_LENGTH = 1024;
+export const RECOVERY_KEY_CHECK_IV_MAX_LENGTH = 128;
+
 // ——— Server / session ———
 export const SESSION_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 export const JSON_BODY_LIMIT = '512kb';
