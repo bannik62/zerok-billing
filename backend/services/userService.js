@@ -11,7 +11,15 @@ export async function findUserByEmail(email) {
 export async function findUserById(id) {
   return prisma.user.findUnique({
     where: { id },
-    select: { id: true, email: true, nom: true, prenom: true, adresse: true, emailVerified: true }
+    select: {
+      id: true,
+      email: true,
+      nom: true,
+      prenom: true,
+      adresse: true,
+      emailVerified: true,
+      recoverySalt: true
+    }
   });
 }
 

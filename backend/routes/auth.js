@@ -139,7 +139,8 @@ authRouter.post('/logout', (req, res, next) => {
 
 // Route sécurisée : nécessite une session valide (middleware requireAuth)
 authRouter.get('/me', requireAuth, (req, res) => {
-  res.json({ valid: true, user: req.user });
+  const { recoverySalt, ...user } = req.user;
+  res.json({ valid: true, user: { ...user, hasRecoveryData: !!recoverySalt } });
 });
 
 // ——— Vérification email (code à 6 chiffres) ———

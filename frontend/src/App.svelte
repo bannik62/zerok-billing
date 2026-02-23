@@ -3,6 +3,7 @@
   import Register from './modules/auth/Register.svelte';
   import ForgotPassword from './modules/auth/ForgotPassword.svelte';
   import VerifyEmail from './modules/auth/VerifyEmail.svelte';
+  import SetupRecoveryPhrase from './modules/auth/SetupRecoveryPhrase.svelte';
   import Unlock from './modules/auth/Unlock.svelte';
   import SessionTemoin from './modules/session/SessionTemoin.svelte';
   import CsrfTemoin from './modules/session/CsrfTemoin.svelte';
@@ -69,7 +70,19 @@
 
   async function onEmailVerified() {
     await fetchUser();
-    if (user?.emailVerified !== false) page = 'menu';
+    if (user?.emailVerified !== false) {
+      if (user?.hasRecoveryData === false) {
+        view = 'setupPhrase';
+      } else {
+        page = 'menu';
+      }
+    }
+  }
+
+  function onSetupPhraseDone() {
+    fetchUser().then(() => {
+      if (user?.hasRecoveryData !== false) page = 'menu';
+    });
   }
 
   function logout() {
@@ -114,6 +127,12 @@
       <VerifyEmail
         {user}
         onVerified={onEmailVerified}
+        onLogout={logout}
+      />
+    {:else if view === 'setupPhrase'}
+      <SetupRecoveryPhrase
+        {user}
+        onDone={onSetupPhraseDone}
         onLogout={logout}
       />
     {:else}
