@@ -91,6 +91,7 @@ app.get('/api/health', async (_req, res) => {
 app.use('/api', requireAuth, secureRouter);
 
 
+
 app.get('/', (_, res) => {
   res.json({ name: 'Zero-Knowledge Billing API', docs: '/api/health' });
 });
