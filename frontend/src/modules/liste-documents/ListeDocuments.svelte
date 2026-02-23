@@ -111,6 +111,16 @@
     requestExportZip(invoiceId, type, numero);
   }
 
+  /** Envoyer le document au client pour signature (étape suivante : appel API + email). */
+  function handleSendForSignature(document, docType) {
+    const client = document?.entete?.clientId ? clientsMap[document.entete.clientId] : null;
+    const email = client?.email;
+    const label = docType === 'devis' ? `Devis ${document?.entete?.numero ?? document?.id}` : `Facture ${document?.entete?.numero ?? document?.id}`;
+    if (!email) return;
+    // TODO: appeler l'API d'envoi à signer (email + document)
+    console.log('Envoyer à signer', { docType, documentId: document?.id, label, to: email });
+  }
+
   let devisList = $state([]);
   let facturesList = $state([]);
   let clientsMap = $state({});
@@ -367,6 +377,7 @@
       onOpenFactureFromDevis={onOpenFactureFromDevis}
       onExportPdf={requestPrintPreview}
       onExportZip={exportPiecesJointesZip}
+      onSendForSignature={(d) => handleSendForSignature(d, 'devis')}
     />
     <FacturesTable
       list={filteredFacturesList}
@@ -384,6 +395,7 @@
       onDeleteSelection={supprimerFacturesSelection}
       onExportPdf={requestPrintPreview}
       onExportZip={exportPiecesJointesZip}
+      onSendForSignature={(f) => handleSendForSignature(f, 'facture')}
     />
       </div>
       <ProofsPanel

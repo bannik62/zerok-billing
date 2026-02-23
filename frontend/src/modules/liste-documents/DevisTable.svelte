@@ -18,7 +18,8 @@
     onDeleteSelection = () => {},
     onOpenFactureFromDevis = () => {},
     onExportPdf = () => {},
-    onExportZip = () => {}
+    onExportZip = () => {},
+    onSendForSignature = () => {}
   } = $props();
 
   let selectAllCheckboxEl = $state(null);
@@ -62,6 +63,7 @@
           <th>Total HT</th>
           <th>Créé le</th>
           <th class="col-accepted">Accepté</th>
+          <th class="col-send">Envoyer</th>
           <th class="col-verified" title="Comparaison hash local = hash backend">Hash vérifié</th>
           <th class="col-facture">Facture</th>
           <th class="col-action">Exporter</th>
@@ -90,6 +92,17 @@
             <td>{d.createdAt ? new Date(d.createdAt).toLocaleDateString('fr-FR') : '—'}</td>
             <td class="col-accepted" aria-label={d.accepted === true ? 'Devis accepté' : 'Devis non accepté'}>
               {d.accepted === true ? 'Oui' : 'Non'}
+            </td>
+            <td class="col-send" aria-label={d.accepted === true || !clientsMap[d.entete?.clientId]?.email ? (d.accepted === true ? 'Déjà accepté' : 'Email client manquant') : 'Envoyer à signer'}>
+              <button
+                type="button"
+                class="btn-send-row"
+                disabled={d.accepted === true || !clientsMap[d.entete?.clientId]?.email}
+                title={d.accepted === true || !clientsMap[d.entete?.clientId]?.email ? (d.accepted === true ? 'Déjà accepté' : 'Ajoutez un email au client') : 'Envoyer le devis au client pour signature'}
+                onclick={() => onSendForSignature(d)}
+              >
+                Envoyer
+              </button>
             </td>
             <td class="col-verified" aria-label={verifiedMap[d.id] === true ? 'Hash vérifié' : verifiedMap[d.id] === false ? 'Hash non vérifié' : 'Vérification…'}>
               {#if verifiedLoading && verifiedMap[d.id] === undefined}
@@ -131,7 +144,7 @@
           </tr>
         {:else}
           <tr>
-            <td colspan="12" class="doc-table-empty">{(searchQuery || '').trim() ? 'Aucun devis ne correspond à la recherche.' : 'Aucun devis.'}</td>
+            <td colspan="13" class="doc-table-empty">{(searchQuery || '').trim() ? 'Aucun devis ne correspond à la recherche.' : 'Aucun devis.'}</td>
           </tr>
         {/each}
       </tbody>
@@ -229,6 +242,26 @@
   .col-accepted {
     text-align: center;
     min-width: 4rem;
+  }
+  .col-send {
+    text-align: center;
+    white-space: nowrap;
+  }
+  .btn-send-row {
+    padding: 0.35rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid var(--color-primary);
+    background: var(--color-bg-muted);
+    color: var(--color-primary);
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .btn-send-row:hover:not(:disabled) {
+    filter: brightness(0.95);
+  }
+  .btn-send-row:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
   .col-facture {
     text-align: center;

@@ -16,7 +16,8 @@
     onToggleAll = () => {},
     onDeleteSelection = () => {},
     onExportPdf = () => {},
-    onExportZip = () => {}
+    onExportZip = () => {},
+    onSendForSignature = () => {}
   } = $props();
 
   let selectAllCheckboxEl = $state(null);
@@ -60,6 +61,7 @@
           <th>Délai paiement</th>
           <th>Total HT</th>
           <th>Créée le</th>
+          <th class="col-send">Envoyer</th>
           <th class="col-verified" title="Comparaison hash local = hash backend">Hash vérifié</th>
           <th class="col-action">Exporter</th>
           <th class="col-pieces">Pièces jointes</th>
@@ -85,6 +87,17 @@
             <td>{f.entete?.delaiPaiement || '—'}</td>
             <td>{typeof f.total === 'number' ? f.total.toFixed(2) : (f.total ?? '—')} €</td>
             <td>{f.createdAt ? new Date(f.createdAt).toLocaleDateString('fr-FR') : '—'}</td>
+            <td class="col-send" aria-label={!clientsMap[f.entete?.clientId]?.email ? 'Email client manquant' : 'Envoyer à signer'}>
+              <button
+                type="button"
+                class="btn-send-row"
+                disabled={!clientsMap[f.entete?.clientId]?.email}
+                title={!clientsMap[f.entete?.clientId]?.email ? 'Ajoutez un email au client' : 'Envoyer la facture au client pour signature'}
+                onclick={() => onSendForSignature(f)}
+              >
+                Envoyer
+              </button>
+            </td>
             <td class="col-verified" aria-label={verifiedMap[f.id] === true ? 'Hash vérifié' : verifiedMap[f.id] === false ? 'Hash non vérifié' : 'Vérification…'}>
               {#if verifiedLoading && verifiedMap[f.id] === undefined}
                 <span class="icon icon-pending" aria-hidden="true">—</span>
@@ -111,7 +124,7 @@
           </tr>
         {:else}
           <tr>
-            <td colspan="11" class="doc-table-empty">{(searchQuery || '').trim() ? 'Aucune facture ne correspond à la recherche.' : 'Aucune facture.'}</td>
+            <td colspan="12" class="doc-table-empty">{(searchQuery || '').trim() ? 'Aucune facture ne correspond à la recherche.' : 'Aucune facture.'}</td>
           </tr>
         {/each}
       </tbody>
@@ -201,6 +214,26 @@
     color: var(--color-text-muted);
     font-style: italic;
     text-align: center;
+  }
+  .col-send {
+    text-align: center;
+    white-space: nowrap;
+  }
+  .btn-send-row {
+    padding: 0.35rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid var(--color-primary);
+    background: var(--color-bg-muted);
+    color: var(--color-primary);
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .btn-send-row:hover:not(:disabled) {
+    filter: brightness(0.95);
+  }
+  .btn-send-row:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
   .col-verified {
     text-align: center;
