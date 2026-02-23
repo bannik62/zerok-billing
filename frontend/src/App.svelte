@@ -28,12 +28,7 @@
       if (data?.valid === true) {
         await fetchCsrfToken().catch(() => null);
         user = data.user;
-        if (user?.emailVerified === false) {
-          page = 'auth';
-          view = 'verifyEmail';
-        } else {
-          page = 'menu';
-        }
+        page = 'menu';
       } else {
         user = null;
       }
@@ -49,12 +44,7 @@
   async function onLoginSuccess(data) {
     await fetchCsrfToken().catch(() => null);
     user = data;
-    if (data?.emailVerified === false) {
-      page = 'auth';
-      view = 'verifyEmail';
-    } else {
-      page = 'menu';
-    }
+    page = 'menu';
   }
 
   async function onRegisterSuccess(data) {
