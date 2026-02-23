@@ -6,7 +6,7 @@ import { prisma } from '../lib/prisma.js';
 
 export async function upsertProof({ invoiceId, userId, invoiceHash, signature }) {
   return prisma.proof.upsert({
-    where: { invoiceId },
+    where: { userId_invoiceId: { userId, invoiceId } },
     create: {
       invoiceId,
       userId,

@@ -24,7 +24,7 @@ export async function upsertDocumentProof({
 }) {
   const uploadedAt = new Date();
   return prisma.documentProof.upsert({
-    where: { documentId },
+    where: { userId_documentId: { userId, documentId } },
     create: {
       documentId,
       userId,

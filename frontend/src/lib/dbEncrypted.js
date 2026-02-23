@@ -222,8 +222,8 @@ export async function updateDevis(devis, userId = null) {
   return record;
 }
 
-export async function deleteDevis(id) {
-  return dbDeleteDevis(id);
+export async function deleteDevis(id, userId = null) {
+  return dbDeleteDevis(id, userId);
 }
 
 export async function getNextDevisNumber(clientId, clients = [], userId = null) {
@@ -292,8 +292,8 @@ export async function updateFacture(facture, userId = null) {
   return record;
 }
 
-export async function deleteFacture(id) {
-  await dbDeleteFacture(id);
+export async function deleteFacture(id, userId = null) {
+  await dbDeleteFacture(id, userId);
 }
 
 function getFactureNumero(f) {

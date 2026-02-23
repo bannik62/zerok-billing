@@ -124,18 +124,21 @@
     if (editingClientId == null) return;
     savingEdit = true;
     try {
-      await updateClient({
-        id: editingClientId,
-        raisonSociale: editRaisonSocialeField.value,
-        nom: editNomField.value,
-        prenom: editPrenomField.value,
-        email: editEmailField.value,
-        telephone: editTelephoneField.value,
-        adresse: editAdresseField.value,
-        codePostal: editCodePostalField.value,
-        ville: editVilleField.value,
-        siret: editSiretField.value
-      });
+      await updateClient(
+        {
+          id: editingClientId,
+          raisonSociale: editRaisonSocialeField.value,
+          nom: editNomField.value,
+          prenom: editPrenomField.value,
+          email: editEmailField.value,
+          telephone: editTelephoneField.value,
+          adresse: editAdresseField.value,
+          codePostal: editCodePostalField.value,
+          ville: editVilleField.value,
+          siret: editSiretField.value
+        },
+        uid
+      );
       await loadClients();
       editingClientId = null;
       message = { type: 'success', text: 'Client modifié.' };
@@ -149,7 +152,7 @@
   async function removeClient(client) {
     if (!confirm('Supprimer ce client ?')) return;
     try {
-      await deleteClient(client.id);
+      await deleteClient(client.id, uid);
       await loadClients();
       message = { type: 'success', text: 'Client supprimé.' };
     } catch (err) {

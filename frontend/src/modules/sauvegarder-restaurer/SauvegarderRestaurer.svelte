@@ -1,6 +1,6 @@
 <script>
   import { createPasswordField } from '$lib/formField.js';
-  import { openDB } from '$lib/db.js';
+  import { openDB, clearLocalDataForUser } from '$lib/db.js';
   import {
     getAllClients,
     getSociete,
@@ -157,12 +157,8 @@
     try {
       const content = await file.text();
       const bundle = await openArchive(content, importPwd.value);
+      await clearLocalDataForUser(uid);
       const db = await openDB();
-      await db.clients.clear();
-      await db.societe.clear();
-      await db.devis.clear();
-      await db.factures.clear();
-      await db.layoutProfiles.clear();
       for (const c of bundle.clients) {
         await db.clients.put(uid != null ? { ...c, userId: uid } : c);
       }

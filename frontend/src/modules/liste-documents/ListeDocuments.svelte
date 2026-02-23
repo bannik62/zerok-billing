@@ -207,7 +207,7 @@
     deletingDevis = true;
     try {
       for (const id of $selectedDevisIdsStore) {
-        await deleteDevis(id);
+        await deleteDevis(id, user?.id ?? null);
         await deleteProof(id).catch(() => {});
       }
       controlsFields.selectedDevisIds = new Set();
@@ -240,7 +240,7 @@
     deleting = true;
     try {
       for (const id of $selectedFactureIdsStore) {
-        await deleteFacture(id);
+        await deleteFacture(id, user?.id ?? null);
         await deleteProof(id).catch(() => {});
       }
       controlsFields.selectedFactureIds = new Set();

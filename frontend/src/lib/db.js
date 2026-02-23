@@ -156,10 +156,11 @@ export async function getClientById(id, userId = null) {
 /**
  * Met à jour un client existant.
  * @param {Object} client - doit contenir id + champs à mettre à jour
+ * @param {string|number|null} [userId] - si fourni, le client doit appartenir à cet utilisateur
  * @returns {Promise<Object>}
  */
-export async function updateClient(client) {
-  const existing = await getClientById(client.id);
+export async function updateClient(client, userId = null) {
+  const existing = await getClientById(client.id, userId);
   if (!existing) throw new Error('Client introuvable');
   const record = { ...existing, ...client, id: existing.id, createdAt: existing.createdAt };
   await db[STORE_CLIENTS].put(record);
@@ -169,9 +170,13 @@ export async function updateClient(client) {
 /**
  * Supprime un client par id.
  * @param {string} id
- * @returns {Promise<void>}
+ * @param {string|number|null} [userId] - si fourni, supprime seulement si le client appartient à cet utilisateur
  */
-export async function deleteClient(id) {
+export async function deleteClient(id, userId = null) {
+  if (userId != null) {
+    const existing = await getClientById(id, userId);
+    if (!existing) throw new Error('Client introuvable ou non autorisé');
+  }
   await db[STORE_CLIENTS].delete(id);
 }
 
@@ -305,7 +310,15 @@ export async function updateDevis(devis, userId = null) {
   return record;
 }
 
-export async function deleteDevis(id) {
+/**
+ * @param {string} id
+ * @param {string|number|null} [userId] - si fourni, supprime seulement si le devis appartient à cet utilisateur
+ */
+export async function deleteDevis(id, userId = null) {
+  if (userId != null) {
+    const existing = await getDevis(id, userId);
+    if (!existing) throw new Error('Devis introuvable ou non autorisé');
+  }
   await db[STORE_DEVIS].delete(id);
 }
 
@@ -412,8 +425,48 @@ export async function updateFacture(facture, userId = null) {
   return record;
 }
 
-export async function deleteFacture(id) {
+/**
+ * @param {string} id
+ * @param {string|number|null} [userId] - si fourni, supprime seulement si la facture appartient à cet utilisateur
+ */
+export async function deleteFacture(id, userId = null) {
+  if (userId != null) {
+    const existing = await getFacture(id, userId);
+    if (!existing) throw new Error('Facture introuvable ou non autorisée');
+  }
   await db[STORE_FACTURES].delete(id);
+}
+
+/**
+ * Supprime uniquement les données locales appartenant à un utilisateur (ou les données legacy si userId === null).
+ * Utilisé avant restauration d'archive pour ne pas effacer les données d'autres comptes sur le même navigateur.
+ * @param {string|number|null} userId - utilisateur courant ; si null, supprime seulement les enregistrements sans userId (legacy)
+ */
+export async function clearLocalDataForUser(userId) {
+  const match = (r) =>
+    userId != null ? r.userId === userId : (r.userId == null || r.userId === '');
+
+  const clients = await db[STORE_CLIENTS].toArray();
+  const clientIds = clients.filter(match).map((r) => r.id);
+  if (clientIds.length > 0) await db[STORE_CLIENTS].bulkDelete(clientIds);
+
+  if (userId != null) {
+    await db[STORE_SOCIETE].delete(`societe-${userId}`);
+  } else {
+    await db[STORE_SOCIETE].delete(SOCIETE_ID);
+  }
+
+  const devis = await db[STORE_DEVIS].toArray();
+  const devisIds = devis.filter(match).map((r) => r.id);
+  if (devisIds.length > 0) await db[STORE_DEVIS].bulkDelete(devisIds);
+
+  const factures = await db[STORE_FACTURES].toArray();
+  const factureIds = factures.filter(match).map((r) => r.id);
+  if (factureIds.length > 0) await db[STORE_FACTURES].bulkDelete(factureIds);
+
+  const profiles = await db[STORE_LAYOUT_PROFILES].toArray();
+  const profileIds = profiles.filter(match).map((r) => r.id);
+  if (profileIds.length > 0) await db[STORE_LAYOUT_PROFILES].bulkDelete(profileIds);
 }
 
 /** Pour la couche chiffrée : put/get/getAll bruts sur le store factures. */
