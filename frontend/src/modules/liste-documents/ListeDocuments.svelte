@@ -8,6 +8,8 @@
     getAllClients,
     deleteDevis,
     deleteFacture,
+    updateDevis,
+    updateFacture,
     getDocumentsByInvoiceId,
     decryptDocumentBlob,
     verifyPassword
@@ -117,15 +119,18 @@
   let sendSignatureFeedback = $state(null); // { type: 'success'|'error', text }
 
   async function handleSendForSignature(document, docType) {
+    const id = document?.id;
+    if (!id) return;
     const client = document?.entete?.clientId ? clientsMap[document.entete.clientId] : null;
     const email = client?.email;
     if (!email) return;
     const numero = document?.entete?.numero ?? '';
-    sendingForSignatureId = document?.id ?? null;
+    sendingForSignatureId = id;
     sendSignatureFeedback = null;
     try {
       await apiClient.post('/api/documents/send-for-signature', {
         to: email,
+        invoiceId: id,
         documentType: docType,
         numero: String(numero).trim()
       });
@@ -312,6 +317,24 @@
       facturesList = factures;
       clientsMap = Object.fromEntries((clients || []).map((c) => [c.id, c]));
       controlsFields.clearSelections();
+
+      // Sync « Accepté » depuis les signatures enregistrées côté serveur
+      try {
+        const res = await apiClient.get('/api/signatures');
+        const signedIds = new Set(res.data?.signedInvoiceIds || []);
+        for (const id of signedIds) {
+          const d = devisList.find((doc) => doc.id === id);
+          if (d && d.accepted !== true) await updateDevis({ ...d, accepted: true }, uid);
+          const f = facturesList.find((doc) => doc.id === id);
+          if (f) await updateFacture({ ...f, accepted: true }, uid);
+        }
+        if (signedIds.size > 0 && mounted) {
+          devisList = devisList.map((doc) => (signedIds.has(doc.id) ? { ...doc, accepted: true } : doc));
+          facturesList = facturesList.map((doc) => (signedIds.has(doc.id) ? { ...doc, accepted: true } : doc));
+        }
+      } catch (_) {
+        // ignore (non connecté ou route absente)
+      }
 
       verifiedLoading = true;
       proofsPanelError = '';

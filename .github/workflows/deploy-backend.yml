@@ -44,6 +44,28 @@ jobs:
           source: "docker-compose.yml"
           target: "${{ secrets.DEPLOY_PATH }}"
 
+      - name: Build Backend
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 2222
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+            docker compose --env-file .env build backend
+
+      - name: Run migrations
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 2222
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+            docker compose --env-file .env run --rm backend npx prisma migrate deploy
+
       - name: Restart Backend
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -55,5 +77,4 @@ jobs:
             cd ${{ secrets.DEPLOY_PATH }}
             docker compose --env-file .env stop backend || true
             docker compose --env-file .env rm -f backend || true
-            docker compose --env-file .env build backend
             docker compose --env-file .env up -d --no-recreate backend
