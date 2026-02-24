@@ -1,6 +1,7 @@
 <script>
   import { getDevis, getFacture, getClientById, getSociete } from '$lib/dbEncrypted.js';
-  import SheetA4 from '../editor/SheetA4.svelte';
+  import DocumentLayout from '../document-layout/DocumentLayout.svelte';
+  import { DEFAULT_LAYOUT_ID } from '$lib/documentLayouts.js';
 
   /** Modal d'aperçu pour impression / PDF. Reçoit documentId + documentType ('devis' | 'facture') + userId (partition). */
   let { open = false, documentId = null, documentType = 'devis', userId = null, onClose = () => {} } = $props();
@@ -48,7 +49,7 @@
     return () => { cancelled = true; };
   });
 
-  const blockPositions = $derived(document?.blockPositions ?? {});
+  const layoutId = $derived(document?.layoutId || DEFAULT_LAYOUT_ID);
 
   function doPrint() {
     window.print();
@@ -67,22 +68,12 @@
         <p class="print-preview-loading">Chargement…</p>
       {:else if document}
         <div class="print-preview-sheet-wrap">
-          <SheetA4
-            blockPositions={blockPositions}
-            selectedBlock={null}
+          <DocumentLayout
             document={document}
+            resolvedClient={resolvedClient}
+            resolvedSociete={resolvedSociete}
             documentType={documentType}
-            {resolvedClient}
-            {resolvedSociete}
-            onDrop={() => {}}
-            onOver={() => {}}
-            onCanvasMouseDown={() => {}}
-            onMouseMove={() => {}}
-            onMouseUp={() => {}}
-            onPlacedBlockMouseDown={() => {}}
-            onResizeMouseDown={() => {}}
-            onUpdateBlockStyle={() => {}}
-            onCloseToolbar={() => {}}
+            layoutId={layoutId}
           />
         </div>
       {:else}
@@ -154,6 +145,8 @@
   .print-preview-sheet-wrap {
     max-width: 595px;
     width: 100%;
+    aspect-ratio: 210 / 297; /* format A4 */
+    overflow: auto;
   }
   .print-preview-loading {
     margin: 0;

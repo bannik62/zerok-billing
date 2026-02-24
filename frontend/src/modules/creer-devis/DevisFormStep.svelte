@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { formatMontant } from '../editor/utils.js';
+  import { formatMontant } from '$lib/formatNumber.js';
   import { createTextField } from '$lib/formField.js';
 
   let {

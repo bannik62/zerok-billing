@@ -1,20 +1,9 @@
 <script>
-  import { writable, get } from 'svelte/store';
-  import { getAllClients, getClientById, getSociete, addDevis, updateDevis, getNextDevisNumber, getAllLayoutProfiles, getLayoutProfile, addLayoutProfile, updateLayoutProfile, deleteLayoutProfile } from '$lib/dbEncrypted.js';
+  import { getAllClients, getClientById, getSociete, addDevis, updateDevis, getNextDevisNumber } from '$lib/dbEncrypted.js';
   import { sendProof } from '$lib/proofs.js';
-  import {
-    normalisePos,
-    DEFAULT_W,
-    DEFAULT_H,
-    MIN_W,
-    MIN_H,
-    DRAG_THRESHOLD
-  } from '../editor/utils.js';
   import DevisFormStep from './DevisFormStep.svelte';
-  import EditorSidebar from '../editor/EditorSidebar.svelte';
-  import SheetA4 from '../editor/SheetA4.svelte';
-  import SaveProfileModal from './SaveProfileModal.svelte';
-  import ManageProfilesModal from './ManageProfilesModal.svelte';
+  import DocumentLayout from '../document-layout/DocumentLayout.svelte';
+  import { DEFAULT_LAYOUT_ID, LAYOUTS } from '$lib/documentLayouts.js';
   import NoticeModal from '$lib/NoticeModal.svelte';
 
   /**
@@ -22,65 +11,6 @@
    */
   let { user = null, client = null, onSavedAndGoToList = null } = $props();
   const uid = $derived(user?.id ?? null);
-
-  const PROFILE_ID_MAX_LENGTH = 100;
-
-  class DevisProfileSelectField {
-    constructor() {
-      this._store = writable('');
-      this._availableProfileIds = new Set();
-    }
-
-    normalizeProfileId(value) {
-      if (typeof value !== 'string') return '';
-      const id = value.trim();
-      if (!id) return '';
-      if (id.length > PROFILE_ID_MAX_LENGTH) return '';
-      return id;
-    }
-
-    setAvailableProfileIds(ids) {
-      const source = Array.isArray(ids) ? ids : [];
-      const nextAvailable = new Set();
-      for (const raw of source) {
-        const id = this.normalizeProfileId(raw);
-        if (id) nextAvailable.add(id);
-      }
-      this._availableProfileIds = nextAvailable;
-      const current = this.selectedProfileId;
-      if (current && !nextAvailable.has(current)) {
-        this.selectedProfileId = '';
-      }
-    }
-
-    get store() {
-      return this._store;
-    }
-
-    get selectedProfileId() {
-      return get(this._store);
-    }
-
-    set selectedProfileId(value) {
-      const id = this.normalizeProfileId(value);
-      if (!id) {
-        this._store.set('');
-        return;
-      }
-      if (this._availableProfileIds.size > 0 && !this._availableProfileIds.has(id)) {
-        this._store.set('');
-        return;
-      }
-      this._store.set(id);
-    }
-
-    clear() {
-      this._store.set('');
-    }
-  }
-
-  const profileSelectField = new DevisProfileSelectField();
-  const profileSelectStore = profileSelectField.store;
 
   let step = $state(1);
   let clients = $state([]);
@@ -162,6 +92,7 @@
       total,
       tvaMontant,
       totalTTC,
+      layoutId: DEFAULT_LAYOUT_ID,
       blockPositions: {}
     };
     currentDevis = devis;
@@ -169,21 +100,10 @@
     step = 2;
   }
 
-  // —— Étape 2 : éditeur
+  // —— Étape 2 : aperçu layout fixe
   let blockPositions = $state({});
-  let sheetEl = $state(null);
   let resolvedClient = $state(null);
   let resolvedSociete = $state(null);
-
-  // Profils de mise en page
-  let layoutProfiles = $state([]);
-  let showSaveProfileModal = $state(false);
-  let showManageProfilesModal = $state(false);
-  let saveProfileName = $state('');
-
-  $effect(() => {
-    profileSelectField.setAvailableProfileIds(layoutProfiles.map((p) => p.id));
-  });
 
   $effect(() => {
     const id = currentDevis?.entete?.clientId;
@@ -207,150 +127,6 @@
     return () => { cancelled = true; };
   });
 
-  $effect(() => {
-    if (step !== 2) return;
-    let cancelled = false;
-    getAllLayoutProfiles(uid)
-      .then((list) => { if (!cancelled) layoutProfiles = list; })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  });
-
-  function handleDragStart(e, type) {
-    e.dataTransfer.setData('application/block-type', type);
-    e.dataTransfer.effectAllowed = 'copy';
-  }
-
-  function handleCanvasDrop(e) {
-    e.preventDefault();
-    const type = e.dataTransfer.getData('application/block-type');
-    if (!type) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    const existing = blockPositions[type];
-    const w = existing?.w ?? DEFAULT_W;
-    const h = existing?.h ?? DEFAULT_H;
-    const left = x - w / 2;
-    const top = y - h / 2;
-    blockPositions = { ...blockPositions, [type]: { left, top, w, h } };
-    if (currentDevis?.createdAt) {
-      updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } }, uid)
-        .then((d) => (currentDevis = d))
-        .catch(() => {});
-  } else if (currentDevis) {
-      currentDevis = { ...currentDevis, blockPositions: { ...blockPositions } };
-    }
-  }
-
-  function handleCanvasOver(e) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'copy';
-  }
-
-  let draggingBlock = $state(null);
-  let dragOffset = $state({ x: 0, y: 0 });
-  let resizingBlock = $state(null);
-  let selectedBlock = $state(null);
-  let pendingDrag = $state(null);
-
-  function handlePlacedBlockMouseDown(e, type) {
-    if (e.target.closest('.resize-handle') || e.target.closest('.block-toolbar')) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const pos = normalisePos(blockPositions[type]);
-    if (!pos || !sheetEl) return;
-    const rect = sheetEl.getBoundingClientRect();
-    const mouseX = (e.clientX - rect.left) / rect.width * 100;
-    const mouseY = (e.clientY - rect.top) / rect.height * 100;
-    const centerX = pos.left + pos.w / 2;
-    const centerY = pos.top + pos.h / 2;
-    pendingDrag = { type, startX: mouseX, startY: mouseY, offsetX: mouseX - centerX, offsetY: mouseY - centerY };
-  }
-
-  function handleResizeMouseDown(e, type) {
-    e.preventDefault();
-    e.stopPropagation();
-    resizingBlock = type;
-  }
-
-  function handleCanvasMouseMove(e) {
-    const canvas = sheetEl || e.currentTarget;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = (e.clientX - rect.left) / rect.width * 100;
-    const mouseY = (e.clientY - rect.top) / rect.height * 100;
-
-    if (pendingDrag && !draggingBlock) {
-      const dist = Math.hypot(mouseX - pendingDrag.startX, mouseY - pendingDrag.startY);
-      if (dist > DRAG_THRESHOLD) {
-        draggingBlock = pendingDrag.type;
-        dragOffset = { x: pendingDrag.offsetX, y: pendingDrag.offsetY };
-        pendingDrag = null;
-      }
-    }
-
-    if (resizingBlock != null) {
-      const pos = normalisePos(blockPositions[resizingBlock]);
-      if (!pos) return;
-      let w = mouseX - pos.left;
-      let h = mouseY - pos.top;
-      w = Math.max(MIN_W, Math.min(100 - pos.left, w));
-      h = Math.max(MIN_H, Math.min(100 - pos.top, h));
-      blockPositions = { ...blockPositions, [resizingBlock]: { ...pos, w, h } };
-      return;
-    }
-
-    if (draggingBlock == null) return;
-    const pos = normalisePos(blockPositions[draggingBlock]);
-    if (!pos) return;
-    let centerX = mouseX - dragOffset.x;
-    let centerY = mouseY - dragOffset.y;
-    const { w, h } = pos;
-    let left = centerX - w / 2;
-    let top = centerY - h / 2;
-    left = Math.max(0, Math.min(100 - w, left));
-    top = Math.max(0, Math.min(100 - h, top));
-    blockPositions = { ...blockPositions, [draggingBlock]: { ...pos, left, top } };
-  }
-
-  function handleCanvasMouseUp() {
-    if (draggingBlock == null && pendingDrag != null) {
-      selectedBlock = pendingDrag.type;
-      pendingDrag = null;
-    }
-    if ((draggingBlock != null || resizingBlock != null) && currentDevis) {
-      if (currentDevis.createdAt) {
-        updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } }, uid)
-          .then((d) => (currentDevis = d))
-          .catch(() => {});
-      } else {
-        currentDevis = { ...currentDevis, blockPositions: { ...blockPositions } };
-      }
-    }
-    draggingBlock = null;
-    resizingBlock = null;
-    pendingDrag = null;
-  }
-
-  function handleCanvasMouseDown(e) {
-    if (e.target === sheetEl) selectedBlock = null;
-  }
-
-  function updateBlockStyle(type, key, value) {
-    const pos = normalisePos(blockPositions[type]);
-    if (!pos) return;
-    const next = { ...pos, [key]: value };
-    blockPositions = { ...blockPositions, [type]: next };
-    if (currentDevis?.createdAt) {
-      updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } }, uid)
-        .then((d) => (currentDevis = d))
-        .catch(() => {});
-  } else if (currentDevis) {
-      currentDevis = { ...currentDevis, blockPositions: { ...blockPositions } };
-    }
-  }
-
   function retour() {
     step = 1;
   }
@@ -358,7 +134,6 @@
   async function nouveauDevis() {
     step = 1;
     currentDevis = null;
-    profileSelectField.clear();
     const clientId = client?.id ?? '';
     const nextNum = await getNextDevisNumber(clientId, clients, uid);
     entete = { clientId, numero: nextNum || '', dateEmission: '', dateValidite: '', devise: 'EUR', objet: '', tvaTaux: 0 };
@@ -389,16 +164,14 @@
     saveMessage = '';
     saveError = '';
     try {
+      const payload = { ...currentDevis, layoutId: currentDevis.layoutId || DEFAULT_LAYOUT_ID, blockPositions: { ...blockPositions } };
       if (currentDevis.createdAt) {
-        const updated = await updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } }, uid);
+        const updated = await updateDevis(payload, uid);
         currentDevis = updated;
         saveMessage = 'Devis enregistré.';
         await sendProof(currentDevis, 'devis').catch((err) => console.warn('Preuve non envoyée:', err));
       } else {
-        const saved = await addDevis(
-          { ...currentDevis, blockPositions: { ...blockPositions } },
-          uid
-        );
+        const saved = await addDevis(payload, uid);
         currentDevis = saved;
         blockPositions = { ...(saved.blockPositions || {}) };
         saveMessage = 'Devis enregistré.';
@@ -431,56 +204,6 @@
     if (onSavedAndGoToList) onSavedAndGoToList();
   }
 
-  async function applyProfile(profileId) {
-    if (!profileId) return;
-    const profile = await getLayoutProfile(profileId, uid);
-    if (!profile?.blockPositions) return;
-    blockPositions = { ...profile.blockPositions };
-    if (currentDevis?.createdAt) {
-      updateDevis({ ...currentDevis, blockPositions: { ...blockPositions } }, uid)
-        .then((d) => (currentDevis = d))
-        .catch(() => {});
-    } else if (currentDevis) {
-      currentDevis = { ...currentDevis, blockPositions: { ...blockPositions } };
-    }
-    profileSelectField.clear();
-  }
-
-  function openSaveProfileModal() {
-    saveProfileName = '';
-    showSaveProfileModal = true;
-  }
-
-  async function saveCurrentAsProfile() {
-    const name = saveProfileName?.trim();
-    if (!name) return;
-    try {
-      await addLayoutProfile({ name, blockPositions: { ...blockPositions } }, uid);
-      layoutProfiles = await getAllLayoutProfiles(uid);
-      showSaveProfileModal = false;
-      saveProfileName = '';
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  async function handleRenameProfile(id, newName) {
-    try {
-      await updateLayoutProfile(id, { name: newName?.trim() || 'Sans nom' }, uid);
-      layoutProfiles = await getAllLayoutProfiles(uid);
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  async function handleDeleteProfile(id) {
-    try {
-      await deleteLayoutProfile(id, uid);
-      layoutProfiles = await getAllLayoutProfiles(uid);
-    } catch (e) {
-      console.error(e);
-    }
-  }
 </script>
 
 {#if step === 1}
@@ -494,55 +217,27 @@
   />
 {:else}
   <div class="editor-wrap">
-    <EditorSidebar
-      document={currentDevis}
-      documentType="devis"
-      {resolvedClient}
-      {resolvedSociete}
-      onDragStart={handleDragStart}
-    />
     <div class="editor-main">
-      <div class="editor-toolbar">
-        <label for="profile-select">Mise en page</label>
-        <select
-          id="profile-select"
-          class="profile-select"
-          value={$profileSelectStore}
-          onchange={(e) => {
-            profileSelectField.selectedProfileId = e.currentTarget.value;
-            const selectedId = profileSelectField.selectedProfileId;
-            if (selectedId) applyProfile(selectedId);
-          }}
-        >
-          <option value="">Vide</option>
-          {#each layoutProfiles as profile (profile.id)}
-            <option value={profile.id}>{profile.name}</option>
+      <div class="editor-layout-choice">
+        <label for="devis-layout">Modèle</label>
+        <select id="devis-layout" value={currentDevis?.layoutId || DEFAULT_LAYOUT_ID} onchange={(e) => { currentDevis = { ...currentDevis, layoutId: e.target.value }; }}>
+          {#each LAYOUTS as layout}
+            <option value={layout.id}>{layout.name}</option>
           {/each}
         </select>
       </div>
-      <SheetA4
-        bind:sheetEl={sheetEl}
-        {blockPositions}
-        {selectedBlock}
-        document={currentDevis}
-        documentType="devis"
-        {resolvedClient}
-        {resolvedSociete}
-        onDrop={handleCanvasDrop}
-        onOver={handleCanvasOver}
-        onCanvasMouseDown={handleCanvasMouseDown}
-        onMouseMove={handleCanvasMouseMove}
-        onMouseUp={handleCanvasMouseUp}
-        onPlacedBlockMouseDown={handlePlacedBlockMouseDown}
-        onResizeMouseDown={handleResizeMouseDown}
-        onUpdateBlockStyle={updateBlockStyle}
-        onCloseToolbar={() => (selectedBlock = null)}
-      />
+      <div class="document-layout-preview">
+        <DocumentLayout
+          document={currentDevis}
+          resolvedClient={resolvedClient}
+          resolvedSociete={resolvedSociete}
+          documentType="devis"
+          layoutId={currentDevis?.layoutId || DEFAULT_LAYOUT_ID}
+        />
+      </div>
       <div class="editor-actions">
         <button type="button" class="btn-editor btn-retour" onclick={retour}>Retour</button>
         <button type="button" class="btn-editor btn-secondary" onclick={nouveauDevis}>Nouveau devis</button>
-        <button type="button" class="btn-editor btn-profile" onclick={openSaveProfileModal}>Enregistrer comme profil</button>
-        <button type="button" class="btn-editor btn-manage-profiles" onclick={() => (showManageProfilesModal = true)}>Gérer les profils</button>
         <button type="button" class="btn-editor btn-save-bdd" onclick={enregistrerEnBdd} disabled={savingBdd}>{savingBdd ? 'Enregistrement…' : 'Enregistrer en BDD'}</button>
       </div>
       {#if saveMessage}
@@ -552,21 +247,6 @@
       {/if}
     </div>
   </div>
-
-  <SaveProfileModal
-    open={showSaveProfileModal}
-    bind:name={saveProfileName}
-    onSave={saveCurrentAsProfile}
-    onCancel={() => (showSaveProfileModal = false)}
-  />
-
-  <ManageProfilesModal
-    open={showManageProfilesModal}
-    profiles={layoutProfiles}
-    onRename={handleRenameProfile}
-    onDelete={handleDeleteProfile}
-    onClose={() => (showManageProfilesModal = false)}
-  />
 
   <NoticeModal
     open={redirectNoticeOpen}
@@ -592,22 +272,22 @@
     gap: 1rem;
     min-width: 0;
   }
-  .editor-toolbar {
+  .editor-layout-choice {
     display: flex;
     align-items: center;
     gap: 0.5rem;
   }
-  .editor-toolbar label {
-    font-size: 0.9rem;
-    color: var(--color-text-soft);
-  }
-  .profile-select {
-    padding: 0.35rem 0.6rem;
+  .editor-layout-choice label { font-size: 0.9rem; color: var(--color-text-muted); }
+  .editor-layout-choice select { padding: 0.35rem 0.6rem; border-radius: 6px; border: 1px solid var(--color-border); background: var(--color-bg-elevated); }
+  .document-layout-preview {
+    width: 100%;
+    max-width: 595px;
+    aspect-ratio: 210 / 297; /* format A4 */
+    background: #fff;
     border: 1px solid var(--color-border);
-    border-radius: 6px;
-    font-size: 0.9rem;
-    background: var(--color-bg-elevated);
-    min-width: 160px;
+    border-radius: 8px;
+    overflow: auto;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   }
   .editor-actions {
     margin-top: 0.5rem;
@@ -638,22 +318,6 @@
   .btn-editor.btn-secondary:hover {
     background: var(--color-bg-muted);
   }
-  .btn-profile {
-    border: 1px solid var(--color-border-strong);
-    background: var(--color-bg-elevated);
-    color: var(--color-text-soft);
-  }
-  .btn-profile:hover {
-    background: var(--color-bg-muted);
-  }
-  .btn-manage-profiles {
-    border: 1px solid var(--color-border-strong);
-    background: var(--color-bg-elevated);
-    color: var(--color-text-soft);
-  }
-  .btn-manage-profiles:hover {
-    background: var(--color-bg-muted);
-  }
   .btn-save-bdd {
     border: none;
     background: var(--color-primary);
@@ -674,8 +338,6 @@
   .save-err { color: var(--color-error); }
 
   @media print {
-    :global(.editor-sidebar),
-    .editor-toolbar,
     .editor-actions,
     .save-feedback,
     :global(.resize-handle),

@@ -82,15 +82,24 @@ body {
     padding: 0 !important;
     min-height: unset !important;
   }
-  /* N'afficher que la feuille A4 (et son contenu), rien d'autre ; le reste ne doit pas prendre de place */
+  /* N'afficher que la feuille A4 (et son contenu), rien d'autre */
   body * {
     visibility: hidden !important;
   }
+  /* Ancêtres du sheet (modal) pour que le contenu soit imprimable */
+  .print-preview-overlay,
+  .print-preview-content,
   .sheet-a4,
-  .sheet-a4 * {
+  .sheet-a4 *,
+  .print-preview-sheet-wrap,
+  .print-preview-sheet-wrap *,
+  .document-layout-preview,
+  .document-layout-preview * {
     visibility: visible !important;
   }
-  .sheet-a4 {
+  .sheet-a4,
+  .print-preview-sheet-wrap,
+  .document-layout-preview {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
@@ -104,6 +113,13 @@ body {
     background: #fff !important;
     page-break-after: avoid !important;
     page-break-inside: avoid !important;
+  }
+  /* Contenu du layout qui remplit la feuille A4 */
+  .print-preview-sheet-wrap .document-layout,
+  .document-layout-preview .document-layout {
+    min-height: 100%;
+    box-sizing: border-box;
+    padding: 18mm 15mm !important; /* marges document pour bien remplir la page */
   }
   .placed-block,
   .placed-block.selected {

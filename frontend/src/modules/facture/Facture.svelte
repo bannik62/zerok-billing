@@ -6,27 +6,12 @@
     addFacture,
     updateFacture,
     getNextFactureNumber,
-    getAllDevis,
-    getAllLayoutProfiles,
-    getLayoutProfile,
-    addLayoutProfile,
-    updateLayoutProfile,
-    deleteLayoutProfile
+    getAllDevis
   } from '$lib/dbEncrypted.js';
   import { sendProof } from '$lib/proofs.js';
-  import {
-    normalisePos,
-    DEFAULT_W,
-    DEFAULT_H,
-    MIN_W,
-    MIN_H,
-    DRAG_THRESHOLD
-  } from '../editor/utils.js';
   import FactureFormStep from './FactureFormStep.svelte';
-  import EditorSidebar from '../editor/EditorSidebar.svelte';
-  import SheetA4 from '../editor/SheetA4.svelte';
-  import SaveProfileModal from '../creer-devis/SaveProfileModal.svelte';
-  import ManageProfilesModal from '../creer-devis/ManageProfilesModal.svelte';
+  import DocumentLayout from '../document-layout/DocumentLayout.svelte';
+  import { DEFAULT_LAYOUT_ID, LAYOUTS } from '$lib/documentLayouts.js';
   import NoticeModal from '$lib/NoticeModal.svelte';
 
   /** Module Facture – client ou devis pré-sélectionné. Step 0: choix, Step 1: formulaire, Step 2: éditeur. */
@@ -119,6 +104,7 @@
       total,
       tvaMontant,
       totalTTC,
+      layoutId: DEFAULT_LAYOUT_ID,
       blockPositions: devisFromMenu?.blockPositions ? { ...devisFromMenu.blockPositions } : {}
     };
     currentFacture = facture;
@@ -146,19 +132,8 @@
   }
 
   let blockPositions = $state({});
-  let sheetEl = $state(null);
   let resolvedClient = $state(null);
   let resolvedSociete = $state(null);
-  let layoutProfiles = $state([]);
-  let showSaveProfileModal = $state(false);
-  let showManageProfilesModal = $state(false);
-  let saveProfileName = $state('');
-  let profileSelectValue = $state('');
-  let draggingBlock = $state(null);
-  let dragOffset = $state({ x: 0, y: 0 });
-  let resizingBlock = $state(null);
-  let selectedBlock = $state(null);
-  let pendingDrag = $state(null);
 
   $effect(() => {
     const id = currentFacture?.entete?.clientId;
@@ -176,114 +151,6 @@
     getSociete(uid).then((s) => { if (!cancelled) resolvedSociete = s; });
     return () => { cancelled = true; };
   });
-  $effect(() => {
-    if (step !== 2) return;
-    let cancelled = false;
-    getAllLayoutProfiles(uid).then((list) => { if (!cancelled) layoutProfiles = list; });
-    return () => { cancelled = true; };
-  });
-
-  function handleDragStart(e, type) {
-    e.dataTransfer.setData('application/block-type', type);
-    e.dataTransfer.effectAllowed = 'copy';
-  }
-  function handleCanvasDrop(e) {
-    e.preventDefault();
-    const type = e.dataTransfer.getData('application/block-type');
-    if (!type) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    const existing = blockPositions[type];
-    const w = existing?.w ?? DEFAULT_W;
-    const h = existing?.h ?? DEFAULT_H;
-    blockPositions = { ...blockPositions, [type]: { left: x - w / 2, top: y - h / 2, w, h } };
-    if (currentFacture?.createdAt) {
-      updateFacture({ ...currentFacture, blockPositions: { ...blockPositions } }, uid).then((f) => (currentFacture = f));
-    } else if (currentFacture) {
-      currentFacture = { ...currentFacture, blockPositions: { ...blockPositions } };
-    }
-  }
-  function handleCanvasOver(e) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'copy';
-  }
-  function handlePlacedBlockMouseDown(e, type) {
-    if (e.target.closest('.resize-handle') || e.target.closest('.block-toolbar')) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const pos = normalisePos(blockPositions[type]);
-    if (!pos || !sheetEl) return;
-    const rect = sheetEl.getBoundingClientRect();
-    const mouseX = ((e.clientX - rect.left) / rect.width) * 100;
-    const mouseY = ((e.clientY - rect.top) / rect.height) * 100;
-    pendingDrag = { type, startX: mouseX, startY: mouseY, offsetX: mouseX - (pos.left + pos.w / 2), offsetY: mouseY - (pos.top + pos.h / 2) };
-  }
-  function handleResizeMouseDown(e, type) {
-    e.preventDefault();
-    e.stopPropagation();
-    resizingBlock = type;
-  }
-  function handleCanvasMouseMove(e) {
-    const canvas = sheetEl || e.currentTarget;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = ((e.clientX - rect.left) / rect.width) * 100;
-    const mouseY = ((e.clientY - rect.top) / rect.height) * 100;
-    if (pendingDrag && !draggingBlock) {
-      const dist = Math.hypot(mouseX - pendingDrag.startX, mouseY - pendingDrag.startY);
-      if (dist > DRAG_THRESHOLD) {
-        draggingBlock = pendingDrag.type;
-        dragOffset = { x: pendingDrag.offsetX, y: pendingDrag.offsetY };
-        pendingDrag = null;
-      }
-    }
-    if (resizingBlock != null) {
-      const pos = normalisePos(blockPositions[resizingBlock]);
-      if (!pos) return;
-      let w = Math.max(MIN_W, Math.min(100 - pos.left, mouseX - pos.left));
-      let h = Math.max(MIN_H, Math.min(100 - pos.top, mouseY - pos.top));
-      blockPositions = { ...blockPositions, [resizingBlock]: { ...pos, w, h } };
-      return;
-    }
-    if (draggingBlock == null) return;
-    const pos = normalisePos(blockPositions[draggingBlock]);
-    if (!pos) return;
-    let left = mouseX - dragOffset.x - pos.w / 2;
-    let top = mouseY - dragOffset.y - pos.h / 2;
-    left = Math.max(0, Math.min(100 - pos.w, left));
-    top = Math.max(0, Math.min(100 - pos.h, top));
-    blockPositions = { ...blockPositions, [draggingBlock]: { ...pos, left, top } };
-  }
-  function handleCanvasMouseUp() {
-    if (draggingBlock == null && pendingDrag != null) {
-      selectedBlock = pendingDrag.type;
-      pendingDrag = null;
-    }
-    if ((draggingBlock != null || resizingBlock != null) && currentFacture) {
-      if (currentFacture.createdAt) {
-        updateFacture({ ...currentFacture, blockPositions: { ...blockPositions } }, uid).then((f) => (currentFacture = f));
-      } else {
-        currentFacture = { ...currentFacture, blockPositions: { ...blockPositions } };
-      }
-    }
-    draggingBlock = null;
-    resizingBlock = null;
-    pendingDrag = null;
-  }
-  function handleCanvasMouseDown(e) {
-    if (e.target === sheetEl) selectedBlock = null;
-  }
-  function updateBlockStyle(type, key, value) {
-    const pos = normalisePos(blockPositions[type]);
-    if (!pos) return;
-    blockPositions = { ...blockPositions, [type]: { ...pos, [key]: value } };
-    if (currentFacture?.createdAt) {
-      updateFacture({ ...currentFacture, blockPositions: { ...blockPositions } }, uid).then((f) => (currentFacture = f));
-    } else if (currentFacture) {
-      currentFacture = { ...currentFacture, blockPositions: { ...blockPositions } };
-    }
-  }
 
   function retour() {
     step = step === 2 ? 1 : 0;
@@ -325,17 +192,14 @@
     if (!currentFacture) return;
     savingBdd = true;
     try {
+      const payload = { ...currentFacture, layoutId: currentFacture.layoutId || DEFAULT_LAYOUT_ID, blockPositions: { ...blockPositions } };
       if (currentFacture.createdAt) {
-        const updated = await updateFacture({ ...currentFacture, blockPositions: { ...blockPositions } }, uid);
+        const updated = await updateFacture(payload, uid);
         currentFacture = updated;
         await sendProof(currentFacture, 'facture').catch((err) => console.warn('Preuve non envoyée:', err));
       } else {
         const numero = currentFacture.entete?.numero || (await getNextFactureNumber(currentFacture.clientId || '', clients, uid));
-        const factureToSave = {
-          ...currentFacture,
-          entete: { ...currentFacture.entete, numero },
-          blockPositions: { ...blockPositions }
-        };
+        const factureToSave = { ...payload, entete: { ...payload.entete, numero } };
         const saved = await addFacture(factureToSave, uid);
         currentFacture = saved;
         blockPositions = { ...(saved.blockPositions || {}) };
@@ -361,51 +225,6 @@
     redirectNoticeOpen = false;
     await doSave();
     if (onSavedAndGoToList) onSavedAndGoToList();
-  }
-
-  async function applyProfile(profileId) {
-    if (!profileId) return;
-    const profile = await getLayoutProfile(profileId, uid);
-    if (!profile?.blockPositions) return;
-    blockPositions = { ...profile.blockPositions };
-    if (currentFacture?.createdAt) {
-      updateFacture({ ...currentFacture, blockPositions: { ...blockPositions } }, uid).then((f) => (currentFacture = f));
-    } else if (currentFacture) {
-      currentFacture = { ...currentFacture, blockPositions: { ...blockPositions } };
-    }
-    profileSelectValue = '';
-  }
-  function openSaveProfileModal() {
-    saveProfileName = '';
-    showSaveProfileModal = true;
-  }
-  async function saveCurrentAsProfile() {
-    const name = saveProfileName?.trim();
-    if (!name) return;
-    try {
-      await addLayoutProfile({ name, blockPositions: { ...blockPositions } }, uid);
-      layoutProfiles = await getAllLayoutProfiles(uid);
-      showSaveProfileModal = false;
-      saveProfileName = '';
-    } catch (e) {
-      console.error(e);
-    }
-  }
-  async function handleRenameProfile(id, newName) {
-    try {
-      await updateLayoutProfile(id, { name: newName?.trim() || 'Sans nom' }, uid);
-      layoutProfiles = await getAllLayoutProfiles(uid);
-    } catch (e) {
-      console.error(e);
-    }
-  }
-  async function handleDeleteProfile(id) {
-    try {
-      await deleteLayoutProfile(id, uid);
-      layoutProfiles = await getAllLayoutProfiles(uid);
-    } catch (e) {
-      console.error(e);
-    }
   }
 
   /** À l'étape 1, prochain numéro (FAC-{client}-{année}-{NNN}) quand un client est choisi. */
@@ -457,53 +276,32 @@
   />
 {:else}
   <div class="editor-wrap">
-    <EditorSidebar
-      document={currentFacture}
-      documentType="facture"
-      {resolvedClient}
-      {resolvedSociete}
-      onDragStart={handleDragStart}
-    />
     <div class="editor-main">
-      <div class="editor-toolbar">
-        <label for="profile-select">Mise en page</label>
-        <select id="profile-select" class="profile-select" value={profileSelectValue} onchange={(e) => { const v = e.currentTarget.value; profileSelectValue = v; if (v) applyProfile(v); }}>
-          <option value="">Vide</option>
-          {#each layoutProfiles as profile (profile.id)}
-            <option value={profile.id}>{profile.name}</option>
+      <div class="editor-layout-choice">
+        <label for="facture-layout">Modèle</label>
+        <select id="facture-layout" value={currentFacture?.layoutId || DEFAULT_LAYOUT_ID} onchange={(e) => { currentFacture = { ...currentFacture, layoutId: e.target.value }; }}>
+          {#each LAYOUTS as layout}
+            <option value={layout.id}>{layout.name}</option>
           {/each}
         </select>
       </div>
-      <SheetA4
-        bind:sheetEl={sheetEl}
-        {blockPositions}
-        {selectedBlock}
-        document={currentFacture}
-        documentType="facture"
-        {resolvedClient}
-        {resolvedSociete}
-        onDrop={handleCanvasDrop}
-        onOver={handleCanvasOver}
-        onCanvasMouseDown={handleCanvasMouseDown}
-        onMouseMove={handleCanvasMouseMove}
-        onMouseUp={handleCanvasMouseUp}
-        onPlacedBlockMouseDown={handlePlacedBlockMouseDown}
-        onResizeMouseDown={handleResizeMouseDown}
-        onUpdateBlockStyle={updateBlockStyle}
-        onCloseToolbar={() => (selectedBlock = null)}
-      />
+      <div class="document-layout-preview">
+        <DocumentLayout
+          document={currentFacture}
+          resolvedClient={resolvedClient}
+          resolvedSociete={resolvedSociete}
+          documentType="facture"
+          layoutId={currentFacture?.layoutId || DEFAULT_LAYOUT_ID}
+        />
+      </div>
       <div class="editor-actions">
         <button type="button" class="btn-editor btn-retour" onclick={retour}>Retour</button>
         <button type="button" class="btn-editor btn-secondary" onclick={nouvelleFacture}>Nouvelle facture</button>
-        <button type="button" class="btn-editor btn-profile" onclick={openSaveProfileModal}>Enregistrer comme profil</button>
-        <button type="button" class="btn-editor btn-manage-profiles" onclick={() => (showManageProfilesModal = true)}>Gérer les profils</button>
         <button type="button" class="btn-editor btn-save-bdd" onclick={enregistrerEnBdd} disabled={savingBdd}>{savingBdd ? 'Enregistrement…' : 'Enregistrer en BDD'}</button>
       </div>
     </div>
   </div>
 
-  <SaveProfileModal open={showSaveProfileModal} bind:name={saveProfileName} onSave={saveCurrentAsProfile} onCancel={() => (showSaveProfileModal = false)} />
-  <ManageProfilesModal open={showManageProfilesModal} profiles={layoutProfiles} onRename={handleRenameProfile} onDelete={handleDeleteProfile} onClose={() => (showManageProfilesModal = false)} />
   <NoticeModal
     open={redirectNoticeOpen}
     title={REDIRECT_NOTICE_TITLE}
@@ -532,23 +330,20 @@
   .btn-from-devis:disabled { opacity: 0.6; cursor: not-allowed; }
   .editor-wrap { display: flex; gap: 1rem; min-height: 0; flex: 1; }
   .editor-main { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1rem; min-width: 0; }
-  .editor-toolbar { display: flex; align-items: center; gap: 0.5rem; }
-  .editor-toolbar label { font-size: 0.9rem; color: var(--color-text-soft); }
-  .profile-select { padding: 0.35rem 0.6rem; border: 1px solid var(--color-border); border-radius: 6px; font-size: 0.9rem; background: var(--color-bg-elevated); min-width: 160px; }
+  .editor-layout-choice { display: flex; align-items: center; gap: 0.5rem; }
+  .editor-layout-choice label { font-size: 0.9rem; color: var(--color-text-muted); }
+  .editor-layout-choice select { padding: 0.35rem 0.6rem; border-radius: 6px; border: 1px solid var(--color-border); background: var(--color-bg-elevated); }
+  .document-layout-preview { width: 100%; max-width: 595px; aspect-ratio: 210 / 297; background: #fff; border: 1px solid var(--color-border); border-radius: 8px; overflow: auto; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); }
   .editor-actions { margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .btn-editor { padding: 0.4rem 0.75rem; border-radius: 6px; font-size: 0.9rem; font-weight: 500; cursor: pointer; }
   .btn-retour { border: 1px solid var(--color-text-muted); background: var(--color-bg-elevated); color: var(--color-text-soft); }
   .btn-retour:hover { background: var(--color-bg-muted); }
   .btn-editor.btn-secondary { border: 1px solid var(--color-border); background: var(--color-bg-elevated); color: var(--color-text); }
   .btn-editor.btn-secondary:hover { background: var(--color-bg-muted); }
-  .btn-profile, .btn-manage-profiles { border: 1px solid var(--color-border-strong); background: var(--color-bg-elevated); color: var(--color-text-soft); }
-  .btn-profile:hover, .btn-manage-profiles:hover { background: var(--color-bg-muted); }
   .btn-save-bdd { border: none; background: var(--color-primary); color: white; }
   .btn-save-bdd:hover:not(:disabled) { background: var(--color-primary-hover); }
   .btn-save-bdd:disabled { opacity: 0.7; cursor: wait; }
   @media print {
-    :global(.editor-sidebar), .editor-toolbar, .editor-actions, :global(.resize-handle), :global(.block-toolbar) { display: none !important; }
-    :global(.placed-block.selected) { outline: none !important; }
-    :global(.placed-block) { border: none !important; box-shadow: none !important; background: var(--color-bg-elevated) !important; cursor: default !important; }
+    .editor-actions { display: none !important; }
   }
 </style>

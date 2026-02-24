@@ -1,5 +1,9 @@
 # Zero-Knowledge Billing
 
+<p align="center">
+  <img src="frontend/src/assets/schemaMermaid.svg" alt="Zero-Knowledge Billing" width="100%" />
+</p>
+
 Application de facturation **local-first** et **zero-knowledge** : le serveur ne stocke jamais le contenu des factures, uniquement les preuves cryptographiques (hash, signature, horodatage).
 
 ## Structure
