@@ -6,6 +6,7 @@
     getAllDevis,
     getAllFactures,
     getAllClients,
+    getSociete,
     deleteDevis,
     deleteFacture,
     updateDevis,
@@ -23,7 +24,10 @@
   import DevisTable from './DevisTable.svelte';
   import FacturesTable from './FacturesTable.svelte';
   import ProofsPanel from '$lib/ProofsPanel.svelte';
+  import SheetA4 from '../editor/SheetA4.svelte';
   import { apiClient } from '$lib/apiClient.js';
+  import { tick } from 'svelte';
+  import html2pdf from 'html2pdf.js';
 
   const controlsFields = new ListeDocumentsControlsFields();
   const searchStore = controlsFields.searchStore;
@@ -114,9 +118,11 @@
     requestExportZip(invoiceId, type, numero);
   }
 
-  /** Envoi du document au client pour signature (email envoyé par le backend). */
+  /** Envoi du document au client pour signature (email + PDF en pièce jointe). */
   let sendingForSignatureId = $state(null);
   let sendSignatureFeedback = $state(null); // { type: 'success'|'error', text }
+  let pdfGenState = $state(null);
+  let pdfGenContainer = $state(null);
 
   async function handleSendForSignature(document, docType) {
     const id = document?.id;
@@ -124,23 +130,61 @@
     const client = document?.entete?.clientId ? clientsMap[document.entete.clientId] : null;
     const email = client?.email;
     if (!email) return;
-    const numero = document?.entete?.numero ?? '';
+    const numero = String(document?.entete?.numero ?? '').trim();
     sendingForSignatureId = id;
     sendSignatureFeedback = null;
     try {
+      const uid = user?.id ?? null;
+      const societe = await getSociete(uid);
+      pdfGenState = { document, client, societe, type: docType };
+      await tick();
+      await new Promise((r) => setTimeout(r, 400));
+      const container = pdfGenContainer;
+      let pdfBase64 = null;
+      const pdfFilename = (docType === 'devis' ? 'Devis' : 'Facture') + (numero ? `-${numero}` : '') + '.pdf';
+      if (container) {
+        try {
+          const blob = await html2pdf()
+            .set({
+              margin: 4,
+              filename: pdfFilename,
+              image: { type: 'jpeg', quality: 0.95 },
+              html2canvas: { scale: 2, useCORS: true },
+              jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            })
+            .from(container)
+            .outputPdf('blob');
+          pdfBase64 = await new Promise((res, rej) => {
+            const r = new FileReader();
+            r.onload = () => {
+              const dataUrl = r.result;
+              const str = typeof dataUrl === 'string' ? dataUrl : '';
+              res(str.includes(',') ? str.split(',')[1] : '');
+            };
+            r.onerror = rej;
+            r.readAsDataURL(blob);
+          });
+        } finally {
+          pdfGenState = null;
+        }
+      } else {
+        pdfGenState = null;
+      }
       await apiClient.post('/api/documents/send-for-signature', {
         to: email,
         invoiceId: id,
         documentType: docType,
-        numero: String(numero).trim()
+        numero,
+        ...(pdfBase64 && { pdfBase64, pdfFilename })
       });
-      sendSignatureFeedback = { type: 'success', text: `Email envoyé à ${email}` };
+      sendSignatureFeedback = { type: 'success', text: pdfBase64 ? `Email envoyé à ${email} avec le PDF` : `Email envoyé à ${email}` };
       setTimeout(() => { sendSignatureFeedback = null; }, 4000);
     } catch (e) {
       const msg = e.response?.data?.error ?? e?.message ?? 'Erreur lors de l’envoi';
       sendSignatureFeedback = { type: 'error', text: msg };
     } finally {
       sendingForSignatureId = null;
+      pdfGenState = null;
     }
   }
 
@@ -473,6 +517,28 @@
     onConfirm={onPasswordConfirm}
     onCancel={() => { passwordModalOpen = false; pendingPrint = null; pendingZip = null; }}
   />
+
+  {#if pdfGenState}
+    <div class="pdf-gen-hidden" bind:this={pdfGenContainer}>
+      <SheetA4
+        blockPositions={pdfGenState.document?.blockPositions ?? {}}
+        document={pdfGenState.document}
+        documentType={pdfGenState.type}
+        resolvedClient={pdfGenState.client}
+        resolvedSociete={pdfGenState.societe}
+        selectedBlock={null}
+        onDrop={() => {}}
+        onOver={() => {}}
+        onCanvasMouseDown={() => {}}
+        onMouseMove={() => {}}
+        onMouseUp={() => {}}
+        onPlacedBlockMouseDown={() => {}}
+        onResizeMouseDown={() => {}}
+        onUpdateBlockStyle={() => {}}
+        onCloseToolbar={() => {}}
+      />
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -516,5 +582,14 @@
     margin: 0.25rem 0 0 0;
     font-size: 0.85rem;
     color: var(--color-text-muted);
+  }
+  .pdf-gen-hidden {
+    position: fixed;
+    left: -9999px;
+    top: 0;
+    width: 595px;
+    min-height: 842px;
+    background: #fff;
+    z-index: -1;
   }
 </style>

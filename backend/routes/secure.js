@@ -13,6 +13,7 @@ import {
 import { sendMail } from '../services/emailService.js';
 import { createSignRequest, getSignedInvoiceIds } from '../services/signRequestService.js';
 import { env } from '../config/env.js';
+import { PDF_ATTACHMENT_MAX_BYTES } from '../config/constants.js';
 
 /**
  * Routeur des routes sécurisées (monté sous /api avec requireAuth dans server.js).
@@ -181,8 +182,8 @@ secureRouter.post('/documents/proofs/cleanup', async (req, res, next) => {
 });
 
 /**
- * POST /api/documents/send-for-signature — Envoie un email au client avec le document à signer (notification ; PDF en pièce jointe possible plus tard).
- * Body : { to: string (email), documentType: 'devis' | 'facture', numero?: string }
+ * POST /api/documents/send-for-signature — Envoie un email au client avec le document à signer (lien + PDF en pièce jointe si fourni).
+ * Body : { to, invoiceId, documentType, numero?, pdfBase64?, pdfFilename? }
  */
 secureRouter.post('/documents/send-for-signature', async (req, res, next) => {
   try {
@@ -192,7 +193,7 @@ secureRouter.post('/documents/send-for-signature', async (req, res, next) => {
     const { value, error } = validateSendForSignatureBody(req.body);
     if (error) return res.status(400).json({ error });
 
-    const { to, invoiceId, documentType, numero } = value;
+    const { to, invoiceId, documentType, numero, pdfBase64, pdfFilename } = value;
     const { token } = await createSignRequest({ invoiceId, documentType, userId });
     const signUrl = `${env.BACKEND_PUBLIC_URL}/sign/confirm?token=${encodeURIComponent(token)}`;
 
@@ -202,7 +203,22 @@ secureRouter.post('/documents/send-for-signature', async (req, res, next) => {
     const text = `Vous avez reçu ${docLabel.toLowerCase()}${numeroLabel} pour signature.\n\nPour accepter et signer le document, ouvrez ce lien : ${signUrl}\n\nMerci de prendre connaissance du document et de contacter l'expéditeur pour toute question.`;
     const html = `<p>Vous avez reçu <strong>${docLabel.toLowerCase()}${numeroLabel}</strong> pour signature.</p><p style="margin: 1.5em 0;"><a href="${signUrl}" style="display: inline-block; padding: 12px 24px; background: #2563eb; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600;">Signer / Accepter le document</a></p><p>Merci de prendre connaissance du document et de contacter l'expéditeur pour toute question.</p>`;
 
-    await sendMail({ to, subject, text, html });
+    let attachments;
+    if (pdfBase64 && typeof pdfBase64 === 'string' && pdfBase64.length > 0) {
+      let buffer;
+      try {
+        buffer = Buffer.from(pdfBase64, 'base64');
+      } catch {
+        return res.status(400).json({ error: 'Pièce jointe PDF invalide (base64)' });
+      }
+      if (buffer.length > PDF_ATTACHMENT_MAX_BYTES) {
+        return res.status(400).json({ error: `PDF trop volumineux (max ${Math.round(PDF_ATTACHMENT_MAX_BYTES / 1024 / 1024)} Mo)` });
+      }
+      const name = (pdfFilename && pdfFilename.trim()) ? pdfFilename.trim() : `${docLabel}-${numero?.trim() || invoiceId}.pdf`;
+      attachments = [{ filename: name.endsWith('.pdf') ? name : `${name}.pdf`, content: buffer }];
+    }
+
+    await sendMail({ to, subject, text, html, attachments });
     return res.status(200).json({ ok: true, sentTo: to });
   } catch (e) {
     next(e);

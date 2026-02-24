@@ -101,6 +101,10 @@ const sendForSignatureSchema = Joi.object({
   }),
   numero: Joi.string().trim().max(NUMERO_LABEL_MAX).allow('').default('').messages({
     'string.max': 'numero trop long'
+  }),
+  pdfBase64: Joi.string().allow('').optional(),
+  pdfFilename: Joi.string().trim().max(120).optional().messages({
+    'string.max': 'pdfFilename trop long'
   })
 }).options({ stripUnknown: true });
 
