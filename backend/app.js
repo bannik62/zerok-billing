@@ -64,6 +64,17 @@ if (env.DATABASE_URL) {
 
 app.use(session(sessionConfig));
 
+// Public API : confirmation de signature (lien email). Avant validateCsrf et requireAuth.
+app.get('/api/sign/confirm', async (req, res) => {
+  try {
+    const token = req.query.token ?? '';
+    const status = await confirmSignRequest(token);
+    return res.json({ status });
+  } catch (e) {
+    return res.json({ status: 'expired' });
+  }
+});
+
 app.use('/api', validateCsrf);
 
 app.get('/api/auth/csrf-token', ensureCsrfToken, (req, res) => {
@@ -91,13 +102,14 @@ app.get('/api/health', async (_req, res) => {
 
 app.use('/api', requireAuth, secureRouter);
 
-// Route publique : confirmation de signature (lien dans l'email)
+// Route publique : confirmation de signature (lien dans l'email). Page autonome, pas de redirection vers l'app.
 app.get('/sign/confirm', async (req, res) => {
   const token = req.query.token;
   const status = await confirmSignRequest(token);
+  const siteUrl = env.allowedOrigins[0] || '#';
   const html = status === 'ok'
-    ? '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Signature enregistrée</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Merci</h1><p>Vous avez signé ce document.</p></body></html>'
-    : '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lien invalide</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Lien invalide ou expiré</h1><p>Ce lien a déjà été utilisé ou a expiré.</p></body></html>';
+    ? `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Document accepté</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Document accepté</h1><p>Votre signature a bien été enregistrée.</p><p style="margin-top: 2rem;"><a href="${siteUrl}" style="color: #2563eb; text-decoration: underline;">Accéder au site</a></p></body></html>`
+    : `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lien invalide</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Lien invalide ou expiré</h1><p>Ce lien a déjà été utilisé ou a expiré.</p><p style="margin-top: 2rem;"><a href="${siteUrl}" style="color: #2563eb; text-decoration: underline;">Accéder au site</a></p></body></html>`;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(html);
 });

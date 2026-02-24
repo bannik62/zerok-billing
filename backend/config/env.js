@@ -34,6 +34,9 @@ const allowedOrigins = rawOrigins
 if (!allowedOrigins.includes('http://127.0.0.1:5173')) allowedOrigins.push('http://127.0.0.1:5173');
 if (!allowedOrigins.includes('http://localhost:5173')) allowedOrigins.push('http://localhost:5173');
 
+/** URL publique du backend (lien de confirmation de signature dans l’email). Doit pointer vers le backend (ex. même hôte que le front si nginx proxy /sign). */
+const BACKEND_PUBLIC_URL = getEnv('BACKEND_PUBLIC_URL') || allowedOrigins[0] || 'http://localhost:5173';
+
 const cookieSecure = getEnv('COOKIE_SECURE') === 'true';
 
 const DATABASE_URL = getEnv('DATABASE_URL') || null;
@@ -50,6 +53,7 @@ export const env = Object.freeze({
   PORT,
   SESSION_SECRET,
   allowedOrigins,
+  BACKEND_PUBLIC_URL,
   cookieSecure,
   DATABASE_URL,
   GMAIL_USER,

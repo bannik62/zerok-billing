@@ -25,4 +25,4 @@ CREATE INDEX "sign_request_token_idx" ON "sign_request"("token");
 CREATE INDEX "sign_request_invoice_id_user_id_idx" ON "sign_request"("invoice_id", "user_id");
 
 -- AddForeignKey
-ALTER TABLE "sign_request" ADD CONSTRAINT "sign_request_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "sign_request" ADD CONSTRAINT "sign_request_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

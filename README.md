@@ -20,6 +20,8 @@ cd /chemin/vers/zerok-billing   # racine du projet (pas backend/)
 cp .env.example .env
 # Éditer .env : POSTGRES_PASSWORD, SESSION_SECRET
 docker compose up -d --build
+# Appliquer les migrations (à faire après le premier up ou après un pull avec de nouvelles migrations)
+docker compose run --rm backend npx prisma migrate deploy
 ```
 
 Si le build Docker échoue avec une erreur du type « parent snapshot does not exist », utiliser le script de rebuild (ou les commandes manuelles) :

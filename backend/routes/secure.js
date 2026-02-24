@@ -12,8 +12,7 @@ import {
 } from '../validators/secureValidator.js';
 import { sendMail } from '../services/emailService.js';
 import { createSignRequest, getSignedInvoiceIds } from '../services/signRequestService.js';
-
-const SIGN_BASE_URL = 'https://billing.zerok.vitalinfo.site';
+import { env } from '../config/env.js';
 
 /**
  * Routeur des routes sécurisées (monté sous /api avec requireAuth dans server.js).
@@ -195,7 +194,7 @@ secureRouter.post('/documents/send-for-signature', async (req, res, next) => {
 
     const { to, invoiceId, documentType, numero } = value;
     const { token } = await createSignRequest({ invoiceId, documentType, userId });
-    const signUrl = `${SIGN_BASE_URL}/sign/confirm?token=${encodeURIComponent(token)}`;
+    const signUrl = `${env.BACKEND_PUBLIC_URL}/sign/confirm?token=${encodeURIComponent(token)}`;
 
     const docLabel = documentType === 'devis' ? 'Devis' : 'Facture';
     const numeroLabel = (numero && numero.trim()) ? ` n° ${numero.trim()}` : '';

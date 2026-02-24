@@ -5,6 +5,7 @@
   import VerifyEmail from './modules/auth/VerifyEmail.svelte';
   import SetupRecoveryPhrase from './modules/auth/SetupRecoveryPhrase.svelte';
   import Unlock from './modules/auth/Unlock.svelte';
+  import SignConfirm from './modules/auth/SignConfirm.svelte';
   import SessionTemoin from './modules/session/SessionTemoin.svelte';
   import CsrfTemoin from './modules/session/CsrfTemoin.svelte';
   import CleTemoin from './modules/session/CleTemoin.svelte';
@@ -19,6 +20,22 @@
   let loading = $state(true);
   let page = $state('auth');
   let view = $state('login');
+  let tokenFromUrl = $state('');
+
+  function init() {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      const params = new URLSearchParams(window.location.search);
+      const t = params.get('token');
+      if (path === '/sign/confirm' && t) {
+        tokenFromUrl = t;
+        page = 'signConfirm';
+        loading = false;
+        return;
+      }
+    }
+    fetchUser();
+  }
 
   async function fetchUser() {
     await fetchCsrfToken().catch(() => null);
@@ -39,7 +56,7 @@
     }
   }
 
-  fetchUser();
+  init();
 
   async function onLoginSuccess(data) {
     await fetchCsrfToken().catch(() => null);
@@ -90,6 +107,8 @@
 <main class:fullscreen={page === 'menu'}>
   {#if loading}
     <p class="loading">Chargement…</p>
+  {:else if page === 'signConfirm'}
+    <SignConfirm token={tokenFromUrl} />
   {:else if page === 'menu'}
     {#if $encryptionKeyLoadedStore}
       <SessionTemoin content={Menu} {logout} onUnauthorized={() => { user = null; page = 'auth'; view = 'login'; }} />
