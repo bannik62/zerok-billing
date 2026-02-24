@@ -50,6 +50,7 @@ model SignRequest {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@map("sign_request")
   @@index([userId])
   @@index([token])
   @@index([invoiceId, userId])
