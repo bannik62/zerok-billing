@@ -67,16 +67,22 @@ export function buildPdfDocumentHtml(document, client, societe, docType) {
     ? '<p class="mentions">En cas de retard de paiement, des pénalités de retard seront appliquées à partir du lendemain de la date d\'échéance, au taux d\'intérêt légal. Une indemnité forfaitaire de 40 € sera due pour frais de recouvrement.</p>'
     : '';
 
+  // Fragment HTML sans <html>/<head>/<body> : injecté dans un div par html2pdf, les styles
+  // dans le fragment s'appliquent au contenu. Styles inline sur le wrapper pour garantir lisibilité.
   return [
-    '<!DOCTYPE html><html><head><meta charset="utf-8"><style>',
-    'body{font-family:system-ui,sans-serif;font-size:11px;color:#111;padding:16px;margin:0}',
-    '.head{display:flex;justify-content:space-between;margin-bottom:24px}.societe{max-width:45%}.societe p{margin:0 0 4px 0}',
-    '.doc-title{font-size:16px;font-weight:700;margin-bottom:12px}.entete p{margin:0 0 4px 0}',
-    'table{width:100%;border-collapse:collapse;margin:16px 0}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}',
-    'th{background:#f0f0f0;font-weight:600}td:nth-child(2),td:nth-child(3),td:nth-child(4){text-align:right}',
-    '.totaux{margin-top:16px;text-align:right}.totaux p{margin:4px 0}.total-ttc{font-size:14px;font-weight:700}',
-    '.mentions{font-size:9px;color:#666;margin-top:24px;max-width:80%}',
-    '</style></head><body>',
+    '<div id="pdf-doc" style="background:#fff;color:#000;font-family:Arial,sans-serif;font-size:11px;padding:16px;box-sizing:border-box;">',
+    '<style scoped>',
+    '#pdf-doc .head{display:flex;justify-content:space-between;margin-bottom:24px;}',
+    '#pdf-doc .societe{max-width:45%;} #pdf-doc .societe p{margin:0 0 4px 0;}',
+    '#pdf-doc .doc-title{font-size:16px;font-weight:700;margin-bottom:12px;} #pdf-doc .entete p{margin:0 0 4px 0;}',
+    '#pdf-doc table{width:100%;border-collapse:collapse;margin:16px 0;}',
+    '#pdf-doc th,#pdf-doc td{border:1px solid #333;padding:6px 8px;text-align:left;color:#000;}',
+    '#pdf-doc th{background:#e0e0e0;font-weight:600;}',
+    '#pdf-doc td:nth-child(2),#pdf-doc td:nth-child(3),#pdf-doc td:nth-child(4){text-align:right;}',
+    '#pdf-doc .totaux{margin-top:16px;text-align:right;} #pdf-doc .totaux p{margin:4px 0;}',
+    '#pdf-doc .total-ttc{font-size:14px;font-weight:700;}',
+    '#pdf-doc .mentions{font-size:9px;color:#333;margin-top:24px;max-width:80%;}',
+    '</style>',
     '<div class="head"><div class="societe"><p><strong>' + societeNom + '</strong></p>' + (societeInfos ? '<p>' + societeInfos + '</p>' : '') + '</div>',
     '<div class="entete"><p class="doc-title">' + title + ' n° ' + numero + '</p>' +
       (dateEmission ? '<p>Émission : ' + dateEmission + '</p>' : '') +
@@ -89,6 +95,6 @@ export function buildPdfDocumentHtml(document, client, societe, docType) {
       (tauxTva > 0 ? '<p>TVA (' + tauxTva + ' %) : ' + formatMontant(tvaMontant) + ' €</p><p class="total-ttc">Total TTC : ' + formatMontant(totalTTC) + ' €</p>' : '') +
     '</div>',
     mentionsFacture,
-    '</body></html>'
+    '</div>'
   ].join('');
 }
