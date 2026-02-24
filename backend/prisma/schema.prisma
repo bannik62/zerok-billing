@@ -35,6 +35,24 @@ model User {
 
   proofs         Proof[]
   documentProofs DocumentProof[]
+  signRequests   SignRequest[]
+}
+
+model SignRequest {
+  id           String    @id @default(cuid())
+  token        String    @unique
+  invoiceId    String    @map("invoice_id")
+  documentType String    @map("document_type")
+  userId       String    @map("user_id")
+  expiresAt    DateTime  @map("expires_at")
+  signedAt     DateTime? @map("signed_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([invoiceId, userId])
 }
 
 model Proof {

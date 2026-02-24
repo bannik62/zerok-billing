@@ -11,6 +11,9 @@ import {
   validateSendForSignatureBody
 } from '../validators/secureValidator.js';
 import { sendMail } from '../services/emailService.js';
+import { createSignRequest, getSignedInvoiceIds } from '../services/signRequestService.js';
+
+const SIGN_BASE_URL = 'https://billing.zerok.vitalinfo.site';
 
 /**
  * Routeur des routes sécurisées (monté sous /api avec requireAuth dans server.js).
@@ -190,15 +193,32 @@ secureRouter.post('/documents/send-for-signature', async (req, res, next) => {
     const { value, error } = validateSendForSignatureBody(req.body);
     if (error) return res.status(400).json({ error });
 
-    const { to, documentType, numero } = value;
+    const { to, invoiceId, documentType, numero } = value;
+    const { token } = await createSignRequest({ invoiceId, documentType, userId });
+    const signUrl = `${SIGN_BASE_URL}/sign/confirm?token=${encodeURIComponent(token)}`;
+
     const docLabel = documentType === 'devis' ? 'Devis' : 'Facture';
     const numeroLabel = (numero && numero.trim()) ? ` n° ${numero.trim()}` : '';
     const subject = `${docLabel}${numeroLabel} à signer`;
-    const text = `Vous avez reçu ${docLabel.toLowerCase()}${numeroLabel} pour signature.\n\nMerci de prendre connaissance du document et de contacter l'expéditeur pour toute question.`;
-    const html = `<p>Vous avez reçu <strong>${docLabel.toLowerCase()}${numeroLabel}</strong> pour signature.</p><p>Merci de prendre connaissance du document et de contacter l'expéditeur pour toute question.</p>`;
+    const text = `Vous avez reçu ${docLabel.toLowerCase()}${numeroLabel} pour signature.\n\nPour accepter et signer le document, ouvrez ce lien : ${signUrl}\n\nMerci de prendre connaissance du document et de contacter l'expéditeur pour toute question.`;
+    const html = `<p>Vous avez reçu <strong>${docLabel.toLowerCase()}${numeroLabel}</strong> pour signature.</p><p style="margin: 1.5em 0;"><a href="${signUrl}" style="display: inline-block; padding: 12px 24px; background: #2563eb; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600;">Signer / Accepter le document</a></p><p>Merci de prendre connaissance du document et de contacter l'expéditeur pour toute question.</p>`;
 
     await sendMail({ to, subject, text, html });
     return res.status(200).json({ ok: true, sentTo: to });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * GET /api/signatures — Liste des invoiceId signés pour l'utilisateur (pour sync colonne Accepté).
+ */
+secureRouter.get('/signatures', async (req, res, next) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Non authentifié' });
+    const signedInvoiceIds = await getSignedInvoiceIds(userId);
+    return res.json({ signedInvoiceIds });
   } catch (e) {
     next(e);
   }

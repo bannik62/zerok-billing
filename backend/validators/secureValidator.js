@@ -92,6 +92,10 @@ const sendForSignatureSchema = Joi.object({
     'string.email': 'email invalide',
     'string.max': 'email trop long'
   }),
+  invoiceId: Joi.string().trim().max(INVOICE_ID_MAX).required().messages({
+    'string.empty': 'invoiceId requis',
+    'string.max': 'invoiceId trop long'
+  }),
   documentType: Joi.string().valid('devis', 'facture').required().messages({
     'any.only': 'documentType doit être devis ou facture'
   }),

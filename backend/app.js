@@ -20,6 +20,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { authRouter } from './routes/auth.js';
 import { recoveryRouter } from './routes/recovery.js';
 import { secureRouter } from './routes/secure.js';
+import { confirmSignRequest } from './services/signRequestService.js';
 import { prisma } from './lib/prisma.js';
 
 export const app = express();
@@ -90,7 +91,16 @@ app.get('/api/health', async (_req, res) => {
 
 app.use('/api', requireAuth, secureRouter);
 
-
+// Route publique : confirmation de signature (lien dans l'email)
+app.get('/sign/confirm', async (req, res) => {
+  const token = req.query.token;
+  const status = await confirmSignRequest(token);
+  const html = status === 'ok'
+    ? '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Signature enregistrée</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Merci</h1><p>Vous avez signé ce document.</p></body></html>'
+    : '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lien invalide</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Lien invalide ou expiré</h1><p>Ce lien a déjà été utilisé ou a expiré.</p></body></html>';
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+});
 
 app.get('/', (_, res) => {
   res.json({ name: 'Zero-Knowledge Billing API', docs: '/api/health' });
