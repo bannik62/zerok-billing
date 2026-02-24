@@ -138,7 +138,7 @@
       const societe = await getSociete(uid);
       pdfGenState = { document, client, societe, type: docType };
       await tick();
-      await new Promise((r) => setTimeout(r, 400));
+      await new Promise((r) => setTimeout(r, 700));
       const container = pdfGenContainer;
       let pdfBase64 = null;
       const pdfFilename = (docType === 'devis' ? 'Devis' : 'Facture') + (numero ? `-${numero}` : '') + '.pdf';
@@ -583,13 +583,17 @@
     font-size: 0.85rem;
     color: var(--color-text-muted);
   }
+  /* Conteneur dans le viewport pour que le navigateur peigne le contenu (html2canvas capture sinon une page blanche). Invisible et non cliquable. */
   .pdf-gen-hidden {
     position: fixed;
-    left: -9999px;
+    left: 0;
     top: 0;
     width: 595px;
-    min-height: 842px;
+    height: 842px;
     background: #fff;
-    z-index: -1;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 9998;
+    overflow: hidden;
   }
 </style>
