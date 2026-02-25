@@ -438,35 +438,50 @@ export async function deleteFacture(id, userId = null) {
 }
 
 /**
+ * Options pour clearLocalDataForUser : quelles données effacer avant restauration.
+ * @typedef {{ coffre?: boolean, documents?: boolean }} ClearLocalDataOptions
+ * - coffre: clients, société, profils de mise en page (défaut true si non fourni)
+ * - documents: devis et factures (défaut true si non fourni)
+ */
+
+/**
  * Supprime uniquement les données locales appartenant à un utilisateur (ou les données legacy si userId === null).
  * Utilisé avant restauration d'archive pour ne pas effacer les données d'autres comptes sur le même navigateur.
  * @param {string|number|null} userId - utilisateur courant ; si null, supprime seulement les enregistrements sans userId (legacy)
+ * @param {ClearLocalDataOptions} [options] - si fourni, n'efface que coffre et/ou documents selon les flags (défaut : les deux)
  */
-export async function clearLocalDataForUser(userId) {
+export async function clearLocalDataForUser(userId, options = {}) {
+  const clearCoffre = options.coffre !== false;
+  const clearDocuments = options.documents !== false;
+
   const match = (r) =>
     userId != null ? r.userId === userId : (r.userId == null || r.userId === '');
 
-  const clients = await db[STORE_CLIENTS].toArray();
-  const clientIds = clients.filter(match).map((r) => r.id);
-  if (clientIds.length > 0) await db[STORE_CLIENTS].bulkDelete(clientIds);
+  if (clearCoffre) {
+    const clients = await db[STORE_CLIENTS].toArray();
+    const clientIds = clients.filter(match).map((r) => r.id);
+    if (clientIds.length > 0) await db[STORE_CLIENTS].bulkDelete(clientIds);
 
-  if (userId != null) {
-    await db[STORE_SOCIETE].delete(`societe-${userId}`);
-  } else {
-    await db[STORE_SOCIETE].delete(SOCIETE_ID);
+    if (userId != null) {
+      await db[STORE_SOCIETE].delete(`societe-${userId}`);
+    } else {
+      await db[STORE_SOCIETE].delete(SOCIETE_ID);
+    }
+
+    const profiles = await db[STORE_LAYOUT_PROFILES].toArray();
+    const profileIds = profiles.filter(match).map((r) => r.id);
+    if (profileIds.length > 0) await db[STORE_LAYOUT_PROFILES].bulkDelete(profileIds);
   }
 
-  const devis = await db[STORE_DEVIS].toArray();
-  const devisIds = devis.filter(match).map((r) => r.id);
-  if (devisIds.length > 0) await db[STORE_DEVIS].bulkDelete(devisIds);
+  if (clearDocuments) {
+    const devis = await db[STORE_DEVIS].toArray();
+    const devisIds = devis.filter(match).map((r) => r.id);
+    if (devisIds.length > 0) await db[STORE_DEVIS].bulkDelete(devisIds);
 
-  const factures = await db[STORE_FACTURES].toArray();
-  const factureIds = factures.filter(match).map((r) => r.id);
-  if (factureIds.length > 0) await db[STORE_FACTURES].bulkDelete(factureIds);
-
-  const profiles = await db[STORE_LAYOUT_PROFILES].toArray();
-  const profileIds = profiles.filter(match).map((r) => r.id);
-  if (profileIds.length > 0) await db[STORE_LAYOUT_PROFILES].bulkDelete(profileIds);
+    const factures = await db[STORE_FACTURES].toArray();
+    const factureIds = factures.filter(match).map((r) => r.id);
+    if (factureIds.length > 0) await db[STORE_FACTURES].bulkDelete(factureIds);
+  }
 }
 
 /** Pour la couche chiffrée : put/get/getAll bruts sur le store factures. */
