@@ -4,6 +4,18 @@ Phase 2 améliore l’expérience utilisateur du coffre-fort (preview, drag & dr
 
 ---
 
+## État d’implémentation (référence doc / code)
+
+| # | Livrable | Statut | Commentaire |
+|---|----------|--------|-------------|
+| 1 | **Preview PDF / images** | ✅ Fait | DocumentPreviewModal.svelte, aperçu img/PDF. |
+| 2 | **Drag & drop upload** | ❌ À faire | Zone drop non présente dans UploadSection / formulaire upload. |
+| 3 | **Métadonnées** | ✅ Fait | Champs description, amount, category, tags dans metadata. |
+| 4 | **Recherche** | ✅ Fait | CoffreFortSearchField + filterDocuments. |
+| 5 | **Export ZIP (facture + docs)** | ❌ À faire | Pas de bouton export ZIP dans ListeDocuments.svelte. |
+
+---
+
 ## Vue d’ensemble des 5 livrables
 
 | # | Livrable | En bref |

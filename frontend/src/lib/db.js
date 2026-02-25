@@ -1,6 +1,6 @@
 /**
  * IndexedDB – zerok-billing (stockage local navigateur).
- * Utilise Dexie. Stores : clients, societe, devis, layoutProfiles, factures, meta.
+ * Utilise Dexie. Stores : clients, societe, devis, factures, meta, documents (layoutProfiles supprimé en v10).
  */
 
 import Dexie from 'dexie';
@@ -29,6 +29,29 @@ db.version(DB_VERSION).stores({
 });
 db.version(9).stores({
   [STORE_DOCUMENTS]: 'id, clientId, linkedInvoiceId, type, uploadedAt'
+});
+
+// Version 10 : suppression du store layoutProfiles + nettoyage blockPositions sur devis/factures
+db.version(10).stores({
+  [STORE_CLIENTS]: 'id',
+  [STORE_SOCIETE]: 'id',
+  [STORE_DEVIS]: 'id',
+  [STORE_FACTURES]: 'id',
+  [STORE_META]: 'key',
+  [STORE_DOCUMENTS]: 'id, clientId, linkedInvoiceId, type, uploadedAt'
+}).upgrade((tx) => {
+  // Supprimer le store layoutProfiles (IndexedDB)
+  try {
+    const idbTrans = tx.idbtrans ?? tx._idbtrans;
+    if (idbTrans?.db?.objectStoreNames?.contains('layoutProfiles')) {
+      idbTrans.db.deleteObjectStore('layoutProfiles');
+    }
+  } catch (_) {}
+  // Nettoyer blockPositions sur les enregistrements devis et factures (clé obsolète)
+  return Promise.all([
+    tx.table(STORE_DEVIS).toCollection().modify((r) => { if (r && 'blockPositions' in r) delete r.blockPositions; }),
+    tx.table(STORE_FACTURES).toCollection().modify((r) => { if (r && 'blockPositions' in r) delete r.blockPositions; })
+  ]);
 });
 
 /** Clone profond pour IndexedDB (évite DataCloneError avec proxies Svelte). */

@@ -18,10 +18,10 @@
 |------|--------|--------|
 | **Création / édition devis** | Formulaire + étape 2 avec SheetA4, blocs déplaçables, profils | Formulaire + aperçu en layout fixe unique (puis choix parmi N layouts) |
 | **Création / édition facture** | Idem : SheetA4, blocs, profils | Idem : layout fixe, choix de modèle |
-| **Aperçu impression** | PrintPreviewModal avec SheetA4 + blockPositions | Même rendu que le layout fixe (composant partagé ou HTML commun) |
+| **Aperçu impression** | PrintPreviewModal avec SheetA4 + blockPositions | Même rendu que le layout fixe (DocumentLayout partagé) |
 | **PDF email (signature)** | Déjà layout fixe (buildPdfDocumentHtml) | Inchangé, peut recevoir un `layoutId` plus tard pour variantes |
-| **Données document** | blockPositions (objet positions/tailles) + optionnel profil | layoutId (ex. `'classique'`) — un seul layout au début |
-| **Profils** | Store layoutProfiles (name + blockPositions), modals Sauver/Gérer | Supprimé ; à terme : 3 modèles en dur dans le code |
+| **Données document** | blockPositions (objet positions/tailles) + optionnel profil | layoutId uniquement (ex. `'classique'`) — blockPositions supprimé du code |
+| **Profils** | Store layoutProfiles (name + blockPositions), modals Sauver/Gérer | Store conservé en schéma (lecture seule, compatibilité) ; plus de CRUD ni export/restore ; modals orphelines à supprimer |
 
 ### 1.4 Ce qui ne change pas
 - **Backend** : aucune modification (pas de layout en base serveur).
@@ -30,8 +30,8 @@
 - **Utilisateurs / auth** : inchangé.
 
 ### 1.5 Migrations
-- **IndexedDB** : à terme, nouvelle version Dexie pour **supprimer le store layoutProfiles** (migration destructive pour les profils uniquement). Pas obligatoire si on se contente de ne plus l’utiliser.
-- **Documents existants** : on lit `layoutId` avec défaut `'classique'` ; `blockPositions` peut rester en base mais est ignoré.
+- **IndexedDB** : le store **layoutProfiles** est conservé dans le schéma Dexie (compatibilité) ; plus aucune écriture ni export/restore. Suppression du store (nouvelle version Dexie) optionnelle.
+- **Documents existants** : on lit `layoutId` avec défaut `'classique'` ; `blockPositions` n’est plus lu ni écrit (anciens enregistrements peuvent encore contenir la clé, ignorée).
 
 ---
 
@@ -66,7 +66,7 @@
 ┌─────────────────────────────────────────────────────────────┐
 │  Données (db, dbEncrypted)                                  │
 │  - Devis / Facture : entete, lignes, totaux, layoutId       │
-│  - Plus de blockPositions utilisé ; layoutProfiles supprimé  │
+│  - layoutId uniquement ; blockPositions supprimé ; layoutProfiles store conservé (lecture seule) │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -114,30 +114,32 @@
 
 ### Phase E – Nettoyage et données
 
-| Étape | Tâche | Fichiers | Critère de fin |
-|-------|--------|----------|----------------|
-| **E1** | Supprimer modals profils et sélecteur profils | `CreerDevis.svelte`, `Facture.svelte` | Plus de SaveProfileModal, ManageProfilesModal, ni d’appel à getLayoutProfiles / addLayoutProfile pour la création. |
-| **E2** | Supprimer le module editor (blocs) | `editor/` (SheetA4, PlacedBlock, EditorSidebar, BlockToolbar, utils positions) | Supprimer ou désactiver les imports ; tout passe par DocumentLayout. |
-| **E3** | Données : layoutId partout, ignorer blockPositions | `db.js`, `dbEncrypted.js`, archive si besoin | Devis/facture utilisent layoutId (défaut 'classique'). Anciens documents sans layoutId : lecture avec défaut. blockPositions non utilisé. |
-| **E4** | (Optionnel) Migration Dexie : supprimer layoutProfiles | `db.js` | Nouvelle version Dexie sans le store layoutProfiles. À faire quand on est sûr de ne plus en avoir besoin. |
+| Étape | Tâche | Fichiers | Statut |
+|-------|--------|----------|--------|
+| **E1** | Supprimer modals profils orphelines | `SaveProfileModal.svelte`, `ManageProfilesModal.svelte` | ⚠️ À faire : fichiers présents mais jamais importés ; à supprimer. |
+| **E2** | Supprimer le module editor (blocs) | SheetA4, PlacedBlock, EditorSidebar, BlockToolbar | ✅ Fait : tout passe par DocumentLayout. |
+| **E3** | Données : layoutId partout, plus de blockPositions | `CreerDevis.svelte`, `Facture.svelte`, `db.js` | ✅ Fait : blockPositions retiré du code (plus sauvegardé ni en state). layoutId seul. |
+| **E4** | layoutProfiles : plus de CRUD ni export/restore | `db.js`, `SauvegarderRestaurer.svelte`, `ExplorerBase.svelte` | ✅ Fait : store conservé en schéma (compatibilité) ; fonctions CRUD supprimées ; export/restore ne concernent plus layoutProfiles ; explorateur n’affiche plus le store. Suppression du store Dexie (optionnel) = Phase 3 éviction. |
 
-### Phase F – (Plus tard) Plusieurs layouts
+### Phase F – Multi-layouts
 
-| Étape | Tâche | Fichiers | Critère de fin |
-|-------|--------|----------|----------------|
-| **F1** | Ajouter 2e et 3e layout dans LAYOUTS | `documentLayouts.js` | Deux nouvelles entrées (ex. 'moderne', 'minimal'). |
-| **F2** | Variantes de rendu selon layoutId | `DocumentLayout.svelte` (et/ou pdfDocumentHtml.js) | Selon layoutId, appliquer des classes ou un sous-composant différent. |
-| **F3** | Sélecteur de modèle dans l’UI | `CreerDevis.svelte`, `Facture.svelte` | Liste ou boutons pour choisir le modèle ; sauver layoutId sur le document. |
+| Étape | Tâche | Fichiers | Statut |
+|-------|--------|----------|--------|
+| **F1** | 4 layouts dans LAYOUTS | `documentLayouts.js` | ✅ Fait : classique, avec-logo, moderne, minimal. |
+| **F2** | Variantes de rendu selon layoutId | `DocumentLayout.svelte` | ✅ Fait : 4 blocs conditionnels + styles dédiés. |
+| **F3** | Sélecteur de modèle dans l’UI | `CreerDevis.svelte`, `Facture.svelte` | ✅ Fait : select avec LAYOUTS ; layoutId sauvegardé sur le document. |
 
 ---
 
-## 4. Ordre recommandé pour commencer
+## 4. Bilan d’implémentation
 
-1. **A1** → **A2** (fondations : constantes + composant de rendu).
-2. **B1** → **B2** (devis : aperçu + sauvegarde layoutId).
-3. **C1** (impression).
-4. **D1** (facture).
-5. **E1** → **E2** → **E3** (nettoyage profils et editor, données).
-6. **E4** si tu veux supprimer le store layoutProfiles.
+| Phase | Statut | Commentaire |
+|-------|--------|-------------|
+| **A** – Fondations | ✅ Complète | documentLayouts.js + DocumentLayout.svelte (4 variantes). |
+| **B** – Devis | ✅ Complète | DocumentLayout en étape 2, layoutId sauvegardé. |
+| **C** – Impression | ✅ Complète | PrintPreviewModal utilise DocumentLayout. |
+| **D** – Facture | ✅ Complète | DocumentLayout + sélecteur layoutId. |
+| **E** – Nettoyage | ⚠️ Partielle | E2, E3, E4 faits (blockPositions supprimé, layoutProfiles éviction phases 1 et 2). E1 restant : supprimer SaveProfileModal.svelte et ManageProfilesModal.svelte (orphelines). |
+| **F** – Multi-layouts | ✅ Complète | 4 layouts, sélecteur, rendu différencié. |
 
-On commence par **A1** et **A2** pour avoir un seul layout testable sans toucher encore à l’éditeur existant.
+Optionnel : Phase 3 éviction layoutProfiles = supprimer le store du schéma Dexie (nouvelle version de base).
