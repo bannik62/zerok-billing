@@ -104,11 +104,9 @@
       total,
       tvaMontant,
       totalTTC,
-      layoutId: DEFAULT_LAYOUT_ID,
-      blockPositions: devisFromMenu?.blockPositions ? { ...devisFromMenu.blockPositions } : {}
+      layoutId: DEFAULT_LAYOUT_ID
     };
     currentFacture = facture;
-    blockPositions = { ...(facture.blockPositions || {}) };
     step = 2;
   }
 
@@ -131,7 +129,6 @@
     step = 1;
   }
 
-  let blockPositions = $state({});
   let resolvedClient = $state(null);
   let resolvedSociete = $state(null);
 
@@ -192,7 +189,7 @@
     if (!currentFacture) return;
     savingBdd = true;
     try {
-      const payload = { ...currentFacture, layoutId: currentFacture.layoutId || DEFAULT_LAYOUT_ID, blockPositions: { ...blockPositions } };
+      const payload = { ...currentFacture, layoutId: currentFacture.layoutId || DEFAULT_LAYOUT_ID };
       if (currentFacture.createdAt) {
         const updated = await updateFacture(payload, uid);
         currentFacture = updated;
@@ -202,7 +199,6 @@
         const factureToSave = { ...payload, entete: { ...payload.entete, numero } };
         const saved = await addFacture(factureToSave, uid);
         currentFacture = saved;
-        blockPositions = { ...(saved.blockPositions || {}) };
         await sendProof(currentFacture, 'facture').catch((err) => console.warn('Preuve non envoyée:', err));
       }
     } catch (e) {

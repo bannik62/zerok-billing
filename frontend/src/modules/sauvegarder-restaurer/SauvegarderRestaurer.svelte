@@ -1,11 +1,7 @@
 <script>
   import { createPasswordField } from '$lib/formField.js';
   import { openDB, clearLocalDataForUser } from '$lib/db.js';
-  import {
-    getAllClients,
-    getSociete,
-    getAllLayoutProfiles
-  } from '$lib/db.js';
+  import { getAllClients, getSociete } from '$lib/db.js';
   import { getAllDevis, getAllFactures, addDevis, addFacture, hasEncryptionKey } from '$lib/dbEncrypted.js';
   import { createArchive, openArchive } from '$lib/archive.js';
   import { buildPdfDocumentHtml } from '$lib/pdfDocumentHtml.js';
@@ -230,14 +226,12 @@
     try {
       const bundle = {};
       if (exportCoffre) {
-        const [clients, societe, layoutProfiles] = await Promise.all([
+        const [clients, societe] = await Promise.all([
           getAllClients(uid),
-          getSociete(uid),
-          getAllLayoutProfiles(uid)
+          getSociete(uid)
         ]);
         bundle.clients = clients;
         bundle.societe = { id: 'societe', ...societe };
-        bundle.layoutProfiles = layoutProfiles;
       }
       if (exportDocuments) {
         const [devis, factures] = await Promise.all([
@@ -297,7 +291,7 @@
     try {
       const content = await file.text();
       const bundle = await openArchive(content, importPwd.value);
-      const hasCoffre = bundle.clients.length > 0 || bundle.societe != null || bundle.layoutProfiles.length > 0;
+      const hasCoffre = bundle.clients.length > 0 || bundle.societe != null;
       const hasDocuments = bundle.devis.length > 0 || bundle.factures.length > 0;
       await clearLocalDataForUser(uid, { coffre: hasCoffre, documents: hasDocuments });
       const db = await openDB();
@@ -308,9 +302,6 @@
         if (bundle.societe && bundle.societe.id) {
           const societeId = uid != null ? `societe-${uid}` : bundle.societe.id;
           await db.societe.put({ ...bundle.societe, id: societeId, ...(uid != null && { userId: uid }) });
-        }
-        for (const p of bundle.layoutProfiles) {
-          await db.layoutProfiles.put(uid != null ? { ...p, userId: uid } : p);
         }
       }
       if (hasDocuments) {

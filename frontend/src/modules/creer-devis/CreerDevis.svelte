@@ -92,16 +92,13 @@
       total,
       tvaMontant,
       totalTTC,
-      layoutId: DEFAULT_LAYOUT_ID,
-      blockPositions: {}
+      layoutId: DEFAULT_LAYOUT_ID
     };
     currentDevis = devis;
-    blockPositions = {};
     step = 2;
   }
 
   // —— Étape 2 : aperçu layout fixe
-  let blockPositions = $state({});
   let resolvedClient = $state(null);
   let resolvedSociete = $state(null);
 
@@ -164,7 +161,7 @@
     saveMessage = '';
     saveError = '';
     try {
-      const payload = { ...currentDevis, layoutId: currentDevis.layoutId || DEFAULT_LAYOUT_ID, blockPositions: { ...blockPositions } };
+      const payload = { ...currentDevis, layoutId: currentDevis.layoutId || DEFAULT_LAYOUT_ID };
       if (currentDevis.createdAt) {
         const updated = await updateDevis(payload, uid);
         currentDevis = updated;
@@ -173,7 +170,6 @@
       } else {
         const saved = await addDevis(payload, uid);
         currentDevis = saved;
-        blockPositions = { ...(saved.blockPositions || {}) };
         saveMessage = 'Devis enregistré.';
         await sendProof(currentDevis, 'devis').catch((err) => console.warn('Preuve non envoyée:', err));
       }

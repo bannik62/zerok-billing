@@ -209,7 +209,7 @@ export async function saveSociete(data, userId = null) {
 }
 
 /**
- * Devis : { id, clientId?, entete: {}, lignes: [], reduction: {}, sousTotal, total, blockPositions: {}, createdAt, userId? }
+ * Devis : { id, clientId?, entete: {}, lignes: [], reduction: {}, sousTotal, total, layoutId?, createdAt, userId? }
  */
 export async function addDevis(devis, userId = null) {
   const uuid = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : null;
@@ -323,52 +323,7 @@ export async function deleteDevis(id, userId = null) {
 }
 
 /**
- * Profils de mise en page (templates de blocs pour devis/facture).
- * @typedef {{ id: string, name: string, blockPositions: Object, createdAt: string, userId? }} LayoutProfile
- */
-
-export async function getAllLayoutProfiles(userId = null) {
-  const all = await db[STORE_LAYOUT_PROFILES].toArray();
-  if (userId == null) return all;
-  return all.filter((r) => r.userId === userId);
-}
-
-export async function getLayoutProfile(id, userId = null) {
-  const record = (await db[STORE_LAYOUT_PROFILES].get(id)) ?? null;
-  if (!record) return null;
-  if (userId != null && record.userId != null && record.userId !== userId) return null;
-  return record;
-}
-
-export async function addLayoutProfile(profile, userId = null) {
-  const id = crypto.randomUUID?.() ?? `profile-${Date.now()}`;
-  const record = plainClone({
-    id,
-    name: profile.name?.trim() || 'Sans nom',
-    blockPositions: profile.blockPositions ?? {},
-    createdAt: new Date().toISOString(),
-    ...(userId != null && { userId })
-  });
-  await db[STORE_LAYOUT_PROFILES].add(record);
-  return record;
-}
-
-export async function updateLayoutProfile(id, updates, userId = null) {
-  const existing = await getLayoutProfile(id, userId);
-  if (!existing) throw new Error('Profil introuvable');
-  const record = plainClone({ ...existing, ...updates, id: existing.id, createdAt: existing.createdAt });
-  await db[STORE_LAYOUT_PROFILES].put(record);
-  return record;
-}
-
-export async function deleteLayoutProfile(id, userId = null) {
-  const existing = await getLayoutProfile(id, userId);
-  if (!existing) throw new Error('Profil introuvable');
-  await db[STORE_LAYOUT_PROFILES].delete(id);
-}
-
-/**
- * Facture : { id, clientId?, devisId?, entete: {}, lignes, reduction, sousTotal, total, tvaMontant?, totalTTC?, blockPositions, createdAt, userId? }
+ * Facture : { id, clientId?, devisId?, entete: {}, lignes, reduction, sousTotal, total, tvaMontant?, totalTTC?, layoutId?, createdAt, userId? }
  * Numéro : FAC-{clientSlug}-{année}-{NNN} (par client).
  */
 export async function getAllFactures(userId = null) {
@@ -440,7 +395,7 @@ export async function deleteFacture(id, userId = null) {
 /**
  * Options pour clearLocalDataForUser : quelles données effacer avant restauration.
  * @typedef {{ coffre?: boolean, documents?: boolean }} ClearLocalDataOptions
- * - coffre: clients, société, profils de mise en page (défaut true si non fourni)
+ * - coffre: clients, société (défaut true si non fourni)
  * - documents: devis et factures (défaut true si non fourni)
  */
 
@@ -467,10 +422,6 @@ export async function clearLocalDataForUser(userId, options = {}) {
     } else {
       await db[STORE_SOCIETE].delete(SOCIETE_ID);
     }
-
-    const profiles = await db[STORE_LAYOUT_PROFILES].toArray();
-    const profileIds = profiles.filter(match).map((r) => r.id);
-    if (profileIds.length > 0) await db[STORE_LAYOUT_PROFILES].bulkDelete(profileIds);
   }
 
   if (clearDocuments) {
@@ -555,11 +506,11 @@ const LEGACY_MIGRATED_KEY = 'zerok-legacy-migrated';
  * Attribue au compte userId toutes les données sans userId (migration legacy).
  * À appeler une fois par utilisateur (ex. au premier chargement).
  * @param {string|number} userId
- * @returns {Promise<{ clients: number, devis: number, factures: number, societe: boolean, layoutProfiles: number, documents: number }>} nombre d'enregistrements migrés
+ * @returns {Promise<{ clients: number, devis: number, factures: number, societe: boolean, documents: number }>} nombre d'enregistrements migrés
  */
 export async function migrateLegacyDataToUser(userId) {
-  if (userId == null) return { clients: 0, devis: 0, factures: 0, societe: false, layoutProfiles: 0, documents: 0 };
-  const out = { clients: 0, devis: 0, factures: 0, societe: false, layoutProfiles: 0, documents: 0 };
+  if (userId == null) return { clients: 0, devis: 0, factures: 0, societe: false, documents: 0 };
+  const out = { clients: 0, devis: 0, factures: 0, societe: false, documents: 0 };
 
   const clients = await db[STORE_CLIENTS].toArray();
   for (const r of clients) {
@@ -588,13 +539,6 @@ export async function migrateLegacyDataToUser(userId) {
     await db[STORE_SOCIETE].put(plainClone({ ...legacySociete, id: newId, userId }));
     await db[STORE_SOCIETE].delete(SOCIETE_ID);
     out.societe = true;
-  }
-
-  const profiles = await db[STORE_LAYOUT_PROFILES].toArray();
-  for (const r of profiles) {
-    if (r.userId != null) continue;
-    await db[STORE_LAYOUT_PROFILES].put(plainClone({ ...r, userId }));
-    out.layoutProfiles++;
   }
 
   const documents = await db[STORE_DOCUMENTS].toArray();

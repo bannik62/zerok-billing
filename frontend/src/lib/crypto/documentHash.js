@@ -6,7 +6,7 @@
 
 /**
  * Construit la représentation canonique d'un document pour le hash.
- * Inclut : id, type, entete, lignes, reduction, totaux. Exclut : blockPositions, createdAt.
+ * Inclut : id, type, entete, lignes, reduction, totaux. Exclut : createdAt.
  */
 export function canonicalDocumentForHash(document, documentType) {
   if (!document) return '';

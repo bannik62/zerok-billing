@@ -61,7 +61,7 @@
     error = '';
     try {
       const db = await openDB();
-      storeNames = db.tables.map((t) => t.name);
+      storeNames = db.tables.map((t) => t.name).filter((name) => name !== 'layoutProfiles');
       keyLoaded = hasEncryptionKey();
       if (keyLoaded) {
         try {
