@@ -25,6 +25,8 @@ import { createPaymentToken, validatePaymentToken } from './services/paymentToke
 import { getConfiguredProviders } from './services/paymentConfigService.js';
 import { createCheckoutSession, getReceiptUrl, getPaymentDetails } from './plugins/stripe.js';
 import { buildReceiptPdf } from './services/receiptPdfService.js';
+import { markInvoicePaid } from './services/invoicePaymentService.js';
+import { handleStripeWebhook } from './handlers/stripeWebhook.js';
 import { prisma } from './lib/prisma.js';
 
 export const app = express();
@@ -41,6 +43,12 @@ app.use(cors({
   credentials: true
 }));
 app.use(cookieParser());
+
+// Webhook Stripe : body brut requis pour vérification signature (avant express.json)
+app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), (req, res, next) => {
+  handleStripeWebhook(req, res).catch(next);
+});
+
 app.use(express.json({ limit: JSON_BODY_LIMIT }));
 
 const sessionConfig = {
@@ -211,7 +219,7 @@ app.get('/sign/confirm', async (req, res) => {
       <div class="pay-icons" style="display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; align-items: center;">
         ${providers.includes('stripe') ? `
         <button type="button" class="pay-btn" data-provider="stripe" data-payment-token="${paymentTokenEscaped}" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1rem; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; cursor: pointer; font-size: 0.95rem;">
-          <img src="https://stripe.com/img/v3/payments/badges/stripe.svg" alt="Stripe" width="56" height="28" style="vertical-align: middle;">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/b/ba/Stripe_Logo,_revised_2016.svg" alt="Stripe" width="80" height="32" style="vertical-align: middle;">
           <span>Payer avec Stripe</span>
         </button>` : ''}
       </div>
@@ -333,6 +341,7 @@ app.get('/paiement/receipt/pdf', async (req, res) => {
     const details = await getPaymentDetails(config.credentials.secretKey, sessionId);
     const paidAt = details?.paidAt || new Date();
     const paymentIntentId = details?.paymentIntentId || '';
+    await markInvoicePaid(invoiceId, paymentIntentId || undefined);
     const pdfBuffer = await buildReceiptPdf({
       invoiceId,
       amountCents: summary.amountCents,

@@ -6,6 +6,7 @@
     clientsMap = {},
     verifiedMap = {},
     verifiedLoading = false,
+    paymentStatusMap = {},
     selectedFactureIdsStore,
     searchQuery = '',
     zipExportingId = null,
@@ -63,6 +64,7 @@
           <th>Total HT</th>
           <th>Créée le</th>
           <th class="col-send">Envoyer</th>
+          <th class="col-paid" title="Paiement enregistré (Stripe)">Payé</th>
           <th class="col-verified" title="Comparaison hash local = hash backend">Hash vérifié</th>
           <th class="col-action">Exporter</th>
           <th class="col-pieces">Pièces jointes</th>
@@ -99,6 +101,13 @@
                 {sendingForSignatureId === f.id ? '…' : 'Envoyer'}
               </button>
             </td>
+            <td class="col-paid">
+              {#if paymentStatusMap[f.id]?.paid}
+                <span class="paid-badge" title={paymentStatusMap[f.id]?.paidAt ? `Payé le ${new Date(paymentStatusMap[f.id].paidAt).toLocaleString('fr-FR')}` : 'Payé'}>Oui</span>
+              {:else}
+                <span class="paid-badge paid-badge--no">—</span>
+              {/if}
+            </td>
             <td class="col-verified" aria-label={verifiedMap[f.id] === true ? 'Hash vérifié' : verifiedMap[f.id] === false ? 'Hash non vérifié' : 'Vérification…'}>
               {#if verifiedLoading && verifiedMap[f.id] === undefined}
                 <span class="icon icon-pending" aria-hidden="true">—</span>
@@ -125,7 +134,7 @@
           </tr>
         {:else}
           <tr>
-            <td colspan="12" class="doc-table-empty">{(searchQuery || '').trim() ? 'Aucune facture ne correspond à la recherche.' : 'Aucune facture.'}</td>
+            <td colspan="13" class="doc-table-empty">{(searchQuery || '').trim() ? 'Aucune facture ne correspond à la recherche.' : 'Aucune facture.'}</td>
           </tr>
         {/each}
       </tbody>
@@ -219,6 +228,23 @@
   .col-send {
     text-align: center;
     white-space: nowrap;
+  }
+  .col-paid {
+    text-align: center;
+    white-space: nowrap;
+  }
+  .paid-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    background: var(--color-primary-bg, #ecfdf5);
+    color: var(--color-primary, #059669);
+  }
+  .paid-badge--no {
+    background: transparent;
+    color: var(--color-text-muted);
   }
   .btn-send-row {
     padding: 0.35rem 0.6rem;

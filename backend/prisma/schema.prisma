@@ -122,13 +122,16 @@ model PaymentToken {
 }
 
 // Résumé paiement par facture (rempli à l'envoi pour signature : amountCents, currency).
+// paidAt et stripePaymentIntentId remplis à la réception du webhook Stripe (checkout.session.completed).
 model InvoicePaymentSummary {
-  id          String   @id @default(cuid())
-  invoiceId   String   @unique @map("invoice_id")
-  userId      String   @map("user_id")
-  amountCents Int     @map("amount_cents")
-  currency    String   @default("EUR")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id                    String    @id @default(cuid())
+  invoiceId             String    @unique @map("invoice_id")
+  userId                String    @map("user_id")
+  amountCents           Int       @map("amount_cents")
+  currency              String    @default("EUR")
+  paidAt                DateTime? @map("paid_at")
+  stripePaymentIntentId String?   @map("stripe_payment_intent_id")
+  createdAt             DateTime  @default(now()) @map("created_at")
 
   @@map("invoice_payment_summary")
   @@index([userId])

@@ -30,6 +30,10 @@ export function validateCsrf(req, res, next) {
   if (req.path === '/payment/create-session' || req.path === '/api/payment/create-session') {
     return next();
   }
+  // Webhook Stripe (appelé par Stripe, pas de session)
+  if (req.path === '/webhooks/stripe' || req.path === '/api/webhooks/stripe') {
+    return next();
+  }
   const sessionToken = req.session?.csrfToken;
   const headerToken = req.headers['x-csrf-token'];
   log('[zerok-billing] CSRF validate', { method: req.method, path: req.path, hasSessionToken: !!sessionToken, hasHeaderToken: !!headerToken });

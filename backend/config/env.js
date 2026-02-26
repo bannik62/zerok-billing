@@ -45,6 +45,9 @@ const DATABASE_URL = getEnv('DATABASE_URL') || null;
 const GMAIL_USER = getEnv('GMAIL_USER') || null;
 const GMAIL_APP_PASSWORD = getEnv('GMAIL_APP_PASSWORD') || null;
 
+/** Stripe webhook : secret pour vérifier la signature (optionnel ; si absent, le webhook ne met pas à jour paidAt). */
+const STRIPE_WEBHOOK_SECRET = getEnv('STRIPE_WEBHOOK_SECRET') || null;
+
 const SESSION_SECRET = getEnv('SESSION_SECRET') || DEV_SESSION_SECRET;
 
 export const env = Object.freeze({
@@ -57,5 +60,6 @@ export const env = Object.freeze({
   cookieSecure,
   DATABASE_URL,
   GMAIL_USER,
-  GMAIL_APP_PASSWORD
+  GMAIL_APP_PASSWORD,
+  STRIPE_WEBHOOK_SECRET
 });

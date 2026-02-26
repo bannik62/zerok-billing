@@ -14,9 +14,10 @@ import {
 import { sendMail } from '../services/emailService.js';
 import { createSignRequest, getSignedInvoiceIds } from '../services/signRequestService.js';
 import { getConfiguredProviders } from '../services/paymentConfigService.js';
+import { getPaymentStatusByInvoiceIds } from '../services/invoicePaymentService.js';
 import { prisma } from '../lib/prisma.js';
 import { env } from '../config/env.js';
-import { PDF_ATTACHMENT_MAX_BYTES } from '../config/constants.js';
+import { PDF_ATTACHMENT_MAX_BYTES, VERIFY_BATCH_MAX } from '../config/constants.js';
 
 /**
  * Routeur des routes sécurisées (monté sous /api avec requireAuth dans server.js).
@@ -282,6 +283,27 @@ secureRouter.get('/signatures', async (req, res, next) => {
     if (!userId) return res.status(401).json({ error: 'Non authentifié' });
     const signedInvoiceIds = await getSignedInvoiceIds(userId);
     return res.json({ signedInvoiceIds });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * GET /api/invoices/payment-status — Statut payé par facture (pour colonne Payé).
+ * Query : ids=id1,id2,id3 (invoiceIds, max VERIFY_BATCH_MAX).
+ * Réponse : { [invoiceId]: { paid: boolean, paidAt?: string } }
+ */
+secureRouter.get('/invoices/payment-status', async (req, res, next) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Non authentifié' });
+    const raw = (req.query.ids ?? '').trim();
+    const ids = raw ? raw.split(',').map((s) => s.trim()).filter(Boolean) : [];
+    if (ids.length > VERIFY_BATCH_MAX) {
+      return res.status(400).json({ error: `Maximum ${VERIFY_BATCH_MAX} ids par requête` });
+    }
+    const status = await getPaymentStatusByInvoiceIds(userId, ids);
+    return res.json(status);
   } catch (e) {
     next(e);
   }

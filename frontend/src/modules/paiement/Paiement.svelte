@@ -62,7 +62,10 @@
     <p class="paiement-loading">Chargement…</p>
   {:else}
     <section class="paiement-section" aria-labelledby="stripe-heading">
-      <h3 id="stripe-heading" class="paiement-h3">Stripe</h3>
+      <h3 id="stripe-heading" class="paiement-h3">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/b/ba/Stripe_Logo,_revised_2016.svg" alt="Stripe" class="stripe-logo" />
+        <span>Stripe</span>
+      </h3>
       {#if stripeConfigured}
         <p class="paiement-status configured">Stripe est configuré.</p>
         <p class="paiement-hint">Pour modifier la clé secrète, saisissez la nouvelle ci-dessous et enregistrez.</p>
@@ -99,7 +102,8 @@
   .paiement-intro { margin: 0 0 1.5rem; font-size: 0.95rem; color: var(--color-text-soft); line-height: 1.45; }
   .paiement-loading { color: var(--color-text-muted); }
   .paiement-section { margin-bottom: 1.5rem; }
-  .paiement-h3 { margin: 0 0 0.5rem; font-size: 1rem; font-weight: 600; color: var(--color-text); }
+  .paiement-h3 { margin: 0 0 0.5rem; font-size: 1rem; font-weight: 600; color: var(--color-text); display: flex; align-items: center; gap: 0.5rem; }
+  .paiement-h3 .stripe-logo { height: 1.25rem; width: auto; display: block; }
   .paiement-status { margin: 0 0 0.25rem; font-size: 0.9rem; color: var(--color-text-muted); }
   .paiement-status.configured { color: var(--color-success, #059669); }
   .paiement-hint { margin: 0 0 0.75rem; font-size: 0.85rem; color: var(--color-text-muted); }

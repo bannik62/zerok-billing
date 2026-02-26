@@ -191,6 +191,8 @@
   let error = $state(null);
   let verifiedMap = $state({});
   let verifiedLoading = $state(false);
+  /** Statut payé par invoiceId : { [id]: { paid: boolean, paidAt?: string } } */
+  let paymentStatusMap = $state({});
   /** Preuves backend (pour l'encart gauche). */
   let backendProofs = $state([]);
   let proofsPanelError = $state('');
@@ -346,6 +348,7 @@
     loading = true;
     error = null;
     verifiedMap = {};
+    paymentStatusMap = {};
     try {
       const [devis, factures, clients] = await Promise.all([
         getAllDevis(uid),
@@ -374,6 +377,17 @@
         }
       } catch (_) {
         // ignore (non connecté ou route absente)
+      }
+
+      // Statut payé des factures (colonne Payé)
+      try {
+        const ids = facturesList.map((f) => f.id).filter(Boolean);
+        if (ids.length > 0) {
+          const res = await apiClient.get('/api/invoices/payment-status', { params: { ids: ids.join(',') } });
+          if (mounted && res.data && typeof res.data === 'object') paymentStatusMap = res.data;
+        }
+      } catch (_) {
+        if (mounted) paymentStatusMap = {};
       }
 
       verifiedLoading = true;
@@ -471,6 +485,7 @@
       {clientsMap}
       {verifiedMap}
       {verifiedLoading}
+      paymentStatusMap={paymentStatusMap}
       selectedFactureIdsStore={selectedFactureIdsStore}
       searchQuery={$searchStore}
       {zipExportingId}
