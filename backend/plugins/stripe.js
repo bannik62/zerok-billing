@@ -70,3 +70,56 @@ export async function createCheckoutSession({
     throw new Error(`Erreur Stripe : ${err.message || 'Création session échouée'}`);
   }
 }
+
+/**
+ * Récupère l'URL du reçu Stripe pour une session Checkout (paiement réussi).
+ * @param {string} secretKey - Clé secrète Stripe du Pro
+ * @param {string} sessionId - ID de la session Checkout (cs_...)
+ * @returns {Promise<string|null>} - URL du reçu ou null si indisponible
+ */
+export async function getReceiptUrl(secretKey, sessionId) {
+  if (!secretKey || typeof secretKey !== 'string' || !secretKey.startsWith('sk_')) {
+    throw new Error('Clé secrète Stripe invalide');
+  }
+  if (!sessionId || typeof sessionId !== 'string') {
+    throw new Error('session_id requis');
+  }
+  const stripe = new Stripe(secretKey);
+  const session = await stripe.checkout.sessions.retrieve(sessionId, {
+    expand: ['payment_intent.charges.data']
+  });
+  if (!session || session.payment_status !== 'paid') return null;
+  const paymentIntent = session.payment_intent;
+  if (!paymentIntent || typeof paymentIntent === 'string') return null;
+  const charges = paymentIntent.charges?.data;
+  if (!charges || charges.length === 0) return null;
+  return charges[0].receipt_url || null;
+}
+
+/**
+ * Récupère les infos de paiement pour une session Checkout (date, statut, id).
+ * Utilisé pour le justificatif PDF.
+ * @param {string} secretKey - Clé secrète Stripe du Pro
+ * @param {string} sessionId - ID de la session Checkout (cs_...)
+ * @returns {Promise<{ paidAt: Date, paymentIntentId: string } | null>}
+ */
+export async function getPaymentDetails(secretKey, sessionId) {
+  if (!secretKey || typeof secretKey !== 'string' || !secretKey.startsWith('sk_')) {
+    throw new Error('Clé secrète Stripe invalide');
+  }
+  if (!sessionId || typeof sessionId !== 'string') {
+    throw new Error('session_id requis');
+  }
+  const stripe = new Stripe(secretKey);
+  const session = await stripe.checkout.sessions.retrieve(sessionId, {
+    expand: ['payment_intent.charges.data']
+  });
+  if (!session || session.payment_status !== 'paid') return null;
+  const paymentIntent = session.payment_intent;
+  if (!paymentIntent || typeof paymentIntent === 'string') return null;
+  const charges = paymentIntent.charges?.data;
+  if (!charges || charges.length === 0) return null;
+  const charge = charges[0];
+  const paidAt = charge.created ? new Date(charge.created * 1000) : new Date();
+  return { paidAt, paymentIntentId: paymentIntent.id || '' };
+}

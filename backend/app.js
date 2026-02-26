@@ -23,7 +23,8 @@ import { secureRouter } from './routes/secure.js';
 import { confirmSignRequest } from './services/signRequestService.js';
 import { createPaymentToken, validatePaymentToken } from './services/paymentTokenService.js';
 import { getConfiguredProviders } from './services/paymentConfigService.js';
-import { createCheckoutSession } from './plugins/stripe.js';
+import { createCheckoutSession, getReceiptUrl, getPaymentDetails } from './plugins/stripe.js';
+import { buildReceiptPdf } from './services/receiptPdfService.js';
 import { prisma } from './lib/prisma.js';
 
 export const app = express();
@@ -121,7 +122,7 @@ app.post('/api/payment/create-session', express.json(), async (req, res) => {
         return res.status(400).json({ error: 'Config Stripe invalide' });
       }
       const baseUrl = env.BACKEND_PUBLIC_URL || env.allowedOrigins?.[0] || 'http://localhost:3011';
-      const successUrl = `${baseUrl}/paiement/succes?session_id={CHECKOUT_SESSION_ID}`;
+      const successUrl = `${baseUrl}/paiement/succes?session_id={CHECKOUT_SESSION_ID}&invoice_id=${encodeURIComponent(invoiceId)}&amount_cents=${summary.amountCents}&currency=${encodeURIComponent(summary.currency)}`;
       const cancelUrl = `${baseUrl}/paiement/annule`;
       try {
         const { redirectUrl } = await createCheckoutSession({
@@ -258,11 +259,98 @@ app.get('/sign/confirm', async (req, res) => {
 const siteUrlForPayment = env.allowedOrigins?.[0] || env.BACKEND_PUBLIC_URL || '#';
 // TODO: implémenter webhook Stripe (/api/webhooks/stripe) pour persister le statut de paiement
 // et mettre à jour la facture (champ 'paid' ou 'paymentStatus') dans la base.
-app.get('/paiement/succes', (_, res) => {
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Paiement effectué</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Paiement effectué</h1><p>Merci, votre paiement a bien été enregistré.</p><p style="margin-top: 2rem;"><a href="${siteUrlForPayment}" style="color: #2563eb; text-decoration: underline;">Accéder au site</a></p></body></html>`;
+function esc(s) {
+  if (s == null || s === '') return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+app.get('/paiement/succes', (req, res) => {
+  const invoiceId = req.query.invoice_id || '';
+  const sessionId = req.query.session_id || '';
+  const amountCents = parseInt(req.query.amount_cents, 10);
+  const currency = (req.query.currency || 'eur').toUpperCase();
+  const amountFormatted = Number.isFinite(amountCents) ? (amountCents / 100).toFixed(2).replace('.', ',') : '—';
+  const invoiceLine = invoiceId ? `<p><strong>Facture n°</strong> ${esc(invoiceId)}</p>` : '';
+  const amountLine = Number.isFinite(amountCents) ? `<p><strong>Montant payé</strong> ${esc(amountFormatted)} ${esc(currency)}</p>` : '';
+  const receiptLink = sessionId && invoiceId
+    ? `<p style="margin-top: 1.5rem;"><a href="/paiement/receipt?session_id=${encodeURIComponent(sessionId)}&invoice_id=${encodeURIComponent(invoiceId)}" style="display: inline-block; padding: 0.5rem 1rem; background: #2563eb; color: #fff; text-decoration: none; border-radius: 6px;">Justificatif (Stripe)</a> <a href="/paiement/receipt/pdf?session_id=${encodeURIComponent(sessionId)}&invoice_id=${encodeURIComponent(invoiceId)}" style="display: inline-block; padding: 0.5rem 1rem; background: #059669; color: #fff; text-decoration: none; border-radius: 6px;">Télécharger le justificatif (PDF)</a></p>`
+    : '';
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Paiement effectué</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Paiement effectué</h1><p>Merci, votre paiement a bien été enregistré.</p>${invoiceLine}${amountLine}${receiptLink}<p style="margin-top: 1.5rem; color: #6b7280;">Vous pouvez fermer cette fenêtre.</p><p style="margin-top: 2rem;"><a href="${siteUrlForPayment}" style="color: #2563eb; text-decoration: underline;">Accéder au site</a></p></body></html>`;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(html);
 });
+
+app.get('/paiement/receipt', async (req, res) => {
+  const sessionId = (req.query.session_id || '').trim();
+  const invoiceId = (req.query.invoice_id || '').trim();
+  if (!sessionId || !invoiceId) {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.status(400).send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Justificatif</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Paramètres manquants</h1><p>Lien invalide. Utilisez le bouton depuis la page « Paiement effectué ».</p><p><a href="${siteUrlForPayment}">Accéder au site</a></p></body></html>`);
+  }
+  try {
+    const summary = await prisma.invoicePaymentSummary.findUnique({ where: { invoiceId } });
+    if (!summary) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.status(404).send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Justificatif</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Facture introuvable</h1><p><a href="${siteUrlForPayment}">Accéder au site</a></p></body></html>`);
+    }
+    const config = await prisma.paymentConfig.findUnique({
+      where: { userId_provider: { userId: summary.userId, provider: 'stripe' } }
+    });
+    if (!config || !config.credentials?.secretKey) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.status(400).send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Justificatif</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Justificatif indisponible</h1><p><a href="${siteUrlForPayment}">Accéder au site</a></p></body></html>`);
+    }
+    const receiptUrl = await getReceiptUrl(config.credentials.secretKey, sessionId);
+    if (receiptUrl) {
+      return res.redirect(302, receiptUrl);
+    }
+  } catch (e) {
+    log('[zerok-billing] receipt:', e?.message ?? e);
+  }
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.status(502).send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Justificatif</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Justificatif indisponible</h1><p>Le reçu Stripe n’est pas encore disponible. Réessayez dans quelques instants.</p><p><a href="${siteUrlForPayment}">Accéder au site</a></p></body></html>`);
+});
+
+app.get('/paiement/receipt/pdf', async (req, res) => {
+  const sessionId = (req.query.session_id || '').trim();
+  const invoiceId = (req.query.invoice_id || '').trim();
+  if (!sessionId || !invoiceId) {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.status(400).send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Justificatif PDF</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Paramètres manquants</h1><p>Lien invalide.</p><p><a href="${siteUrlForPayment}">Accéder au site</a></p></body></html>`);
+  }
+  try {
+    const summary = await prisma.invoicePaymentSummary.findUnique({ where: { invoiceId } });
+    if (!summary) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.status(404).send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Justificatif PDF</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Facture introuvable</h1><p><a href="${siteUrlForPayment}">Accéder au site</a></p></body></html>`);
+    }
+    const config = await prisma.paymentConfig.findUnique({
+      where: { userId_provider: { userId: summary.userId, provider: 'stripe' } }
+    });
+    if (!config || !config.credentials?.secretKey) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.status(400).send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Justificatif PDF</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Justificatif indisponible</h1><p><a href="${siteUrlForPayment}">Accéder au site</a></p></body></html>`);
+    }
+    const details = await getPaymentDetails(config.credentials.secretKey, sessionId);
+    const paidAt = details?.paidAt || new Date();
+    const paymentIntentId = details?.paymentIntentId || '';
+    const pdfBuffer = await buildReceiptPdf({
+      invoiceId,
+      amountCents: summary.amountCents,
+      currency: summary.currency,
+      paidAt,
+      paymentIntentId
+    });
+    const filename = `justificatif-${invoiceId.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+  } catch (e) {
+    log('[zerok-billing] receipt/pdf:', e?.message ?? e);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.status(502).send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Justificatif PDF</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Justificatif indisponible</h1><p>Une erreur s'est produite.</p><p><a href="${siteUrlForPayment}">Accéder au site</a></p></body></html>`);
+  }
+});
+
 app.get('/paiement/annule', (_, res) => {
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Paiement annulé</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Paiement annulé</h1><p>Vous avez annulé le paiement. Vous pouvez réessayer plus tard depuis le lien de la facture.</p><p style="margin-top: 2rem;"><a href="${siteUrlForPayment}" style="color: #2563eb; text-decoration: underline;">Accéder au site</a></p></body></html>`;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
