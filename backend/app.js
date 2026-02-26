@@ -123,16 +123,22 @@ app.post('/api/payment/create-session', express.json(), async (req, res) => {
       const baseUrl = env.BACKEND_PUBLIC_URL || env.allowedOrigins?.[0] || 'http://localhost:3011';
       const successUrl = `${baseUrl}/paiement/succes?session_id={CHECKOUT_SESSION_ID}`;
       const cancelUrl = `${baseUrl}/paiement/annule`;
-      const { redirectUrl } = await createCheckoutSession({
-        secretKey,
-        amountCents: summary.amountCents,
-        currency: summary.currency,
-        invoiceId,
-        successUrl,
-        cancelUrl,
-        description: `Facture ${invoiceId}`
-      });
-      return res.json({ redirectUrl });
+      try {
+        const { redirectUrl } = await createCheckoutSession({
+          secretKey,
+          amountCents: summary.amountCents,
+          currency: summary.currency,
+          invoiceId,
+          successUrl,
+          cancelUrl,
+          description: `Facture ${invoiceId}`
+        });
+        log(`[zerok-billing] Session Stripe créée pour facture ${invoiceId} (${summary.amountCents} ${summary.currency})`);
+        return res.json({ redirectUrl });
+      } catch (stripeErr) {
+        log(`[zerok-billing] Erreur Stripe (facture ${invoiceId}): ${stripeErr.message}`);
+        return res.status(400).json({ error: stripeErr.message || 'Erreur lors de la création de la session Stripe' });
+      }
     }
     return res.status(400).json({ error: 'Provider inconnu' });
   } catch (e) {
@@ -250,6 +256,8 @@ app.get('/sign/confirm', async (req, res) => {
 });
 
 const siteUrlForPayment = env.allowedOrigins?.[0] || env.BACKEND_PUBLIC_URL || '#';
+// TODO: implémenter webhook Stripe (/api/webhooks/stripe) pour persister le statut de paiement
+// et mettre à jour la facture (champ 'paid' ou 'paymentStatus') dans la base.
 app.get('/paiement/succes', (_, res) => {
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Paiement effectué</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Paiement effectué</h1><p>Merci, votre paiement a bien été enregistré.</p><p style="margin-top: 2rem;"><a href="${siteUrlForPayment}" style="color: #2563eb; text-decoration: underline;">Accéder au site</a></p></body></html>`;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');

@@ -165,7 +165,12 @@
       };
       if (docType === 'facture') {
         const totalTTC = Number(document?.totalTTC) ?? Number(document?.total) ?? 0;
-        payload.amountCents = Math.round(totalTTC * 100);
+        const amountCents = Math.round(totalTTC * 100);
+        if (amountCents < 50) {
+          sendSignatureFeedback = { type: 'error', text: 'Le montant minimum pour paiement en ligne est de 0,50 €' };
+          return;
+        }
+        payload.amountCents = amountCents;
         payload.currency = 'eur';
       }
       await apiClient.post('/api/documents/send-for-signature', payload);

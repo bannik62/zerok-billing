@@ -45,5 +45,5 @@ export const PDF_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024; // 5 Mo
 export const PAYMENT_PROVIDERS = ['stripe'];
 export const PAYMENT_SECRET_KEY_MAX = 256;
 export const CURRENCY_LENGTH = 3; // ISO 4217
-export const AMOUNT_CENTS_MIN = 0;
+export const AMOUNT_CENTS_MIN = 50; // Montant minimum Stripe (0,50 €)
 export const AMOUNT_CENTS_MAX = 999_999_99; // 999 999,99 €
