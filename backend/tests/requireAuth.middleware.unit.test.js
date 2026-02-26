@@ -1,11 +1,24 @@
-import test, { afterEach, mock } from 'node:test';
+import test, { afterEach } from 'node:test';
 import assert from 'node:assert';
 import { requireAuth } from '../middleware/requireAuth.js';
 import { prisma } from '../lib/prisma.js';
 
+const restorers = [];
+
 afterEach(() => {
-  mock.restoreAll();
+  while (restorers.length > 0) {
+    const restore = restorers.pop();
+    restore();
+  }
 });
+
+function stubMethod(target, methodName, implementation) {
+  const original = target[methodName];
+  target[methodName] = (...args) => implementation(...args);
+  restorers.push(() => {
+    target[methodName] = original;
+  });
+}
 
 function runRequireAuth(req) {
   return new Promise((resolve) => {
@@ -37,7 +50,7 @@ test('requireAuth: refuse si session absente', async () => {
 });
 
 test('requireAuth: refuse si utilisateur introuvable', async () => {
-  mock.method(prisma.user, 'findUnique', async () => null);
+  stubMethod(prisma.user, 'findUnique', async () => null);
 
   const out = await runRequireAuth({ session: { userId: 'u-1' } });
   assert.strictEqual(out.nextCalled, false);
@@ -47,7 +60,7 @@ test('requireAuth: refuse si utilisateur introuvable', async () => {
 
 test('requireAuth: attache req.user puis appelle next si session valide', async () => {
   const user = { id: 'u-1', email: 'user@example.com', nom: 'Dupont', prenom: 'Jean', adresse: null };
-  mock.method(prisma.user, 'findUnique', async () => user);
+  stubMethod(prisma.user, 'findUnique', async () => user);
 
   const req = { session: { userId: 'u-1' } };
   const out = await runRequireAuth(req);
@@ -58,7 +71,7 @@ test('requireAuth: attache req.user puis appelle next si session valide', async 
 
 test('requireAuth: propage l’erreur vers next en cas d’exception service', async () => {
   const failure = new Error('db unavailable');
-  mock.method(prisma.user, 'findUnique', async () => {
+  stubMethod(prisma.user, 'findUnique', async () => {
     throw failure;
   });
 

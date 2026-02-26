@@ -1,4 +1,4 @@
-import test, { afterEach, mock } from 'node:test';
+import test, { afterEach } from 'node:test';
 import assert from 'node:assert';
 import express from 'express';
 import request from 'supertest';
@@ -6,9 +6,27 @@ import { secureRouter } from '../routes/secure.js';
 import { errorHandler } from '../middleware/errorHandler.js';
 import { prisma } from '../lib/prisma.js';
 
+const restorers = [];
+
 afterEach(() => {
-  mock.restoreAll();
+  while (restorers.length > 0) {
+    const restore = restorers.pop();
+    restore();
+  }
 });
+
+function stubMethod(target, methodName, implementation) {
+  const original = target[methodName];
+  const calls = [];
+  target[methodName] = (...args) => {
+    calls.push(args);
+    return implementation(...args);
+  };
+  restorers.push(() => {
+    target[methodName] = original;
+  });
+  return { calls };
+}
 
 function createSecureApp(user = { id: 'user-1' }) {
   const app = express();
@@ -26,7 +44,7 @@ const app = createSecureApp();
 
 test('GET /api/proofs renvoie les preuves de l’utilisateur', async () => {
   const signedAt = new Date('2026-01-01T00:00:00.000Z');
-  mock.method(prisma.proof, 'findMany', async () => [
+  stubMethod(prisma.proof, 'findMany', async () => [
     { invoiceId: 'INV-1', invoiceHash: 'a'.repeat(64), signedAt }
   ]);
 
@@ -37,7 +55,7 @@ test('GET /api/proofs renvoie les preuves de l’utilisateur', async () => {
 });
 
 test('POST /api/proofs valide enregistre et retourne 201', async () => {
-  const upsertMock = mock.method(prisma.proof, 'upsert', async () => ({ id: 'p-1' }));
+  const upsertMock = stubMethod(prisma.proof, 'upsert', async () => ({ id: 'p-1' }));
 
   const res = await request(app)
     .post('/api/proofs')
@@ -49,11 +67,11 @@ test('POST /api/proofs valide enregistre et retourne 201', async () => {
 
   assert.strictEqual(res.status, 201);
   assert.deepStrictEqual(res.body, { ok: true, invoiceId: 'INV-2' });
-  assert.strictEqual(upsertMock.mock.calls.length, 1);
+  assert.strictEqual(upsertMock.calls.length, 1);
 });
 
 test('POST /api/proofs invalide retourne 400 sans appel service', async () => {
-  const upsertMock = mock.method(prisma.proof, 'upsert', async () => ({ id: 'p-1' }));
+  const upsertMock = stubMethod(prisma.proof, 'upsert', async () => ({ id: 'p-1' }));
 
   const res = await request(app)
     .post('/api/proofs')
@@ -65,11 +83,11 @@ test('POST /api/proofs invalide retourne 400 sans appel service', async () => {
 
   assert.strictEqual(res.status, 400);
   assert.ok(res.body?.error);
-  assert.strictEqual(upsertMock.mock.calls.length, 0);
+  assert.strictEqual(upsertMock.calls.length, 0);
 });
 
 test('GET /api/proofs retourne 500 si le service échoue', async () => {
-  mock.method(prisma.proof, 'findMany', async () => {
+  stubMethod(prisma.proof, 'findMany', async () => {
     throw new Error('db down');
   });
 
@@ -79,7 +97,7 @@ test('GET /api/proofs retourne 500 si le service échoue', async () => {
 });
 
 test('POST /api/documents/proof valide retourne 201', async () => {
-  const upsertMock = mock.method(prisma.documentProof, 'upsert', async () => ({ id: 'd-1' }));
+  const upsertMock = stubMethod(prisma.documentProof, 'upsert', async () => ({ id: 'd-1' }));
 
   const res = await request(app)
     .post('/api/documents/proof')
@@ -94,15 +112,15 @@ test('POST /api/documents/proof valide retourne 201', async () => {
 
   assert.strictEqual(res.status, 201);
   assert.deepStrictEqual(res.body, { ok: true, documentId: 'DOC-1' });
-  assert.strictEqual(upsertMock.mock.calls.length, 1);
+  assert.strictEqual(upsertMock.calls.length, 1);
 });
 
 test('POST /api/documents/proofs/cleanup supprime uniquement les orphelines', async () => {
-  mock.method(prisma.documentProof, 'findMany', async () => [
+  stubMethod(prisma.documentProof, 'findMany', async () => [
     { documentId: 'DOC-KEEP' },
     { documentId: 'DOC-OLD' }
   ]);
-  const deleteManyMock = mock.method(prisma.documentProof, 'deleteMany', async () => ({ count: 1 }));
+  const deleteManyMock = stubMethod(prisma.documentProof, 'deleteMany', async () => ({ count: 1 }));
 
   const res = await request(app)
     .post('/api/documents/proofs/cleanup')
@@ -110,13 +128,13 @@ test('POST /api/documents/proofs/cleanup supprime uniquement les orphelines', as
 
   assert.strictEqual(res.status, 200);
   assert.deepStrictEqual(res.body, { ok: true });
-  assert.strictEqual(deleteManyMock.mock.calls.length, 1);
-  const arg = deleteManyMock.mock.calls[0].arguments[0];
+  assert.strictEqual(deleteManyMock.calls.length, 1);
+  const arg = deleteManyMock.calls[0][0];
   assert.deepStrictEqual(arg.where, { documentId: 'DOC-OLD', userId: 'user-1' });
 });
 
 test('POST /api/documents/proof retourne 500 si service échoue', async () => {
-  mock.method(prisma.documentProof, 'upsert', async () => {
+  stubMethod(prisma.documentProof, 'upsert', async () => {
     throw new Error('db down');
   });
 

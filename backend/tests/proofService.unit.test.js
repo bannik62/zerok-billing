@@ -1,4 +1,4 @@
-import test, { afterEach, mock } from 'node:test';
+import test, { afterEach } from 'node:test';
 import assert from 'node:assert';
 import {
   upsertProof,
@@ -8,13 +8,26 @@ import {
 } from '../services/proofService.js';
 import { prisma } from '../lib/prisma.js';
 
+const restorers = [];
+
 afterEach(() => {
-  mock.restoreAll();
+  while (restorers.length > 0) {
+    const restore = restorers.pop();
+    restore();
+  }
 });
+
+function stubMethod(target, methodName, implementation) {
+  const original = target[methodName];
+  target[methodName] = (...args) => implementation(...args);
+  restorers.push(() => {
+    target[methodName] = original;
+  });
+}
 
 test('upsertProof utilise la clé composite userId_invoiceId', async () => {
   let captured;
-  mock.method(prisma.proof, 'upsert', async (args) => {
+  stubMethod(prisma.proof, 'upsert', async (args) => {
     captured = args;
     return { id: 'p-1' };
   });
@@ -36,7 +49,7 @@ test('upsertProof utilise la clé composite userId_invoiceId', async () => {
 
 test('findProofsByUserAndInvoiceIds filtre par user + ids', async () => {
   let captured;
-  mock.method(prisma.proof, 'findMany', async (args) => {
+  stubMethod(prisma.proof, 'findMany', async (args) => {
     captured = args;
     return [];
   });
@@ -51,7 +64,7 @@ test('findProofsByUserAndInvoiceIds filtre par user + ids', async () => {
 
 test('findAllProofsByUserId ordonne par signedAt desc', async () => {
   let captured;
-  mock.method(prisma.proof, 'findMany', async (args) => {
+  stubMethod(prisma.proof, 'findMany', async (args) => {
     captured = args;
     return [];
   });
@@ -62,13 +75,13 @@ test('findAllProofsByUserId ordonne par signedAt desc', async () => {
 });
 
 test('deleteProofByUserIdAndInvoiceId retourne true si au moins un delete', async () => {
-  mock.method(prisma.proof, 'deleteMany', async () => ({ count: 1 }));
+  stubMethod(prisma.proof, 'deleteMany', async () => ({ count: 1 }));
   const out = await deleteProofByUserIdAndInvoiceId('user-1', 'INV-1');
   assert.strictEqual(out, true);
 });
 
 test('deleteProofByUserIdAndInvoiceId retourne false si rien supprimé', async () => {
-  mock.method(prisma.proof, 'deleteMany', async () => ({ count: 0 }));
+  stubMethod(prisma.proof, 'deleteMany', async () => ({ count: 0 }));
   const out = await deleteProofByUserIdAndInvoiceId('user-1', 'INV-1');
   assert.strictEqual(out, false);
 });

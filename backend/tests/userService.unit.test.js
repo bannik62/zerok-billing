@@ -1,4 +1,4 @@
-import test, { afterEach, mock } from 'node:test';
+import test, { afterEach } from 'node:test';
 import assert from 'node:assert';
 import {
   findUserByEmail,
@@ -10,13 +10,26 @@ import {
 } from '../services/userService.js';
 import { prisma } from '../lib/prisma.js';
 
+const restorers = [];
+
 afterEach(() => {
-  mock.restoreAll();
+  while (restorers.length > 0) {
+    const restore = restorers.pop();
+    restore();
+  }
 });
+
+function stubMethod(target, methodName, implementation) {
+  const original = target[methodName];
+  target[methodName] = (...args) => implementation(...args);
+  restorers.push(() => {
+    target[methodName] = original;
+  });
+}
 
 test('findUserByEmail appelle prisma.user.findUnique avec email', async () => {
   let captured;
-  mock.method(prisma.user, 'findUnique', async (args) => {
+  stubMethod(prisma.user, 'findUnique', async (args) => {
     captured = args;
     return { id: 'u-1' };
   });
@@ -28,7 +41,7 @@ test('findUserByEmail appelle prisma.user.findUnique avec email', async () => {
 
 test('findUserById sélectionne les champs publics + recovery', async () => {
   let captured;
-  mock.method(prisma.user, 'findUnique', async (args) => {
+  stubMethod(prisma.user, 'findUnique', async (args) => {
     captured = args;
     return { id: 'u-1', email: 'user@example.com' };
   });
@@ -42,7 +55,7 @@ test('findUserById sélectionne les champs publics + recovery', async () => {
 
 test('createUser appelle prisma.user.create avec data', async () => {
   let captured;
-  mock.method(prisma.user, 'create', async (args) => {
+  stubMethod(prisma.user, 'create', async (args) => {
     captured = args;
     return { id: 'u-1' };
   });
@@ -55,7 +68,7 @@ test('createUser appelle prisma.user.create avec data', async () => {
 
 test('updateRecoveryData persiste salt + keyCheck', async () => {
   let captured;
-  mock.method(prisma.user, 'update', async (args) => {
+  stubMethod(prisma.user, 'update', async (args) => {
     captured = args;
     return { id: 'u-1' };
   });
@@ -70,7 +83,7 @@ test('updateRecoveryData persiste salt + keyCheck', async () => {
 
 test('updatePasswordByEmail met à jour passwordHash', async () => {
   let captured;
-  mock.method(prisma.user, 'update', async (args) => {
+  stubMethod(prisma.user, 'update', async (args) => {
     captured = args;
     return { id: 'u-1' };
   });
@@ -83,7 +96,7 @@ test('updatePasswordByEmail met à jour passwordHash', async () => {
 });
 
 test('getRecoveryDataByEmail retourne null si user introuvable', async () => {
-  mock.method(prisma.user, 'findUnique', async () => null);
+  stubMethod(prisma.user, 'findUnique', async () => null);
   const out = await getRecoveryDataByEmail('missing@example.com');
   assert.strictEqual(out, null);
 });
