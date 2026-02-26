@@ -24,21 +24,26 @@ export async function createSignRequest({ invoiceId, documentType, userId }) {
 /**
  * Confirme la signature (one-shot) : token valide, non expiré, pas déjà signé.
  * @param {string} token
- * @returns {Promise<'ok'|'expired'|'used'|'invalid'>}
+ * @returns {Promise<{ status: 'ok', documentType: string, invoiceId: string, userId: string }|{ status: 'expired'|'used'|'invalid' }>}
  */
 export async function confirmSignRequest(token) {
-  if (!token || typeof token !== 'string') return 'invalid';
+  if (!token || typeof token !== 'string') return { status: 'invalid' };
   const trimmed = token.trim();
-  if (!trimmed) return 'invalid';
+  if (!trimmed) return { status: 'invalid' };
   const row = await prisma.signRequest.findUnique({ where: { token: trimmed } });
-  if (!row) return 'invalid';
-  if (row.signedAt) return 'used';
-  if (new Date() > row.expiresAt) return 'expired';
+  if (!row) return { status: 'invalid' };
+  if (row.signedAt) return { status: 'used' };
+  if (new Date() > row.expiresAt) return { status: 'expired' };
   await prisma.signRequest.update({
     where: { id: row.id },
     data: { signedAt: new Date() }
   });
-  return 'ok';
+  return {
+    status: 'ok',
+    documentType: row.documentType,
+    invoiceId: row.invoiceId,
+    userId: row.userId
+  };
 }
 
 /**

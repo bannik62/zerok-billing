@@ -7,6 +7,7 @@
   import CoffreFort from '../coffre-fort/CoffreFort.svelte';
   import ExplorerBase from '../explorer-base/ExplorerBase.svelte';
   import SauvegarderRestaurer from '../sauvegarder-restaurer/SauvegarderRestaurer.svelte';
+  import Paiement from '../paiement/Paiement.svelte';
   import {
     migrateLegacyDataToUser,
     isLegacyMigratedForUser,
@@ -29,7 +30,7 @@
       .catch(() => {});
   });
 
-  /** 'donnees-personnelles' | 'ajouter-client' | 'creer-devis' | 'facture' | 'liste-documents' | 'explorer-base' | 'sauvegarder-restaurer' | null */
+  /** 'donnees-personnelles' | 'ajouter-client' | 'creer-devis' | 'facture' | 'liste-documents' | 'coffre-fort' | 'explorer-base' | 'sauvegarder-restaurer' | 'paiement' | null */
   let displayModule = $state(null);
   /** Client sélectionné pour Facture ou Devis (depuis la liste clients) */
   let selectedClient = $state(null);
@@ -43,6 +44,7 @@
   function showCoffreFort() { displayModule = 'coffre-fort'; selectedClient = null; selectedDevisForFacture = null; }
   function showExplorerBase() { displayModule = 'explorer-base'; selectedClient = null; selectedDevisForFacture = null; }
   function showSauvegarderRestaurer() { displayModule = 'sauvegarder-restaurer'; selectedClient = null; selectedDevisForFacture = null; }
+  function showPaiement() { displayModule = 'paiement'; selectedClient = null; selectedDevisForFacture = null; }
   function showAccueil() { displayModule = null; selectedClient = null; selectedDevisForFacture = null; }
 
   function openFactureForClient(client) {
@@ -84,6 +86,7 @@
         <button type="button" role="tab" class="tab" class:active={displayModule === 'coffre-fort'} aria-selected={displayModule === 'coffre-fort'} aria-label="Mes fichiers — Coffre-fort" onclick={showCoffreFort}>Mes fichiers</button>
         <button type="button" role="tab" class="tab" class:active={displayModule === 'explorer-base'} aria-selected={displayModule === 'explorer-base'} aria-label="Explorer la base" onclick={showExplorerBase}>Explorer la base</button>
         <button type="button" role="tab" class="tab" class:active={displayModule === 'sauvegarder-restaurer'} aria-selected={displayModule === 'sauvegarder-restaurer'} aria-label="Sauvegarder ou restaurer" onclick={showSauvegarderRestaurer}>Sauvegarder / Restaurer</button>
+        <button type="button" role="tab" class="tab" class:active={displayModule === 'paiement'} aria-selected={displayModule === 'paiement'} aria-label="Paiement" onclick={showPaiement}>Paiement</button>
       </div>
     </div>
 
@@ -104,6 +107,8 @@
         <ExplorerBase {user} />
       {:else if displayModule === 'sauvegarder-restaurer'}
         <SauvegarderRestaurer {user} />
+      {:else if displayModule === 'paiement'}
+        <Paiement {user} />
       {:else}
         <div class="welcome-presentation">
           <h2 class="welcome-presentation-title">Zero-Knowledge Facturation</h2>

@@ -155,14 +155,20 @@
         r.onerror = rej;
         r.readAsDataURL(blob);
       });
-      await apiClient.post('/api/documents/send-for-signature', {
+      const payload = {
         to: email,
         invoiceId: id,
         documentType: docType,
         numero,
         pdfBase64,
         pdfFilename
-      });
+      };
+      if (docType === 'facture') {
+        const totalTTC = Number(document?.totalTTC) ?? Number(document?.total) ?? 0;
+        payload.amountCents = Math.round(totalTTC * 100);
+        payload.currency = 'eur';
+      }
+      await apiClient.post('/api/documents/send-for-signature', payload);
       sendSignatureFeedback = { type: 'success', text: `Email envoyé à ${email} avec le PDF` };
       setTimeout(() => { sendSignatureFeedback = null; }, 4000);
     } catch (e) {

@@ -8,7 +8,11 @@ import {
   SIGNATURE_MAX,
   VERIFY_BATCH_MAX,
   EMAIL_MAX_LENGTH,
-  NUMERO_LABEL_MAX
+  NUMERO_LABEL_MAX,
+  PAYMENT_SECRET_KEY_MAX,
+  CURRENCY_LENGTH,
+  AMOUNT_CENTS_MIN,
+  AMOUNT_CENTS_MAX
 } from '../config/constants.js';
 
 const hashHexSchema = Joi.string()
@@ -102,9 +106,27 @@ const sendForSignatureSchema = Joi.object({
   numero: Joi.string().trim().max(NUMERO_LABEL_MAX).allow('').default('').messages({
     'string.max': 'numero trop long'
   }),
+  amountCents: Joi.number().integer().min(AMOUNT_CENTS_MIN).max(AMOUNT_CENTS_MAX).optional().messages({
+    'number.base': 'amountCents doit être un nombre',
+    'number.min': 'amountCents invalide',
+    'number.max': 'amountCents invalide'
+  }),
+  currency: Joi.string().trim().length(CURRENCY_LENGTH).lowercase().optional().messages({
+    'string.length': 'currency doit être un code ISO 3 lettres (ex. eur)'
+  }),
   pdfBase64: Joi.string().allow('').optional(),
   pdfFilename: Joi.string().trim().max(120).optional().messages({
     'string.max': 'pdfFilename trop long'
+  })
+}).options({ stripUnknown: true });
+
+const paymentConfigSchema = Joi.object({
+  provider: Joi.string().valid('stripe').required().messages({
+    'any.only': 'provider doit être stripe'
+  }),
+  secretKey: Joi.string().trim().min(1).max(PAYMENT_SECRET_KEY_MAX).required().messages({
+    'string.empty': 'secretKey requis',
+    'string.max': 'secretKey trop long'
   })
 }).options({ stripUnknown: true });
 
@@ -197,6 +219,27 @@ export function validateCleanupBody(body) {
  */
 export function validateSendForSignatureBody(body) {
   const result = sendForSignatureSchema.validate(body || {}, { abortEarly: false });
+  const err = toError(result);
+  if (err) return { value: null, error: err };
+  const v = result.value;
+  if (v.documentType === 'facture') {
+    const ac = v.amountCents;
+    const cur = v.currency;
+    if (ac == null || typeof ac !== 'number' || ac < AMOUNT_CENTS_MIN || ac > AMOUNT_CENTS_MAX) {
+      return { value: null, error: 'Pour une facture, amountCents (entier en centimes) est requis' };
+    }
+    if (!cur || typeof cur !== 'string' || cur.trim().toLowerCase().length !== CURRENCY_LENGTH) {
+      return { value: null, error: 'Pour une facture, currency (code ISO 3 lettres, ex. eur) est requis' };
+    }
+  }
+  return { value: result.value, error: null };
+}
+
+/**
+ * PUT /api/payment/config
+ */
+export function validatePaymentConfigBody(body) {
+  const result = paymentConfigSchema.validate(body || {}, { abortEarly: false });
   const err = toError(result);
   if (err) return { value: null, error: err };
   return { value: result.value, error: null };

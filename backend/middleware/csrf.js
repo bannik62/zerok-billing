@@ -26,6 +26,10 @@ export function validateCsrf(req, res, next) {
   if (SAFE_METHODS.has(req.method)) {
     return next();
   }
+  // Route publique : création de session de paiement (page /sign/confirm, pas de session)
+  if (req.path === '/payment/create-session' || req.path === '/api/payment/create-session') {
+    return next();
+  }
   const sessionToken = req.session?.csrfToken;
   const headerToken = req.headers['x-csrf-token'];
   log('[zerok-billing] CSRF validate', { method: req.method, path: req.path, hasSessionToken: !!sessionToken, hasHeaderToken: !!headerToken });

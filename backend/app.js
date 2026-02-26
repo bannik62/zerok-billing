@@ -21,6 +21,9 @@ import { authRouter } from './routes/auth.js';
 import { recoveryRouter } from './routes/recovery.js';
 import { secureRouter } from './routes/secure.js';
 import { confirmSignRequest } from './services/signRequestService.js';
+import { createPaymentToken, validatePaymentToken } from './services/paymentTokenService.js';
+import { getConfiguredProviders } from './services/paymentConfigService.js';
+import { createCheckoutSession } from './plugins/stripe.js';
 import { prisma } from './lib/prisma.js';
 
 export const app = express();
@@ -68,10 +71,73 @@ app.use(session(sessionConfig));
 app.get('/api/sign/confirm', async (req, res) => {
   try {
     const token = req.query.token ?? '';
-    const status = await confirmSignRequest(token);
-    return res.json({ status });
+    const result = await confirmSignRequest(token);
+    const status = result.status;
+    if (status !== 'ok') {
+      return res.json({ status });
+    }
+    let paymentToken = null;
+    let providers = [];
+    if (result.documentType === 'facture' && result.invoiceId && result.userId) {
+      try {
+        const { token: payToken } = await createPaymentToken({ invoiceId: result.invoiceId, userId: result.userId });
+        paymentToken = payToken;
+        providers = await getConfiguredProviders(result.userId);
+      } catch (_) {
+        // ignore: payment token optional
+      }
+    }
+    return res.json({ status, documentType: result.documentType, paymentToken, providers });
   } catch (e) {
     return res.json({ status: 'expired' });
+  }
+});
+
+// Public: créer une session de paiement (après clic sur icône). Pas de CSRF (page statique /sign/confirm).
+app.post('/api/payment/create-session', express.json(), async (req, res) => {
+  try {
+    const { paymentToken: rawToken, provider } = req.body || {};
+    if (!rawToken || !provider) {
+      return res.status(400).json({ error: 'paymentToken et provider requis' });
+    }
+    const payload = await validatePaymentToken(rawToken);
+    if (!payload) {
+      return res.status(400).json({ error: 'Token de paiement invalide ou expiré' });
+    }
+    const { invoiceId, userId } = payload;
+    const summary = await prisma.invoicePaymentSummary.findUnique({ where: { invoiceId } });
+    if (!summary) {
+      return res.status(400).json({ error: 'Montant non défini pour cette facture' });
+    }
+    const config = await prisma.paymentConfig.findUnique({
+      where: { userId_provider: { userId, provider } }
+    });
+    if (!config) {
+      return res.status(400).json({ error: 'Ce moyen de paiement n\'est pas configuré' });
+    }
+    if (provider === 'stripe') {
+      const secretKey = config.credentials?.secretKey;
+      if (!secretKey) {
+        return res.status(400).json({ error: 'Config Stripe invalide' });
+      }
+      const baseUrl = env.BACKEND_PUBLIC_URL || env.allowedOrigins?.[0] || 'http://localhost:3011';
+      const successUrl = `${baseUrl}/paiement/succes?session_id={CHECKOUT_SESSION_ID}`;
+      const cancelUrl = `${baseUrl}/paiement/annule`;
+      const { redirectUrl } = await createCheckoutSession({
+        secretKey,
+        amountCents: summary.amountCents,
+        currency: summary.currency,
+        invoiceId,
+        successUrl,
+        cancelUrl,
+        description: `Facture ${invoiceId}`
+      });
+      return res.json({ redirectUrl });
+    }
+    return res.status(400).json({ error: 'Provider inconnu' });
+  } catch (e) {
+    log('[zerok-billing] create-session:', e?.message ?? e);
+    return res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
@@ -102,14 +168,95 @@ app.get('/api/health', async (_req, res) => {
 
 app.use('/api', requireAuth, secureRouter);
 
-// Route publique : confirmation de signature (lien dans l'email). Page autonome, pas de redirection vers l'app.
+// Route publique : confirmation de signature (lien dans l'email). Page autonome avec icônes paiement si facture.
 app.get('/sign/confirm', async (req, res) => {
   const token = req.query.token;
-  const status = await confirmSignRequest(token);
-  const siteUrl = env.allowedOrigins[0] || '#';
-  const html = status === 'ok'
-    ? `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Document accepté</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Document accepté</h1><p>Votre signature a bien été enregistrée.</p><p style="margin-top: 2rem;"><a href="${siteUrl}" style="color: #2563eb; text-decoration: underline;">Accéder au site</a></p></body></html>`
-    : `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lien invalide</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Lien invalide ou expiré</h1><p>Ce lien a déjà été utilisé ou a expiré.</p><p style="margin-top: 2rem;"><a href="${siteUrl}" style="color: #2563eb; text-decoration: underline;">Accéder au site</a></p></body></html>`;
+  let result;
+  try {
+    result = await confirmSignRequest(token);
+  } catch (_) {
+    result = { status: 'expired' };
+  }
+  const siteUrl = env.allowedOrigins[0] || env.BACKEND_PUBLIC_URL || '#';
+
+  if (result.status !== 'ok') {
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lien invalide</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Lien invalide ou expiré</h1><p>Ce lien a déjà été utilisé ou a expiré.</p><p style="margin-top: 2rem;"><a href="${siteUrl}" style="color: #2563eb; text-decoration: underline;">Accéder au site</a></p></body></html>`;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.send(html);
+  }
+
+  let paymentToken = null;
+  let providers = [];
+  if (result.documentType === 'facture' && result.invoiceId && result.userId) {
+    try {
+      const { token: payToken } = await createPaymentToken({ invoiceId: result.invoiceId, userId: result.userId });
+      paymentToken = payToken;
+      providers = await getConfiguredProviders(result.userId);
+    } catch (_) {}
+  }
+
+  const paymentTokenEscaped = paymentToken ? paymentToken.replace(/\\/g, '\\\\').replace(/"/g, '&quot;') : '';
+
+  const paymentSection = paymentToken && providers.length > 0
+    ? `
+    <section class="pay-section" style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
+      <p style="margin: 0 0 1rem; font-weight: 600;">Régler cette facture</p>
+      <div class="pay-icons" style="display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; align-items: center;">
+        ${providers.includes('stripe') ? `
+        <button type="button" class="pay-btn" data-provider="stripe" data-payment-token="${paymentTokenEscaped}" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1rem; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; cursor: pointer; font-size: 0.95rem;">
+          <img src="https://stripe.com/img/v3/payments/badges/stripe.svg" alt="Stripe" width="56" height="28" style="vertical-align: middle;">
+          <span>Payer avec Stripe</span>
+        </button>` : ''}
+      </div>
+      <p id="pay-msg" style="margin: 0.75rem 0 0; font-size: 0.875rem; color: #6b7280; min-height: 1.25rem;"></p>
+    </section>`
+    : '';
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Document accepté</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;">
+  <h1>Document accepté</h1>
+  <p>Votre signature a bien été enregistrée.</p>
+  ${paymentSection}
+  <p style="margin-top: 2rem;"><a href="${siteUrl}" style="color: #2563eb; text-decoration: underline;">Accéder au site</a></p>
+  <script>
+  (function() {
+    var buttons = document.querySelectorAll('.pay-btn');
+    var msg = document.getElementById('pay-msg');
+    buttons.forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var provider = btn.getAttribute('data-provider');
+        var paymentToken = btn.getAttribute('data-payment-token');
+        if (!paymentToken || !provider) return;
+        msg.textContent = 'Redirection…';
+        btn.disabled = true;
+        fetch('/api/payment/create-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paymentToken: paymentToken, provider: provider })
+        }).then(function(r) { return r.json().then(function(d) { return { ok: r.ok, status: r.status, data: d }; }); })
+          .then(function(x) {
+            if (x.data.redirectUrl) { window.location.href = x.data.redirectUrl; return; }
+            msg.textContent = x.data.error || 'Erreur';
+            btn.disabled = false;
+          })
+          .catch(function() { msg.textContent = 'Erreur de connexion'; btn.disabled = false; });
+      });
+    });
+  })();
+  </script>
+  </body></html>`;
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+});
+
+const siteUrlForPayment = env.allowedOrigins?.[0] || env.BACKEND_PUBLIC_URL || '#';
+app.get('/paiement/succes', (_, res) => {
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Paiement effectué</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Paiement effectué</h1><p>Merci, votre paiement a bien été enregistré.</p><p style="margin-top: 2rem;"><a href="${siteUrlForPayment}" style="color: #2563eb; text-decoration: underline;">Accéder au site</a></p></body></html>`;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+});
+app.get('/paiement/annule', (_, res) => {
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Paiement annulé</title></head><body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto; padding: 1rem; text-align: center;"><h1>Paiement annulé</h1><p>Vous avez annulé le paiement. Vous pouvez réessayer plus tard depuis le lien de la facture.</p><p style="margin-top: 2rem;"><a href="${siteUrlForPayment}" style="color: #2563eb; text-decoration: underline;">Accéder au site</a></p></body></html>`;
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(html);
 });

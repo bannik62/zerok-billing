@@ -8,10 +8,13 @@ import {
   validateDocumentIdParam,
   validateInvoiceIdParam,
   validateCleanupBody,
-  validateSendForSignatureBody
+  validateSendForSignatureBody,
+  validatePaymentConfigBody
 } from '../validators/secureValidator.js';
 import { sendMail } from '../services/emailService.js';
 import { createSignRequest, getSignedInvoiceIds } from '../services/signRequestService.js';
+import { getConfiguredProviders } from '../services/paymentConfigService.js';
+import { prisma } from '../lib/prisma.js';
 import { env } from '../config/env.js';
 import { PDF_ATTACHMENT_MAX_BYTES } from '../config/constants.js';
 
@@ -182,8 +185,46 @@ secureRouter.post('/documents/proofs/cleanup', async (req, res, next) => {
 });
 
 /**
+ * GET /api/payment/config — Liste des providers configurés (sans exposer les clés).
+ */
+secureRouter.get('/payment/config', async (req, res, next) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Non authentifié' });
+    const providers = await getConfiguredProviders(userId);
+    return res.json({ providers: providers.map((p) => ({ provider: p, configured: true })) });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * PUT /api/payment/config — Enregistre ou met à jour la config d'un provider (ex. clé secrète Stripe).
+ * Body : { provider: 'stripe', secretKey: 'sk_...' }
+ */
+secureRouter.put('/payment/config', async (req, res, next) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Non authentifié' });
+
+    const { value, error } = validatePaymentConfigBody(req.body);
+    if (error) return res.status(400).json({ error });
+
+    const { provider, secretKey } = value;
+    await prisma.paymentConfig.upsert({
+      where: { userId_provider: { userId, provider } },
+      create: { userId, provider, credentials: { secretKey } },
+      update: { credentials: { secretKey } }
+    });
+    return res.json({ ok: true, provider });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
  * POST /api/documents/send-for-signature — Envoie un email au client avec le document à signer (lien + PDF en pièce jointe si fourni).
- * Body : { to, invoiceId, documentType, numero?, pdfBase64?, pdfFilename? }
+ * Body : { to, invoiceId, documentType, numero?, amountCents?, currency?, pdfBase64?, pdfFilename? } — amountCents + currency requis si facture.
  */
 secureRouter.post('/documents/send-for-signature', async (req, res, next) => {
   try {
@@ -193,8 +234,15 @@ secureRouter.post('/documents/send-for-signature', async (req, res, next) => {
     const { value, error } = validateSendForSignatureBody(req.body);
     if (error) return res.status(400).json({ error });
 
-    const { to, invoiceId, documentType, numero, pdfBase64, pdfFilename } = value;
+    const { to, invoiceId, documentType, numero, amountCents, currency, pdfBase64, pdfFilename } = value;
     const { token } = await createSignRequest({ invoiceId, documentType, userId });
+    if (documentType === 'facture' && amountCents != null && currency) {
+      await prisma.invoicePaymentSummary.upsert({
+        where: { invoiceId },
+        create: { invoiceId, userId, amountCents, currency: currency.toLowerCase().trim() },
+        update: { amountCents, currency: currency.toLowerCase().trim() }
+      });
+    }
     const signUrl = `${env.BACKEND_PUBLIC_URL}/sign/confirm?token=${encodeURIComponent(token)}`;
 
     const docLabel = documentType === 'devis' ? 'Devis' : 'Facture';
