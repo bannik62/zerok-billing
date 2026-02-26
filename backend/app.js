@@ -44,8 +44,8 @@ app.use(cors({
 }));
 app.use(cookieParser());
 
-// Webhook Stripe : body brut requis pour vérification signature (avant express.json)
-app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), (req, res, next) => {
+// Webhook Stripe : hors /api pour ne pas passer par validateCsrf/requireAuth (body brut requis)
+app.post('/webhooks/stripe', express.raw({ type: 'application/json' }), (req, res, next) => {
   handleStripeWebhook(req, res).catch(next);
 });
 
