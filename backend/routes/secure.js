@@ -17,6 +17,7 @@ import { getConfiguredProviders } from '../services/paymentConfigService.js';
 import { getPaymentStatusByInvoiceIds } from '../services/invoicePaymentService.js';
 import { prisma } from '../lib/prisma.js';
 import { env } from '../config/env.js';
+import { encryptCredentials, isEncryptionAvailable } from '../lib/credentialsEncryption.js';
 import { PDF_ATTACHMENT_MAX_BYTES, VERIFY_BATCH_MAX } from '../config/constants.js';
 
 /**
@@ -212,10 +213,16 @@ secureRouter.put('/payment/config', async (req, res, next) => {
     if (error) return res.status(400).json({ error });
 
     const { provider, secretKey } = value;
+    const credentials = isEncryptionAvailable()
+      ? encryptCredentials({ secretKey })
+      : { secretKey };
+    if (credentials === null) {
+      return res.status(500).json({ error: 'CREDENTIALS_ENCRYPTION_KEY invalide (64 caractères hex requis)' });
+    }
     await prisma.paymentConfig.upsert({
       where: { userId_provider: { userId, provider } },
-      create: { userId, provider, credentials: { secretKey } },
-      update: { credentials: { secretKey } }
+      create: { userId, provider, credentials },
+      update: { credentials }
     });
     return res.json({ ok: true, provider });
   } catch (e) {

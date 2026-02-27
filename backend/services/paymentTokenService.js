@@ -1,5 +1,6 @@
 /**
  * Token de paiement après signature (facture). Courte durée de vie (1 h).
+ * One-shot : invalidation après premier usage (prévention replay).
  */
 import crypto from 'crypto';
 import { prisma } from '../lib/prisma.js';
@@ -22,13 +23,21 @@ export async function createPaymentToken({ invoiceId, userId }) {
 }
 
 /**
- * Valide un token de paiement : existe, non expiré.
+ * Valide et consomme un token de paiement (one-shot).
+ * Atomique : si valide, marque usedAt et retourne le payload.
  * @param {string} token
  * @returns {Promise<{ invoiceId: string, userId: string }|null>}
  */
 export async function validatePaymentToken(token) {
   if (!token || typeof token !== 'string') return null;
-  const row = await prisma.paymentToken.findUnique({ where: { token: token.trim() } });
-  if (!row || new Date() > row.expiresAt) return null;
-  return { invoiceId: row.invoiceId, userId: row.userId };
+  const t = token.trim();
+  const now = new Date();
+  const rows = await prisma.$queryRaw`
+    UPDATE payment_token
+    SET used_at = NOW()
+    WHERE token = ${t} AND used_at IS NULL AND expires_at > ${now}
+    RETURNING invoice_id AS "invoiceId", user_id AS "userId"
+  `;
+  if (!rows || rows.length === 0) return null;
+  return rows[0];
 }
