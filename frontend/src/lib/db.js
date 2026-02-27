@@ -14,6 +14,7 @@ const STORE_LAYOUT_PROFILES = 'layoutProfiles';
 export const STORE_FACTURES = 'factures';
 const STORE_META = 'meta';
 export const STORE_DOCUMENTS = 'documents';
+const STORE_ACHATS = 'achats';
 const SOCIETE_ID = 'societe';
 const META_KEY_SALT = 'keyDerivationSalt';
 
@@ -38,7 +39,8 @@ db.version(10).stores({
   [STORE_DEVIS]: 'id',
   [STORE_FACTURES]: 'id',
   [STORE_META]: 'key',
-  [STORE_DOCUMENTS]: 'id, clientId, linkedInvoiceId, type, uploadedAt'
+  [STORE_DOCUMENTS]: 'id, clientId, linkedInvoiceId, type, uploadedAt',
+  [STORE_ACHATS]: 'id, userId, date'
 }).upgrade((tx) => {
   // Supprimer le store layoutProfiles (IndexedDB)
   try {
@@ -416,6 +418,56 @@ export async function deleteFacture(id, userId = null) {
 }
 
 /**
+ * Achats : enregistrements d'achats/factures fournisseurs.
+ * { id, date, fournisseur, categorie, description, montantHT, tva, montantTTC, modePaiement, numeroFacture, documentId?, createdAt, userId? }
+ */
+export async function addAchat(achat, userId = null) {
+  const id = crypto.randomUUID?.() ?? `achat-${Date.now()}`;
+  const record = plainClone({
+    id,
+    ...achat,
+    createdAt: new Date().toISOString(),
+    ...(userId != null && { userId })
+  });
+  await db[STORE_ACHATS].add(record);
+  return record;
+}
+
+export async function getAchat(id, userId = null) {
+  const record = (await db[STORE_ACHATS].get(id)) ?? null;
+  if (!record) return null;
+  if (userId != null && record.userId != null && record.userId !== userId) return null;
+  return record;
+}
+
+export async function getAllAchats(userId = null) {
+  const all = await db[STORE_ACHATS].toArray();
+  if (userId == null) return all;
+  return all.filter((r) => r.userId === userId);
+}
+
+export async function updateAchat(achat, userId = null) {
+  const existing = await getAchat(achat.id, userId);
+  if (!existing) throw new Error('Achat introuvable');
+  const record = plainClone({
+    ...existing,
+    ...achat,
+    id: existing.id,
+    createdAt: existing.createdAt
+  });
+  await db[STORE_ACHATS].put(record);
+  return record;
+}
+
+export async function deleteAchat(id, userId = null) {
+  if (userId != null) {
+    const existing = await getAchat(id, userId);
+    if (!existing) throw new Error('Achat introuvable ou non autorisé');
+  }
+  await db[STORE_ACHATS].delete(id);
+}
+
+/**
  * Options pour clearLocalDataForUser : quelles données effacer avant restauration.
  * @typedef {{ coffre?: boolean, documents?: boolean }} ClearLocalDataOptions
  * - coffre: clients, société (défaut true si non fourni)
@@ -455,6 +507,9 @@ export async function clearLocalDataForUser(userId, options = {}) {
     const factures = await db[STORE_FACTURES].toArray();
     const factureIds = factures.filter(match).map((r) => r.id);
     if (factureIds.length > 0) await db[STORE_FACTURES].bulkDelete(factureIds);
+    const achats = await db[STORE_ACHATS].toArray();
+    const achatIds = achats.filter(match).map((r) => r.id);
+    if (achatIds.length > 0) await db[STORE_ACHATS].bulkDelete(achatIds);
   }
 }
 
@@ -468,6 +523,22 @@ export async function getFactureRaw(id) {
 }
 export async function getAllFacturesRaw(userId = null) {
   const all = await db[STORE_FACTURES].toArray();
+  if (userId == null) return all;
+  return all.filter((r) => r.userId === userId);
+}
+
+/** Pour la couche chiffrée : put/get/getAll bruts sur le store achats. */
+export async function putAchatRaw(record) {
+  await db[STORE_ACHATS].put(record);
+  return record;
+}
+
+export async function getAchatRaw(id) {
+  return (await db[STORE_ACHATS].get(id)) ?? null;
+}
+
+export async function getAllAchatsRaw(userId = null) {
+  const all = await db[STORE_ACHATS].toArray();
   if (userId == null) return all;
   return all.filter((r) => r.userId === userId);
 }

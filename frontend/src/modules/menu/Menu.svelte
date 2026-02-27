@@ -5,6 +5,8 @@
   import Facture from '../facture/Facture.svelte';
   import ListeDocuments from '../liste-documents/ListeDocuments.svelte';
   import CoffreFort from '../coffre-fort/CoffreFort.svelte';
+  import Achats from '../achats/Achats.svelte';
+  import Comptabilite from '../comptabilite/Comptabilite.svelte';
   import ExplorerBase from '../explorer-base/ExplorerBase.svelte';
   import SauvegarderRestaurer from '../sauvegarder-restaurer/SauvegarderRestaurer.svelte';
   import Paiement from '../paiement/Paiement.svelte';
@@ -30,7 +32,7 @@
       .catch(() => {});
   });
 
-  /** 'donnees-personnelles' | 'ajouter-client' | 'creer-devis' | 'facture' | 'liste-documents' | 'coffre-fort' | 'explorer-base' | 'sauvegarder-restaurer' | 'paiement' | null */
+  /** 'donnees-personnelles' | 'ajouter-client' | 'creer-devis' | 'facture' | 'liste-documents' | 'coffre-fort' | 'achats' | 'comptabilite' | 'explorer-base' | 'sauvegarder-restaurer' | 'paiement' | null */
   let displayModule = $state(null);
   /** Client sélectionné pour Facture ou Devis (depuis la liste clients) */
   let selectedClient = $state(null);
@@ -42,6 +44,8 @@
   function showFacture() { displayModule = 'facture'; selectedClient = null; selectedDevisForFacture = null; }
   function showListeDocuments() { displayModule = 'liste-documents'; selectedClient = null; selectedDevisForFacture = null; }
   function showCoffreFort() { displayModule = 'coffre-fort'; selectedClient = null; selectedDevisForFacture = null; }
+  function showAchats() { displayModule = 'achats'; selectedClient = null; selectedDevisForFacture = null; }
+  function showComptabilite() { displayModule = 'comptabilite'; selectedClient = null; selectedDevisForFacture = null; }
   function showExplorerBase() { displayModule = 'explorer-base'; selectedClient = null; selectedDevisForFacture = null; }
   function showSauvegarderRestaurer() { displayModule = 'sauvegarder-restaurer'; selectedClient = null; selectedDevisForFacture = null; }
   function showPaiement() { displayModule = 'paiement'; selectedClient = null; selectedDevisForFacture = null; }
@@ -84,6 +88,8 @@
         <button type="button" role="tab" class="tab" class:active={displayModule === 'facture'} aria-selected={displayModule === 'facture'} aria-label="Facture" onclick={showFacture}>Facture</button>
         <button type="button" role="tab" class="tab" class:active={displayModule === 'liste-documents'} aria-selected={displayModule === 'liste-documents'} aria-label="Liste Devis/Facture" onclick={showListeDocuments}>Liste Devis/Facture</button>
         <button type="button" role="tab" class="tab" class:active={displayModule === 'coffre-fort'} aria-selected={displayModule === 'coffre-fort'} aria-label="Coffre fort" onclick={showCoffreFort}>Coffre fort</button>
+        <button type="button" role="tab" class="tab" class:active={displayModule === 'achats'} aria-selected={displayModule === 'achats'} aria-label="Achats" onclick={showAchats}>Achats</button>
+        <button type="button" role="tab" class="tab" class:active={displayModule === 'comptabilite'} aria-selected={displayModule === 'comptabilite'} aria-label="Comptabilité" onclick={showComptabilite}>Comptabilité</button>
         <button type="button" role="tab" class="tab" class:active={displayModule === 'explorer-base'} aria-selected={displayModule === 'explorer-base'} aria-label="Explorer la base" onclick={showExplorerBase}>Explorer la base</button>
         <button type="button" role="tab" class="tab" class:active={displayModule === 'sauvegarder-restaurer'} aria-selected={displayModule === 'sauvegarder-restaurer'} aria-label="Sauvegarder ou restaurer" onclick={showSauvegarderRestaurer}>Sauvegarder / Restaurer</button>
         <button type="button" role="tab" class="tab" class:active={displayModule === 'paiement'} aria-selected={displayModule === 'paiement'} aria-label="Paiement" onclick={showPaiement}>Paiement</button>
@@ -103,6 +109,10 @@
         <ListeDocuments {user} onOpenFactureFromDevis={openFactureFromDevis} />
       {:else if displayModule === 'coffre-fort'}
         <CoffreFort {user} />
+      {:else if displayModule === 'achats'}
+        <Achats {user} />
+      {:else if displayModule === 'comptabilite'}
+        <Comptabilite {user} />
       {:else if displayModule === 'explorer-base'}
         <ExplorerBase {user} />
       {:else if displayModule === 'sauvegarder-restaurer'}

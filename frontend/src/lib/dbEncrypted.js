@@ -26,6 +26,14 @@ import {
   getAllFacturesRaw,
   deleteDevis as dbDeleteDevis,
   deleteFacture as dbDeleteFacture,
+  addAchat as dbAddAchat,
+  getAchat as dbGetAchat,
+  getAllAchats as dbGetAllAchats,
+  updateAchat as dbUpdateAchat,
+  deleteAchat as dbDeleteAchat,
+  putAchatRaw,
+  getAchatRaw,
+  getAllAchatsRaw,
   getClientDevisSlug,
   addDocument as dbAddDocument,
   putDocumentRaw,
@@ -317,6 +325,74 @@ export async function getNextFactureNumber(clientId, clients = [], userId = null
     if (!Number.isNaN(n) && n > max) max = n;
   }
   return prefix + String(max + 1).padStart(3, '0');
+}
+
+/**
+ * Achats : mêmes principes que devis/factures, chiffrés si la clé est présente.
+ */
+export async function addAchat(achat, userId = null) {
+  if (!_encryptionKey) return dbAddAchat(achat, userId);
+  const id = crypto.randomUUID?.() ?? achat.id ?? `achat-${Date.now()}`;
+  const record = plainClone({
+    id,
+    ...achat,
+    createdAt: new Date().toISOString(),
+    ...(userId != null && { userId })
+  });
+  const { payload, iv } = await encrypt(record, _encryptionKey);
+  const raw = { id, encrypted: true, payload, iv };
+  if (userId != null) raw.userId = userId;
+  await putAchatRaw(raw);
+  return record;
+}
+
+export async function getAchat(id, userId = null) {
+  if (!_encryptionKey) return dbGetAchat(id, userId);
+  const raw = await getAchatRaw(id);
+  if (!raw) return null;
+  if (userId != null && raw.userId != null && raw.userId !== userId) return null;
+  if (raw.encrypted) {
+    return decrypt({ payload: raw.payload, iv: raw.iv }, _encryptionKey);
+  }
+  return raw;
+}
+
+export async function getAllAchats(userId = null) {
+  if (!_encryptionKey) return dbGetAllAchats(userId);
+  const list = await getAllAchatsRaw(userId);
+  const out = await Promise.all(
+    list.map((raw) =>
+      raw.encrypted ? decrypt({ payload: raw.payload, iv: raw.iv }, _encryptionKey) : Promise.resolve(raw)
+    )
+  );
+  return out;
+}
+
+export async function updateAchat(achat, userId = null) {
+  if (!_encryptionKey) return dbUpdateAchat(achat, userId);
+  const raw = await getAchatRaw(achat.id);
+  if (!raw) throw new Error('Achat introuvable');
+  if (userId != null && raw.userId != null && raw.userId !== userId) {
+    throw new Error('Achat introuvable');
+  }
+  const existing = raw.encrypted
+    ? await decrypt({ payload: raw.payload, iv: raw.iv }, _encryptionKey)
+    : raw;
+  const record = plainClone({
+    ...existing,
+    ...achat,
+    id: existing.id,
+    createdAt: existing.createdAt
+  });
+  const { payload, iv } = await encrypt(record, _encryptionKey);
+  const putRaw = { id: record.id, encrypted: true, payload, iv };
+  if (raw.userId != null) putRaw.userId = raw.userId;
+  await putAchatRaw(putRaw);
+  return record;
+}
+
+export async function deleteAchat(id, userId = null) {
+  return dbDeleteAchat(id, userId);
 }
 
 /** Coffre-fort : ajoute un document (fichier chiffré). Retourne { record, fileHash } pour envoyer la preuve. */
