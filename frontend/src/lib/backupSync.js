@@ -20,6 +20,9 @@ import { getBackup, putBackup } from '$lib/backupApi.js';
  */
 export const syncResultStore = writable(/** @type {null | 'unchanged' | 'restored_empty' | 'restored_overwritten'} */ (null));
 
+/** True quand la sync post-unlock est terminee (safe d'afficher le menu). Faux pendant la sync. */
+export const syncReadyStore = writable(true);
+
 let _backupPassword = null;
 let _uploadTimeout = null;
 const UPLOAD_DEBOUNCE_MS = 2000;
@@ -62,44 +65,47 @@ export async function buildBundle(uid) {
  */
 export async function syncAfterUnlock(uid, password) {
   syncResultStore.set(null);
+  syncReadyStore.set(false);
   setBackupPassword(password);
   const bundle = await buildBundle(uid);
   const isEmpty = bundle.clients.length === 0 && bundle.devis.length === 0 && bundle.factures.length === 0;
 
-  if (isEmpty) {
-    const result = await getBackup(null);
-    if (result.status === 404) return { restored: false };
+  try {
+    if (isEmpty) {
+      const result = await getBackup(null);
+      if (result.status === 404) return { restored: false };
+      if (result.status === 200 && result.payload) {
+        const restoredBundle = await openArchive(result.payload, password);
+        await applyRestore(uid, restoredBundle);
+        await _putCurrentState(uid, password).catch(() => {});
+        syncResultStore.set('restored_empty');
+        return { restored: true };
+      }
+      return { restored: false };
+    }
+
+    const stateHash = await computeStateHash(bundle);
+    const result = await getBackup(stateHash);
+    if (result.status === 404) {
+      const archive = await createArchive(bundle, password);
+      await putBackup(JSON.stringify(archive), stateHash);
+      return { restored: false };
+    }
+    if (result.status === 200 && result.unchanged) {
+      syncResultStore.set('unchanged');
+      return { restored: false };
+    }
     if (result.status === 200 && result.payload) {
       const restoredBundle = await openArchive(result.payload, password);
       await applyRestore(uid, restoredBundle);
-      // Recalcule le hash depuis ce qui est réellement en base après restore (createdAt peut différer)
       await _putCurrentState(uid, password).catch(() => {});
-      syncResultStore.set('restored_empty');
+      syncResultStore.set('restored_overwritten');
       return { restored: true };
     }
     return { restored: false };
+  } finally {
+    syncReadyStore.set(true);
   }
-
-  const stateHash = await computeStateHash(bundle);
-  const result = await getBackup(stateHash);
-  if (result.status === 404) {
-    const archive = await createArchive(bundle, password);
-    await putBackup(JSON.stringify(archive), stateHash);
-    return { restored: false };
-  }
-  if (result.status === 200 && result.unchanged) {
-    syncResultStore.set('unchanged');
-    return { restored: false };
-  }
-  if (result.status === 200 && result.payload) {
-    const restoredBundle = await openArchive(result.payload, password);
-    await applyRestore(uid, restoredBundle);
-    // Recalcule le hash depuis ce qui est réellement en base après restore (createdAt peut différer)
-    await _putCurrentState(uid, password).catch(() => {});
-    syncResultStore.set('restored_overwritten');
-    return { restored: true };
-  }
-  return { restored: false };
 }
 
 /**

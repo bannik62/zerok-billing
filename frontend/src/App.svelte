@@ -15,7 +15,7 @@
   import { apiClient } from '$lib/apiClient.js';
   import { fetchCsrfToken } from '$lib/csrf.js';
   import { clearEncryptionKey, encryptionKeyLoadedStore } from '$lib/dbEncrypted.js';
-  import { clearBackupPassword, syncResultStore } from '$lib/backupSync.js';
+  import { clearBackupPassword, syncResultStore, syncReadyStore } from '$lib/backupSync.js';
   import { themeStore, toggleTheme } from '$lib/theme.js';
 
   let user = $state(null);
@@ -116,7 +116,9 @@
   {:else if page === 'signConfirm'}
     <SignConfirm token={tokenFromUrl} />
   {:else if page === 'menu'}
-    {#if $encryptionKeyLoadedStore}
+    {#if $encryptionKeyLoadedStore && !$syncReadyStore}
+      <p class="loading">Synchronisation avec le serveur témoin…</p>
+    {:else if $encryptionKeyLoadedStore}
       {#if $syncResultStore === 'unchanged'}
         <div class="sync-banner sync-banner-ok" role="status">
           <span>La base locale est à jour avec le serveur témoin.</span>
