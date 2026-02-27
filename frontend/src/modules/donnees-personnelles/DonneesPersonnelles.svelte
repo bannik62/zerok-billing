@@ -1,6 +1,7 @@
 <script>
   import { getSociete, saveSociete } from '$lib/db.js';
   import { createTextField, createUrlField } from '$lib/formField.js';
+  import { scheduleBackupUpload } from '$lib/backupSync.js';
 
   /**
    * Module Données personnelles – affichage + modification (IndexedDB).
@@ -87,6 +88,7 @@
       );
       societe = await getSociete(uid);
       editing = false;
+      scheduleBackupUpload(uid);
       message = { type: 'success', text: 'Données enregistrées.' };
     } catch (err) {
       message = { type: 'error', text: err?.message || 'Erreur lors de l’enregistrement.' };

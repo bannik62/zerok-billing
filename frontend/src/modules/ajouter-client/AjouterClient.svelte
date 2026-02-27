@@ -1,6 +1,7 @@
 <script>
   import { addClient, getAllClients, updateClient, deleteClient } from '$lib/db.js';
   import { createTextField, createTelField } from '$lib/formField.js';
+  import { scheduleBackupUpload } from '$lib/backupSync.js';
 
   /**
    * Module Ajouter client – formulaire, liste, modifier/supprimer, ouvrir Facture/Devis.
@@ -94,6 +95,7 @@
       villeField.reset('');
       siretField.reset('');
       await loadClients();
+      scheduleBackupUpload(uid);
       message = { type: 'success', text: 'Client enregistré.' };
     } catch (err) {
       message = { type: 'error', text: err?.message || 'Erreur lors de l’enregistrement.' };
@@ -141,6 +143,7 @@
       );
       await loadClients();
       editingClientId = null;
+      scheduleBackupUpload(uid);
       message = { type: 'success', text: 'Client modifié.' };
     } catch (err) {
       message = { type: 'error', text: err?.message || 'Erreur lors de la modification.' };
@@ -154,6 +157,7 @@
     try {
       await deleteClient(client.id, uid);
       await loadClients();
+      scheduleBackupUpload(uid);
       message = { type: 'success', text: 'Client supprimé.' };
     } catch (err) {
       message = { type: 'error', text: err?.message || 'Erreur lors de la suppression.' };

@@ -1,6 +1,7 @@
 <script>
   import { createPasswordField } from '$lib/formField.js';
   import { initEncryption, getAllDevis, clearEncryptionKey } from '$lib/dbEncrypted.js';
+  import { syncAfterUnlock } from '$lib/backupSync.js';
 
   let { user = null, onLogout = () => {} } = $props();
   const passwordField = createPasswordField('', { autocomplete: 'current-password' });
@@ -22,6 +23,9 @@
       const password = passwordField.value;
       await initEncryption(password, user?.id ?? null);
       await getAllDevis(user?.id ?? null);
+      if (user?.id) {
+        await syncAfterUnlock(user.id, password).catch(() => {});
+      }
     } catch {
       clearEncryptionKey();
       error = 'Mot de passe incorrect';
@@ -49,7 +53,7 @@
     />
     {#if error}<p class="error">{error}</p>{/if}
     <div class="actions">
-      <button type="submit" disabled={loading}>{loading ? 'Déverrouillage…' : 'Déverrouiller'}</button>
+      <button type="submit" disabled={loading}>{loading ? 'Déverrouillage et synchronisation avec le serveur témoin…' : 'Déverrouiller'}</button>
       <button type="button" class="btn-logout" disabled={loading} onclick={onLogout}>Déconnexion</button>
     </div>
   </form>

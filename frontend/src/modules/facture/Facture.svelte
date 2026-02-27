@@ -9,6 +9,7 @@
     getAllDevis
   } from '$lib/dbEncrypted.js';
   import { sendProof } from '$lib/proofs.js';
+  import { scheduleBackupUpload } from '$lib/backupSync.js';
   import FactureFormStep from './FactureFormStep.svelte';
   import DocumentLayout from '../document-layout/DocumentLayout.svelte';
   import { DEFAULT_LAYOUT_ID, LAYOUTS } from '$lib/documentLayouts.js';
@@ -201,6 +202,7 @@
         currentFacture = saved;
         await sendProof(currentFacture, 'facture').catch((err) => console.warn('Preuve non envoyée:', err));
       }
+      scheduleBackupUpload(uid);
     } catch (e) {
       console.error(e);
     } finally {

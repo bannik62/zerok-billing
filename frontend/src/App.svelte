@@ -15,6 +15,7 @@
   import { apiClient } from '$lib/apiClient.js';
   import { fetchCsrfToken } from '$lib/csrf.js';
   import { clearEncryptionKey, encryptionKeyLoadedStore } from '$lib/dbEncrypted.js';
+  import { clearBackupPassword, syncResultStore } from '$lib/backupSync.js';
   import { themeStore, toggleTheme } from '$lib/theme.js';
 
   let user = $state(null);
@@ -96,6 +97,7 @@
   function logout() {
     apiClient.post('/api/auth/logout').catch(() => {});
     clearEncryptionKey();
+    clearBackupPassword();
     user = null;
     page = 'auth';
     view = 'login';
@@ -115,6 +117,22 @@
     <SignConfirm token={tokenFromUrl} />
   {:else if page === 'menu'}
     {#if $encryptionKeyLoadedStore}
+      {#if $syncResultStore === 'unchanged'}
+        <div class="sync-banner sync-banner-ok" role="status">
+          <span>La base locale est à jour avec le serveur témoin.</span>
+          <button type="button" class="sync-banner-dismiss" onclick={() => syncResultStore.set(null)} aria-label="Fermer">Fermer</button>
+        </div>
+      {:else if $syncResultStore === 'restored_empty'}
+        <div class="sync-banner sync-banner-restored" role="status">
+          <span>La base de données a été récupérée depuis le serveur témoin.</span>
+          <button type="button" class="sync-banner-dismiss" onclick={() => syncResultStore.set(null)} aria-label="Fermer">Fermer</button>
+        </div>
+      {:else if $syncResultStore === 'restored_overwritten'}
+        <div class="sync-banner sync-banner-restored" role="status">
+          <span>La base locale a été reconstituée depuis le serveur témoin (données différentes).</span>
+          <button type="button" class="sync-banner-dismiss" onclick={() => syncResultStore.set(null)} aria-label="Fermer">Fermer</button>
+        </div>
+      {/if}
       <SessionTemoin content={Menu} {logout} onUnauthorized={() => { user = null; page = 'auth'; view = 'login'; }} />
     {:else}
       <Unlock user={user} onLogout={logout} />
@@ -231,5 +249,44 @@
   @media (max-width: 380px) {
     .temoin-bar { padding: 0.5rem 0.5rem; gap: 0.4rem; }
     .temoin-bar > :global(*) { min-width: 4rem; min-height: 2.25rem; }
+  }
+
+  .sync-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+    flex-wrap: wrap;
+  }
+  .sync-banner-ok {
+    background: var(--color-bg-muted);
+    color: var(--color-text);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .sync-banner-restored {
+    background: var(--color-primary);
+    color: white;
+  }
+  .sync-banner-dismiss {
+    flex-shrink: 0;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  .sync-banner-ok .sync-banner-dismiss {
+    background: var(--color-bg-elevated);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+  }
+  .sync-banner-restored .sync-banner-dismiss {
+    background: rgba(255, 255, 255, 0.25);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+  }
+  .sync-banner-dismiss:hover {
+    opacity: 0.9;
   }
 </style>

@@ -1,9 +1,10 @@
 <script>
   import { createPasswordField } from '$lib/formField.js';
-  import { openDB, clearLocalDataForUser } from '$lib/db.js';
   import { getAllClients, getSociete } from '$lib/db.js';
-  import { getAllDevis, getAllFactures, addDevis, addFacture, hasEncryptionKey } from '$lib/dbEncrypted.js';
+  import { getAllDevis, getAllFactures, hasEncryptionKey } from '$lib/dbEncrypted.js';
   import { createArchive, openArchive } from '$lib/archive.js';
+  import { applyRestore } from '$lib/restore.js';
+  import { uploadBackupNow, scheduleBackupUpload } from '$lib/backupSync.js';
   import { buildPdfDocumentHtml } from '$lib/pdfDocumentHtml.js';
   import html2pdf from 'html2pdf.js';
   import JSZip from 'jszip';
@@ -89,6 +90,11 @@
   let backupError = $state('');
   let backupSuccess = $state('');
   let backupLoading = $state(false);
+
+  /** Sauvegarde serveur (bouton « Sauvegarder maintenant ») */
+  let backupServerLoading = $state(false);
+  let backupServerError = $state('');
+  let backupServerSuccess = $state('');
 
   $effect(() => {
     keyLoaded = hasEncryptionKey();
@@ -202,6 +208,28 @@
     doImport();
   }
 
+  async function doSaveToServer() {
+    backupServerError = '';
+    backupServerSuccess = '';
+    if (!uid) {
+      backupServerError = 'Non connecté.';
+      return;
+    }
+    if (!keyLoaded) {
+      backupServerError = 'Déverrouillez d\'abord avec votre mot de passe.';
+      return;
+    }
+    backupServerLoading = true;
+    try {
+      await uploadBackupNow(uid);
+      backupServerSuccess = 'Sauvegarde serveur enregistrée.';
+    } catch (e) {
+      backupServerError = e?.message || 'Erreur lors de la sauvegarde serveur.';
+    } finally {
+      backupServerLoading = false;
+    }
+  }
+
   async function doExport() {
     exportError = '';
     exportSuccess = '';
@@ -291,32 +319,13 @@
     try {
       const content = await file.text();
       const bundle = await openArchive(content, importPwd.value);
-      const hasCoffre = bundle.clients.length > 0 || bundle.societe != null;
-      const hasDocuments = bundle.devis.length > 0 || bundle.factures.length > 0;
-      await clearLocalDataForUser(uid, { coffre: hasCoffre, documents: hasDocuments });
-      const db = await openDB();
-      if (hasCoffre) {
-        for (const c of bundle.clients) {
-          await db.clients.put(uid != null ? { ...c, userId: uid } : c);
-        }
-        if (bundle.societe && bundle.societe.id) {
-          const societeId = uid != null ? `societe-${uid}` : bundle.societe.id;
-          await db.societe.put({ ...bundle.societe, id: societeId, ...(uid != null && { userId: uid }) });
-        }
-      }
-      if (hasDocuments) {
-        for (const d of bundle.devis) {
-          await addDevis(d, uid);
-        }
-        for (const f of bundle.factures) {
-          await addFacture(f, uid);
-        }
-      }
+      await applyRestore(uid, bundle);
+      scheduleBackupUpload(uid);
       archiveRestoreFields.clearImportFile(fileInputEl);
       selectedFileName = '';
       const restored = [];
-      if (hasCoffre) restored.push('coffre fort');
-      if (hasDocuments) restored.push('documents');
+      if (bundle.clients?.length > 0 || bundle.societe != null) restored.push('coffre fort');
+      if (bundle.devis?.length > 0 || bundle.factures?.length > 0) restored.push('documents');
       importSuccess = `Restauration terminée (${restored.join(', ')}). Données réimportées et chiffrées avec la clé actuelle.`;
     } catch (e) {
       importError = e?.message || 'Erreur : archive invalide ou mot de passe incorrect.';
@@ -423,6 +432,16 @@
     </form>
   </section>
   </div>
+
+  <section class="block server-backup-block" style="margin-top: 1.5rem;">
+    <h3>Sauvegarde sur le serveur</h3>
+    <p class="hint-small">Une copie chiffrée de vos données est envoyée après chaque modification. Vous pouvez forcer une sauvegarde maintenant.</p>
+    {#if backupServerError}<p class="error">{backupServerError}</p>{/if}
+    {#if backupServerSuccess}<p class="success">{backupServerSuccess}</p>{/if}
+    <button type="button" class="form-button" disabled={backupServerLoading || !keyLoaded || !uid} onclick={doSaveToServer}>
+      {backupServerLoading ? 'Envoi…' : 'Sauvegarder maintenant'}
+    </button>
+  </section>
 
   {#if restoreModalOpen}
     <div class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="restore-modal-title">

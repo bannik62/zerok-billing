@@ -27,6 +27,7 @@
   import { apiClient } from '$lib/apiClient.js';
   import { buildPdfDocumentHtml } from '$lib/pdfDocumentHtml.js';
   import html2pdf from 'html2pdf.js';
+  import { scheduleBackupUpload } from '$lib/backupSync.js';
 
   const controlsFields = new ListeDocumentsControlsFields();
   const searchStore = controlsFields.searchStore;
@@ -288,6 +289,7 @@
       controlsFields.selectedDevisIds = new Set();
       devisList = await getAllDevis(user?.id ?? null);
       backendProofs = await getProofs();
+      scheduleBackupUpload(user?.id ?? null);
     } catch (e) {
       error = e?.message || 'Erreur lors de la suppression.';
     } finally {
@@ -321,6 +323,7 @@
       controlsFields.selectedFactureIds = new Set();
       facturesList = await getAllFactures(user?.id ?? null);
       backendProofs = await getProofs();
+      scheduleBackupUpload(user?.id ?? null);
     } catch (e) {
       error = e?.message || 'Erreur lors de la suppression.';
     } finally {
@@ -374,6 +377,7 @@
         if (signedIds.size > 0 && mounted) {
           devisList = devisList.map((doc) => (signedIds.has(doc.id) ? { ...doc, accepted: true } : doc));
           facturesList = facturesList.map((doc) => (signedIds.has(doc.id) ? { ...doc, accepted: true } : doc));
+          scheduleBackupUpload(uid);
         }
       } catch (_) {
         // ignore (non connecté ou route absente)

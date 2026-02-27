@@ -309,6 +309,48 @@ secureRouter.get('/invoices/payment-status', async (req, res, next) => {
   }
 });
 
+/**
+ * GET /api/backup — Récupère la sauvegarde (blob chiffré). Query hash= optionnel : si fourni et égal au stateHash stocké, renvoie { unchanged: true } sans blob.
+ */
+secureRouter.get('/backup', async (req, res, next) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Non authentifié' });
+    const clientHash = (req.query.hash ?? '').trim() || null;
+    const backup = await prisma.userBackup.findUnique({ where: { userId } });
+    if (!backup) return res.status(404).json({ error: 'Aucune sauvegarde' });
+    if (clientHash && backup.stateHash === clientHash) {
+      return res.json({ unchanged: true });
+    }
+    return res.json({ payload: backup.payload, stateHash: backup.stateHash });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * PUT /api/backup — Enregistre ou met à jour la sauvegarde (blob chiffré + hash d'état).
+ * Body : { payload: string, stateHash: string }
+ */
+secureRouter.put('/backup', async (req, res, next) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Non authentifié' });
+    const { payload, stateHash } = req.body ?? {};
+    if (typeof payload !== 'string' || typeof stateHash !== 'string' || !stateHash.trim()) {
+      return res.status(400).json({ error: 'payload et stateHash (string) requis' });
+    }
+    await prisma.userBackup.upsert({
+      where: { userId },
+      create: { userId, payload, stateHash: stateHash.trim() },
+      update: { payload, stateHash: stateHash.trim() }
+    });
+    return res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
 secureRouter.use((_req, _res, next) => {
   next(Object.assign(new Error('Not Found'), { status: 404 }));
 });

@@ -37,6 +37,20 @@ model User {
   documentProofs DocumentProof[]
   signRequests   SignRequest[]
   paymentConfigs PaymentConfig[]
+  userBackup     UserBackup?
+}
+
+// Sauvegarde zero-knowledge : blob chiffré côté client, serveur stocke tel quel.
+model UserBackup {
+  id        String   @id @default(cuid())
+  userId    String   @unique @map("user_id")
+  payload   String   @db.Text // JSON string de l'archive chiffrée
+  stateHash String   @map("state_hash")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_backup")
 }
 
 model SignRequest {
