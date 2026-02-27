@@ -1,7 +1,7 @@
 <script>
   /**
    * Encart réutilisable « Preuves (intégrité) » : liste d’items avec label, hash et statut
-   * (conforme / différent / en attente). Utilisé par ListeDocuments (devis/factures) et
+   * (conforme / différent / en attente). Utilisé par ListeDocuments (devis/factures), Achats et
    * CoffreFort (documents). Les données et labels sont préparés par le parent.
    */
   let {
@@ -29,7 +29,8 @@
   {:else}
     {@const devisItems = items.filter((i) => i.documentType === 'devis')}
     {@const factureItems = items.filter((i) => i.documentType === 'facture')}
-    {@const otherItems = items.filter((i) => i.documentType !== 'devis' && i.documentType !== 'facture')}
+    {@const achatItems = items.filter((i) => i.documentType === 'achat')}
+    {@const otherItems = items.filter((i) => i.documentType !== 'devis' && i.documentType !== 'facture' && i.documentType !== 'achat')}
     <div class="proofs-sections">
       {#if devisItems.length > 0}
         <section class="proofs-section" aria-label="Preuves devis">
@@ -67,6 +68,37 @@
           <h4 class="proofs-section-title">Factures</h4>
           <ul class="proofs-list">
             {#each factureItems as item (item.id)}
+              <li class="proof-item">
+                <span class="proof-label" title={item.id}>{item.label}</span>
+                <code class="proof-hash" title={item.hash}>{item.hash ? item.hash.slice(0, HASH_DISPLAY_LEN) + '…' : '—'}</code>
+                {#if verifiedLoading && verifiedMap[item.id] === undefined}
+                  <span class="proof-status proof-pending" title="Vérification…">—</span>
+                {:else if verifiedMap[item.id] === true}
+                  <span class="proof-status proof-ok" title="Hash local = hash backend">✓ conforme</span>
+                {:else}
+                  <span class="proof-status proof-diff" title="Hash local ≠ hash backend">✗ différent</span>
+                {/if}
+                {#if item.isOrphan && onDeleteFromServer}
+                  <button
+                    type="button"
+                    class="proof-delete-btn"
+                    title="Document supprimé en local — supprimer la preuve sur le serveur"
+                    disabled={deletingProofId === item.id}
+                    onclick={() => onDeleteFromServer(item.id)}
+                  >
+                    {deletingProofId === item.id ? '…' : 'Supprimer du serveur'}
+                  </button>
+                {/if}
+              </li>
+            {/each}
+          </ul>
+        </section>
+      {/if}
+      {#if achatItems.length > 0}
+        <section class="proofs-section" aria-label="Preuves achats">
+          <h4 class="proofs-section-title">Achats</h4>
+          <ul class="proofs-list">
+            {#each achatItems as item (item.id)}
               <li class="proof-item">
                 <span class="proof-label" title={item.id}>{item.label}</span>
                 <code class="proof-hash" title={item.hash}>{item.hash ? item.hash.slice(0, HASH_DISPLAY_LEN) + '…' : '—'}</code>

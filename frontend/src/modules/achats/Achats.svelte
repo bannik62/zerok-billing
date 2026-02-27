@@ -4,11 +4,14 @@
     addAchat as addAchatEncrypted,
     getAllAchats as getAllAchatsEncrypted,
     updateAchat as updateAchatEncrypted,
-    deleteAchat as deleteAchatEncrypted,
-    verifyPassword
+    deleteAchat as deleteAchatEncrypted
   } from '$lib/dbEncrypted.js';
+  import { scheduleBackupUpload } from '$lib/backupSync.js';
   import { defaultAchat, sanitizeAchat, computeMontants, isAchatValid } from '$lib/achats.js';
-  import PasswordConfirmModal from '$lib/PasswordConfirmModal.svelte';
+  import { hashAchat } from '$lib/crypto/index.js';
+  import { getProofs, verifyProofs, sendAchatProof, deleteProof } from '$lib/proofs.js';
+  import ProofsPanel from '$lib/ProofsPanel.svelte';
+  import AchatOcrZone from './AchatOcrZone.svelte';
 
   let { user = null } = $props();
 
@@ -106,36 +109,104 @@
   }
 
   const fields = new AchatFields();
+  const dateStore = fields.dateStore;
+  const fournisseurStore = fields.fournisseurStore;
+  const categorieStore = fields.categorieStore;
+  const descriptionStore = fields.descriptionStore;
+  const montantHTStore = fields.montantHTStore;
+  const tvaStore = fields.tvaStore;
+  const modePaiementStore = fields.modePaiementStore;
+  const numeroFactureStore = fields.numeroFactureStore;
   let achats = $state([]);
   let loading = $state(true);
   let error = $state('');
   let saving = $state(false);
+  let deletingId = $state(null);
   let editingId = $state(null);
-  let passwordModalOpen = $state(false);
-  let pendingAction = $state(null); // 'load' | 'save' | 'delete'
-  let pendingId = $state(null);
+  let ocrMessage = $state('');
+  let ocrDetails = $state(null); // { confidence, date, fournisseur, montantHT, tva, numeroFacture }
+  let backendProofs = $state([]);
+  let proofsError = $state('');
+  let verifiedMap = $state({});
+  let proofsLoading = $state(false);
 
-  async function ensureKeyAndRun(action, id = null) {
-    pendingAction = action;
-    pendingId = id;
-    passwordModalOpen = true;
+  function dedupeAchats(list) {
+    const map = new Map();
+    const withoutId = [];
+    let idx = 0;
+    for (const item of Array.isArray(list) ? list : []) {
+      const key = String(item?.id ?? '').trim();
+      if (!key) {
+        withoutId.push({ ...item, __uiKey: `achat-noid-${idx++}` });
+        continue;
+      }
+      map.set(key, { ...item, id: key, __uiKey: `achat-${key}` });
+    }
+    return [...map.values(), ...withoutId];
   }
 
-  async function onPasswordConfirm(pwd) {
-    const uid = user?.id ?? null;
-    const ok = await verifyPassword(pwd, uid);
-    if (!ok) return false;
-    passwordModalOpen = false;
-    if (pendingAction === 'load') {
-      await loadAchats();
-    } else if (pendingAction === 'save') {
-      await reallySave();
-    } else if (pendingAction === 'delete' && pendingId) {
-      await reallyDelete(pendingId);
+  const achatById = $derived(Object.fromEntries((achats || []).map((a) => [a.id, a])));
+  const proofItems = $derived.by(() => {
+    const achatIds = new Set((achats || []).map((a) => a.id));
+    // Dédoublonne par invoiceId pour éviter each_key_duplicate dans ProofsPanel.
+    const byId = new Map();
+    for (const p of backendProofs || []) {
+      if (!achatIds.has(p.invoiceId)) continue;
+      byId.set(p.invoiceId, p);
     }
-    pendingAction = null;
-    pendingId = null;
-    return true;
+    return [...byId.values()].map((p) => {
+      const a = achatById[p.invoiceId];
+      const numero = a?.numeroFacture || a?.id || p.invoiceId;
+      return {
+        id: p.invoiceId,
+        hash: p.invoiceHash || '',
+        label: `Achat ${numero}`,
+        isOrphan: false,
+        documentType: 'achat'
+      };
+    });
+  });
+
+  async function loadProofsAndVerify(achatsList) {
+    proofsError = '';
+    proofsLoading = true;
+    try {
+      let proofs = await getProofs();
+      const proofIds = new Set((proofs || []).map((p) => String(p?.invoiceId ?? '').trim()));
+      // Envoyer les preuves manquantes pour les achats existants (rattrapage)
+      const toSend = (achatsList || []).filter(
+        (a) => a?.id && !proofIds.has(String(a.id).trim())
+      );
+      if (toSend.length > 0) {
+        await Promise.allSettled(toSend.map((a) => sendAchatProof(a).catch(() => {})));
+        proofs = await getProofs();
+      }
+      backendProofs = proofs;
+      const rawChecks = await Promise.all(
+        (achatsList || []).map(async (a) => ({
+          invoiceId: String(a?.id ?? '').trim(),
+          invoiceHash: await hashAchat(a)
+        }))
+      );
+      const checks = rawChecks.filter(
+        (c) => c.invoiceId.length > 0 && typeof c.invoiceHash === 'string' && c.invoiceHash.length === 64
+      );
+      if (checks.length === 0) {
+        verifiedMap = {};
+        return;
+      }
+      const results = await verifyProofs(checks);
+      verifiedMap = Object.fromEntries(results.map((r) => [String(r.invoiceId), !!r.verified]));
+    } catch (e) {
+      backendProofs = [];
+      verifiedMap = {};
+      const status = e?.response?.status;
+      if (status === 401) proofsError = 'Non connecté';
+      else if (status === 404) proofsError = 'Route /api/proofs introuvable';
+      else proofsError = e?.message || 'Erreur chargement preuves achats';
+    } finally {
+      proofsLoading = false;
+    }
   }
 
   async function loadAchats() {
@@ -144,19 +215,20 @@
     error = '';
     try {
       const uid = user.id;
-      achats = await getAllAchatsEncrypted(uid);
+      achats = dedupeAchats(await getAllAchatsEncrypted(uid));
+      await loadProofsAndVerify(achats);
     } catch (e) {
       error = e?.message || 'Erreur lors du chargement des achats.';
       achats = [];
+      backendProofs = [];
+      verifiedMap = {};
     } finally {
       loading = false;
     }
   }
 
   $effect(() => {
-    if (user) {
-      ensureKeyAndRun('load');
-    }
+    if (user) loadAchats();
   });
 
   async function reallySave() {
@@ -170,14 +242,18 @@
     saving = true;
     error = '';
     try {
+      let saved = null;
       if (editingId) {
-        await updateAchatEncrypted({ ...achat, id: editingId }, uid);
+        saved = await updateAchatEncrypted({ ...achat, id: editingId }, uid);
       } else {
-        await addAchatEncrypted(achat, uid);
+        saved = await addAchatEncrypted(achat, uid);
       }
+      if (saved) await sendAchatProof(saved).catch(() => {});
       fields.reset();
       editingId = null;
-      achats = await getAllAchatsEncrypted(uid);
+      achats = dedupeAchats(await getAllAchatsEncrypted(uid));
+      await loadProofsAndVerify(achats);
+      scheduleBackupUpload(uid);
     } catch (e) {
       error = e?.message || 'Erreur lors de l’enregistrement.';
     } finally {
@@ -186,37 +262,96 @@
   }
 
   async function saveAchat() {
-    await ensureKeyAndRun('save');
+    await reallySave();
   }
 
   function editAchat(achat) {
     if (!achat) return;
     editingId = achat.id;
-    fields.date = achat.date;
-    fields.fournisseur = achat.fournisseur || '';
-    fields.categorie = achat.categorie || '';
-    fields.description = achat.description || '';
-    fields.montantHT = achat.montantHT ?? 0;
-    fields.tva = achat.tva ?? 20;
-    fields.modePaiement = achat.modePaiement || '';
-    fields.numeroFacture = achat.numeroFacture || '';
+    fields.dateStore.set(achat.date);
+    fields.fournisseurStore.set(achat.fournisseur || '');
+    fields.categorieStore.set(achat.categorie || '');
+    fields.descriptionStore.set(achat.description || '');
+    fields.montantHTStore.set(String(achat.montantHT ?? 0));
+    fields.tvaStore.set(String(achat.tva ?? 20));
+    fields.modePaiementStore.set(achat.modePaiement || '');
+    fields.numeroFactureStore.set(achat.numeroFacture || '');
   }
 
   async function reallyDelete(id) {
-    if (!user) return;
+    if (!user || !id) return;
     const uid = user.id;
+    deletingId = id;
+    error = '';
     try {
       await deleteAchatEncrypted(id, uid);
-      achats = await getAllAchatsEncrypted(uid);
+      await deleteProof(id).catch(() => {});
+      achats = dedupeAchats(await getAllAchatsEncrypted(uid));
+      await loadProofsAndVerify(achats);
+      scheduleBackupUpload(uid);
     } catch (e) {
       error = e?.message || 'Erreur lors de la suppression.';
+    } finally {
+      deletingId = null;
     }
   }
 
-  async function deleteAchat(id) {
-    if (!id) return;
+  function handleDelete(achat) {
+    const id = achat?.id ?? '';
+    if (!id) {
+      error = 'Impossible de supprimer : identifiant manquant.';
+      return;
+    }
     if (!confirm('Supprimer cet achat ?')) return;
-    await ensureKeyAndRun('delete', id);
+    reallyDelete(id);
+  }
+
+  function applyOcrResult(result) {
+    ocrMessage = '';
+    ocrDetails = null;
+    if (!result?.data) {
+      ocrMessage = 'OCR terminé : aucun résultat exploitable.';
+      return;
+    }
+    const d = result.data;
+    const confidence = typeof result.confidence === 'number' ? result.confidence : 0;
+
+    const hasDate = !!d.date;
+    const hasFournisseur = !!d.fournisseur;
+    const hasMontant = d.montantHT != null || d.montantTTC != null;
+    const hasNumero = !!d.numeroFacture;
+    let appliedMontantHT = null;
+
+    if (d.date) fields.dateStore.set(d.date);
+    if (d.fournisseur != null) fields.fournisseurStore.set(d.fournisseur);
+    if (d.montantHT != null) {
+      fields.montantHTStore.set(String(d.montantHT));
+      appliedMontantHT = d.montantHT;
+    }
+    if (d.tva != null) fields.tvaStore.set(String(d.tva));
+    if (d.montantTTC != null && d.montantHT == null) {
+      const htFromTtc = d.montantTTC / (1 + (d.tva ?? 20) / 100);
+      fields.montantHTStore.set(String(htFromTtc));
+      appliedMontantHT = htFromTtc;
+    }
+    if (d.numeroFacture != null) fields.numeroFactureStore.set(d.numeroFacture);
+
+    const hasAny = hasDate || hasFournisseur || hasMontant || hasNumero;
+    if (!hasAny) {
+      ocrMessage = `OCR terminé (${confidence} %) : aucun champ fiable détecté.`;
+    } else if (confidence < 80) {
+      ocrMessage = `OCR terminé (${confidence} %) : champs pré-remplis mais à vérifier.`;
+    } else {
+      ocrMessage = `OCR terminé (${confidence} %) : champs pré-remplis.`;
+    }
+    ocrDetails = {
+      confidence,
+      date: hasDate ? d.date : '',
+      fournisseur: hasFournisseur ? d.fournisseur : '',
+      montantHT: hasMontant ? appliedMontantHT : null,
+      tva: d.tva ?? null,
+      numeroFacture: hasNumero ? d.numeroFacture : ''
+    };
   }
 </script>
 
@@ -230,6 +365,27 @@
     <p class="achats-msg achats-msg-error">Session requise.</p>
   {:else}
     <div class="achats-layout">
+      <AchatOcrZone
+        onResult={applyOcrResult}
+        onError={(msg) => { error = msg; ocrMessage = ''; ocrDetails = null; }}
+      />
+      {#if ocrMessage}
+        <p
+          class="achats-msg {ocrDetails && ocrDetails.confidence < 80 ? 'achats-msg-warning' : ''}"
+          role="status"
+        >
+          {ocrMessage}
+          {#if ocrDetails}
+            <span class="achats-msg-small">
+              [Date: {ocrDetails.date || '—'}
+              · Fournisseur: {ocrDetails.fournisseur || '—'}
+              · Montant HT: {ocrDetails.montantHT != null ? Number(ocrDetails.montantHT).toFixed(2) + ' €' : '—'}
+              · TVA: {ocrDetails.tva != null ? ocrDetails.tva + ' %' : '—'}
+              · N°: {ocrDetails.numeroFacture || '—'}]
+            </span>
+          {/if}
+        </p>
+      {/if}
       <form class="achats-form" onsubmit={(e) => { e.preventDefault(); saveAchat(); }}>
         <div class="achats-form-row">
           <div class="achats-field">
@@ -237,8 +393,7 @@
             <input
               id="achat-date"
               type="date"
-              value={fields.date}
-              oninput={(e) => (fields.date = e.currentTarget.value)}
+              bind:value={$dateStore}
             />
           </div>
           <div class="achats-field">
@@ -246,8 +401,7 @@
             <input
               id="achat-fournisseur"
               type="text"
-              value={fields.fournisseur}
-              oninput={(e) => (fields.fournisseur = e.currentTarget.value)}
+              bind:value={$fournisseurStore}
             />
           </div>
           <div class="achats-field">
@@ -255,8 +409,7 @@
             <input
               id="achat-categorie"
               type="text"
-              value={fields.categorie}
-              oninput={(e) => (fields.categorie = e.currentTarget.value)}
+              bind:value={$categorieStore}
               placeholder="repas, transport, logiciel…"
             />
           </div>
@@ -270,16 +423,14 @@
               type="number"
               step="0.01"
               min="0"
-              value={fields.montantHT}
-              oninput={(e) => (fields.montantHT = e.currentTarget.value)}
+              bind:value={$montantHTStore}
             />
           </div>
           <div class="achats-field">
             <label for="achat-tva">TVA (%)</label>
             <select
               id="achat-tva"
-              value={fields.tva}
-              onchange={(e) => (fields.tva = e.currentTarget.value)}
+              bind:value={$tvaStore}
             >
               <option value="0">0 % (TVA non applicable ou exonéré)</option>
               <option value="5.5">5,5 % (taux réduit)</option>
@@ -295,8 +446,7 @@
             <input
               id="achat-mode"
               type="text"
-              value={fields.modePaiement}
-              oninput={(e) => (fields.modePaiement = e.currentTarget.value)}
+              bind:value={$modePaiementStore}
               placeholder="CB, virement, chèque…"
             />
           </div>
@@ -305,8 +455,7 @@
             <input
               id="achat-numero"
               type="text"
-              value={fields.numeroFacture}
-              oninput={(e) => (fields.numeroFacture = e.currentTarget.value)}
+              bind:value={$numeroFactureStore}
             />
           </div>
         </div>
@@ -316,8 +465,7 @@
           <input
             id="achat-description"
             type="text"
-            value={fields.description}
-            oninput={(e) => (fields.description = e.currentTarget.value)}
+            bind:value={$descriptionStore}
             placeholder="Détails de l’achat"
           />
         </div>
@@ -361,7 +509,7 @@
               </tr>
             </thead>
             <tbody>
-              {#each achats.slice().sort((a, b) => (a.date < b.date ? 1 : -1)) as achat (achat.id)}
+              {#each achats.slice().sort((a, b) => (a.date < b.date ? 1 : -1)) as achat, i (achat.__uiKey ?? `${String(achat?.id ?? '').trim() || 'achat'}-${i}`)}
                 <tr>
                   <td>{achat.date}</td>
                   <td>{achat.fournisseur}</td>
@@ -370,7 +518,14 @@
                   <td>{achat.modePaiement}</td>
                   <td class="achats-actions-cell">
                     <button type="button" class="achats-link" onclick={() => editAchat(achat)}>Modifier</button>
-                    <button type="button" class="achats-link-danger" onclick={() => deleteAchat(achat.id)}>Supprimer</button>
+                    <button
+                      type="button"
+                      class="achats-link-danger"
+                      disabled={deletingId === achat?.id}
+                      onclick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(achat); }}
+                    >
+                      {deletingId === achat?.id ? '…' : 'Supprimer'}
+                    </button>
                   </td>
                 </tr>
               {/each}
@@ -378,18 +533,18 @@
           </table>
         {/if}
       </section>
+      <ProofsPanel
+        title="Preuves (intégrité achats)"
+        hint="Hash des achats enregistrés côté serveur. Comparaison avec le hash local."
+        error={proofsError}
+        items={proofItems}
+        verifiedMap={verifiedMap}
+        verifiedLoading={proofsLoading}
+        ariaLabel="Preuves achats — comparaison hash local / backend"
+      />
     </div>
   {/if}
 </section>
-
-<PasswordConfirmModal
-  open={passwordModalOpen}
-  title="Mot de passe requis"
-  message="Entrez votre mot de passe pour continuer."
-  submitLabel="Confirmer"
-  onConfirm={onPasswordConfirm}
-  onCancel={() => { passwordModalOpen = false; pendingAction = null; pendingId = null; }}
-/>
 
 <style>
   .achats-module {
@@ -508,6 +663,10 @@
   .achats-link-danger {
     color: var(--color-error);
   }
+  .achats-link-danger:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
   .achats-msg {
     margin: 0.25rem 0 0;
     font-size: 0.85rem;
@@ -515,6 +674,14 @@
   }
   .achats-msg-error {
     color: var(--color-error);
+  }
+  .achats-msg-warning {
+    color: var(--color-warning, #b45309);
+  }
+  .achats-msg-small {
+    margin-left: 0.5rem;
+    font-size: 0.8rem;
+    opacity: 0.85;
   }
 </style>
 

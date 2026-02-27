@@ -14,7 +14,9 @@ export { encrypt, decrypt } from './aesGcm.js';
 
 export {
   canonicalDocumentForHash,
-  hashDocument
+  hashDocument,
+  canonicalAchatForHash,
+  hashAchat
 } from './documentHash.js';
 
 export { hashFile, encryptFile, decryptFile } from './fileEncryption.js';

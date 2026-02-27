@@ -1,20 +1,22 @@
 /**
- * Logique metier de restauration d'un bundle (clients, societe, devis, factures) en local.
+ * Logique metier de restauration d'un bundle (clients, societe, devis, factures, achats) en local.
  * Partagee entre import manuel (fichier) et restauration depuis la sauvegarde serveur.
  */
 
 import { openDB, clearLocalDataForUser } from '$lib/db.js';
-import { addDevis, addFacture } from '$lib/dbEncrypted.js';
+import { addDevis, addFacture, addAchat } from '$lib/dbEncrypted.js';
 
 /**
  * Applique un bundle restaure en base locale.
  * @param {string|number|null} uid - Id utilisateur (null = legacy)
- * @param {Object} bundle - { devis?, factures?, clients?, societe? } (format normalise openArchive)
+ * @param {Object} bundle - { devis?, factures?, achats?, includesAchats?, clients?, societe? } (format normalise openArchive)
  */
 export async function applyRestore(uid, bundle) {
   const hasCoffre = (Array.isArray(bundle.clients) && bundle.clients.length > 0) || (bundle.societe != null && typeof bundle.societe === 'object');
   const hasDocuments = (Array.isArray(bundle.devis) && bundle.devis.length > 0) || (Array.isArray(bundle.factures) && bundle.factures.length > 0);
-  await clearLocalDataForUser(uid, { coffre: hasCoffre, documents: hasDocuments });
+  const hasAchats = bundle?.includesAchats === true
+    || (Array.isArray(bundle.achats) && bundle.achats.length > 0);
+  await clearLocalDataForUser(uid, { coffre: hasCoffre, documents: hasDocuments, achats: hasAchats });
   const db = await openDB();
   if (hasCoffre) {
     for (const c of bundle.clients || []) {
@@ -31,6 +33,11 @@ export async function applyRestore(uid, bundle) {
     }
     for (const f of bundle.factures || []) {
       await addFacture(f, uid);
+    }
+  }
+  if (hasAchats) {
+    for (const a of bundle.achats || []) {
+      await addAchat(a, uid);
     }
   }
 }

@@ -469,9 +469,10 @@ export async function deleteAchat(id, userId = null) {
 
 /**
  * Options pour clearLocalDataForUser : quelles données effacer avant restauration.
- * @typedef {{ coffre?: boolean, documents?: boolean }} ClearLocalDataOptions
+ * @typedef {{ coffre?: boolean, documents?: boolean, achats?: boolean }} ClearLocalDataOptions
  * - coffre: clients, société (défaut true si non fourni)
  * - documents: devis et factures (défaut true si non fourni)
+ * - achats: achats/factures fournisseur (défaut: suit `documents` si absent)
  */
 
 /**
@@ -483,6 +484,7 @@ export async function deleteAchat(id, userId = null) {
 export async function clearLocalDataForUser(userId, options = {}) {
   const clearCoffre = options.coffre !== false;
   const clearDocuments = options.documents !== false;
+  const clearAchats = options.achats != null ? options.achats !== false : clearDocuments;
 
   const match = (r) =>
     userId != null ? r.userId === userId : (r.userId == null || r.userId === '');
@@ -507,6 +509,9 @@ export async function clearLocalDataForUser(userId, options = {}) {
     const factures = await db[STORE_FACTURES].toArray();
     const factureIds = factures.filter(match).map((r) => r.id);
     if (factureIds.length > 0) await db[STORE_FACTURES].bulkDelete(factureIds);
+  }
+
+  if (clearAchats) {
     const achats = await db[STORE_ACHATS].toArray();
     const achatIds = achats.filter(match).map((r) => r.id);
     if (achatIds.length > 0) await db[STORE_ACHATS].bulkDelete(achatIds);

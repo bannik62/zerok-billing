@@ -5,7 +5,7 @@
 
 import { writable } from 'svelte/store';
 import { getAllClients, getSociete } from '$lib/db.js';
-import { getAllDevis, getAllFactures } from '$lib/dbEncrypted.js';
+import { getAllDevis, getAllFactures, getAllAchats } from '$lib/dbEncrypted.js';
 import { createArchive, openArchive } from '$lib/archive.js';
 import { applyRestore } from '$lib/restore.js';
 import { computeStateHash } from '$lib/backupStateHash.js';
@@ -40,20 +40,22 @@ export function clearBackupPassword() {
 }
 
 /**
- * Construit le bundle local (coffre + documents) pour l'utilisateur.
+ * Construit le bundle local (coffre + documents + achats) pour l'utilisateur.
  */
 export async function buildBundle(uid) {
-  const [clients, societe, devis, factures] = await Promise.all([
+  const [clients, societe, devis, factures, achats] = await Promise.all([
     getAllClients(uid),
     getSociete(uid),
     getAllDevis(uid),
-    getAllFactures(uid)
+    getAllFactures(uid),
+    getAllAchats(uid)
   ]);
   return {
     clients: clients ?? [],
     societe: societe ? { id: 'societe', ...societe } : null,
     devis: devis ?? [],
-    factures: factures ?? []
+    factures: factures ?? [],
+    achats: achats ?? []
   };
 }
 
@@ -68,7 +70,10 @@ export async function syncAfterUnlock(uid, password) {
   syncReadyStore.set(false);
   setBackupPassword(password);
   const bundle = await buildBundle(uid);
-  const isEmpty = bundle.clients.length === 0 && bundle.devis.length === 0 && bundle.factures.length === 0;
+  const isEmpty = bundle.clients.length === 0
+    && bundle.devis.length === 0
+    && bundle.factures.length === 0
+    && bundle.achats.length === 0;
 
   try {
     if (isEmpty) {
@@ -121,7 +126,7 @@ async function _putCurrentState(uid, password) {
 
 /**
  * Declenche un PUT /api/backup en arriere-plan (debounce). No-op si mot de passe non defini.
- * A appeler apres chaque modification (devis, facture, coffre).
+ * A appeler apres chaque modification (devis, facture, achats, coffre).
  */
 export function scheduleBackupUpload(uid) {
   if (_backupPassword == null || uid == null) return;

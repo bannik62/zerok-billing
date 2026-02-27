@@ -3,7 +3,7 @@
  * Hash calculé côté client via Web Crypto API (SHA-256, non obsolète).
  */
 
-import { hashDocument } from '$lib/crypto/index.js';
+import { hashDocument, hashAchat } from '$lib/crypto/index.js';
 import { apiClient } from '$lib/apiClient.js';
 
 /**
@@ -18,6 +18,23 @@ export async function sendProof(document, documentType) {
   const invoiceHash = await hashDocument(document, documentType);
   await apiClient.post('/api/proofs', {
     invoiceId: document.id,
+    invoiceHash,
+    signature: invoiceHash
+  });
+}
+
+/**
+ * Calcule le hash d'un achat et envoie la preuve au serveur (même endpoint /api/proofs).
+ * @param {Object} achat
+ * @returns {Promise<void>}
+ */
+export async function sendAchatProof(achat) {
+  if (!achat?.id) return;
+  const invoiceId = String(achat.id).trim();
+  if (!invoiceId) return;
+  const invoiceHash = await hashAchat(achat);
+  await apiClient.post('/api/proofs', {
+    invoiceId,
     invoiceHash,
     signature: invoiceHash
   });

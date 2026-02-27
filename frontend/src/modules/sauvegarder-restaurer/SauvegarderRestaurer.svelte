@@ -1,7 +1,7 @@
 <script>
   import { createPasswordField } from '$lib/formField.js';
   import { getAllClients, getSociete } from '$lib/db.js';
-  import { getAllDevis, getAllFactures, hasEncryptionKey } from '$lib/dbEncrypted.js';
+  import { getAllDevis, getAllFactures, getAllAchats, hasEncryptionKey } from '$lib/dbEncrypted.js';
   import { createArchive, openArchive } from '$lib/archive.js';
   import { applyRestore } from '$lib/restore.js';
   import { uploadBackupNow, scheduleBackupUpload } from '$lib/backupSync.js';
@@ -84,6 +84,8 @@
   let exportCoffre = $state(true);
   /** Inclure documents (devis, factures) dans l'export */
   let exportDocuments = $state(true);
+  /** Inclure les achats dans l'archive exportée (radio Oui/Non) */
+  let exportAchats = $state(true);
 
   /** Modale au clic sur Restaurer : choix entre régénérer la BDD (destructif) ou télécharger d'abord une sauvegarde */
   let restoreModalOpen = $state(false);
@@ -268,6 +270,9 @@
         ]);
         bundle.devis = devis;
         bundle.factures = factures;
+        if (exportAchats) {
+          bundle.achats = await getAllAchats(uid);
+        }
       }
       const archive = await createArchive(bundle, exportPwd.value);
       const blob = new Blob([JSON.stringify(archive)], { type: 'application/json' });
@@ -282,7 +287,9 @@
       }
       const parts = [];
       if (exportCoffre) parts.push('coffre fort');
-      if (exportDocuments) parts.push('documents');
+      if (exportDocuments) {
+        parts.push(exportAchats ? 'documents + achats' : 'documents (sans achats)');
+      }
       exportSuccess = `Archive téléchargée (${parts.join(', ')}). Pour l'ouvrir ailleurs, utilisez « Restaurer » et le même mot de passe.`;
     } catch (e) {
       exportError = e?.message || 'Erreur lors de la création de l\'archive.';
@@ -312,7 +319,7 @@
       return;
     }
     if (!keyLoaded) {
-      importError = 'Déverrouillez d\'abord avec votre mot de passe pour restaurer les devis/factures.';
+      importError = 'Déverrouillez d\'abord avec votre mot de passe pour restaurer les devis/factures/achats.';
       return;
     }
     importLoading = true;
@@ -325,7 +332,7 @@
       selectedFileName = '';
       const restored = [];
       if (bundle.clients?.length > 0 || bundle.societe != null) restored.push('coffre fort');
-      if (bundle.devis?.length > 0 || bundle.factures?.length > 0) restored.push('documents');
+      if (bundle.devis?.length > 0 || bundle.factures?.length > 0 || bundle.achats?.length > 0) restored.push('documents');
       importSuccess = `Restauration terminée (${restored.join(', ')}). Données réimportées et chiffrées avec la clé actuelle.`;
     } catch (e) {
       importError = e?.message || 'Erreur : archive invalide ou mot de passe incorrect.';
@@ -338,12 +345,13 @@
 <div class="sauvegarder-restaurer page">
   <h2>Sauvegarder / Restaurer</h2>
   <p class="hint">
-    Créez une archive chiffrée : choisissez d'inclure le coffre fort (clients, société, profils), les documents (devis et factures), ou les deux.
+    Créez une archive chiffrée : choisissez d'inclure le coffre fort (clients, société, profils), les documents (devis/factures),
+    puis indiquez si vous voulez aussi inclure les achats.
     L'extraction nécessite le mot de passe choisi à l'export.
   </p>
 
   {#if !keyLoaded}
-    <p class="warning">Déverrouillez d'abord avec votre mot de passe (écran « Déverrouiller » après connexion) pour exporter ou restaurer les devis et factures.</p>
+    <p class="warning">Déverrouillez d'abord avec votre mot de passe (écran « Déverrouiller » après connexion) pour exporter ou restaurer les devis, factures et achats.</p>
   {/if}
 
   <div class="blocks-row">
@@ -359,6 +367,29 @@
         <label class="checkbox-label">
           <input type="checkbox" bind:checked={exportDocuments} disabled={exportLoading} />
           Documents (devis et factures)
+        </label>
+      </div>
+      <div class="radio-group">
+        <p class="label-like">Inclure les achats dans l'archive</p>
+        <label class="checkbox-label">
+          <input
+            type="radio"
+            name="export-achats"
+            checked={exportAchats}
+            onchange={() => (exportAchats = true)}
+            disabled={exportLoading || !exportDocuments}
+          />
+          Oui
+        </label>
+        <label class="checkbox-label">
+          <input
+            type="radio"
+            name="export-achats"
+            checked={!exportAchats}
+            onchange={() => (exportAchats = false)}
+            disabled={exportLoading || !exportDocuments}
+          />
+          Non
         </label>
       </div>
       <label for="export-pwd">Mot de passe pour protéger l'archive</label>

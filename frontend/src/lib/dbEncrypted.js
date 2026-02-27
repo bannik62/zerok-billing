@@ -332,10 +332,10 @@ export async function getNextFactureNumber(clientId, clients = [], userId = null
  */
 export async function addAchat(achat, userId = null) {
   if (!_encryptionKey) return dbAddAchat(achat, userId);
-  const id = crypto.randomUUID?.() ?? achat.id ?? `achat-${Date.now()}`;
+  const id = (achat?.id && String(achat.id).trim()) || crypto.randomUUID?.() || `achat-${Date.now()}`;
   const record = plainClone({
-    id,
     ...achat,
+    id,
     createdAt: new Date().toISOString(),
     ...(userId != null && { userId })
   });
@@ -361,9 +361,12 @@ export async function getAllAchats(userId = null) {
   if (!_encryptionKey) return dbGetAllAchats(userId);
   const list = await getAllAchatsRaw(userId);
   const out = await Promise.all(
-    list.map((raw) =>
-      raw.encrypted ? decrypt({ payload: raw.payload, iv: raw.iv }, _encryptionKey) : Promise.resolve(raw)
-    )
+    list.map(async (raw) => {
+      const dec = raw.encrypted
+        ? await decrypt({ payload: raw.payload, iv: raw.iv }, _encryptionKey)
+        : raw;
+      return { ...dec, id: dec?.id ?? raw.id };
+    })
   );
   return out;
 }

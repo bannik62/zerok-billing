@@ -1,5 +1,6 @@
 /**
- * Archive chiffrée : export/import de données (coffre fort : clients, société, profils ; documents : devis, factures).
+ * Archive chiffrée : export/import de données
+ * (coffre : clients, société ; documents : devis, factures ; achats : factures fournisseur).
  * L'archive peut contenir tout ou partie de ces données. Protégée par mot de passe.
  */
 
@@ -11,7 +12,7 @@ const ARCHIVE_VERSION = 1;
 /**
  * Crée une archive chiffrée à partir du bundle et du mot de passe.
  * Le bundle peut être partiel (ex. seulement coffre ou seulement documents).
- * @param {Object} bundle - { devis?, factures?, clients?, societe? } (layoutProfiles ignoré, plus exporté)
+ * @param {Object} bundle - { devis?, factures?, achats?, clients?, societe? }
  * @param {string} password - Mot de passe pour protéger l'archive
  * @returns {Promise<Object>} - { v, salt, iv, payload } prêt à être JSON.stringify + téléchargé
  */
@@ -29,10 +30,12 @@ export async function createArchive(bundle, password) {
 
 /**
  * Ouvre une archive chiffrée avec le mot de passe.
- * Accepte les archives partielles (coffre seul, documents seuls, ou les deux).
+ * Accepte les archives partielles (coffre seul, documents seuls, achats seuls, ou combinaison).
  * @param {string} fileContent - Contenu du fichier (JSON string)
  * @param {string} password - Mot de passe utilisé à l'export
- * @returns {Promise<Object>} - bundle normalisé { devis, factures, clients, societe, layoutProfiles } (layoutProfiles lu pour compatibilité anciennes archives, non restauré)
+ * @returns {Promise<Object>} - bundle normalisé
+ * { devis, factures, achats, clients, societe, layoutProfiles, includesAchats }
+ * (`includesAchats` indique si la clé achats était présente dans l'archive source)
  */
 export async function openArchive(fileContent, password) {
   const raw = JSON.parse(fileContent);
@@ -47,12 +50,16 @@ export async function openArchive(fileContent, password) {
     Array.isArray(bundle.clients) ||
     (bundle.societe != null && typeof bundle.societe === 'object');
   const hasDocuments = Array.isArray(bundle.devis) || Array.isArray(bundle.factures);
-  if (!hasCoffre && !hasDocuments) {
+  const includesAchats = Object.prototype.hasOwnProperty.call(bundle, 'achats');
+  const hasAchats = Array.isArray(bundle.achats);
+  if (!hasCoffre && !hasDocuments && !hasAchats) {
     throw new Error('Archive invalide ou mot de passe incorrect');
   }
   return {
     devis: Array.isArray(bundle.devis) ? bundle.devis : [],
     factures: Array.isArray(bundle.factures) ? bundle.factures : [],
+    achats: Array.isArray(bundle.achats) ? bundle.achats : [],
+    includesAchats,
     clients: Array.isArray(bundle.clients) ? bundle.clients : [],
     societe: bundle.societe != null && typeof bundle.societe === 'object' ? bundle.societe : null,
     layoutProfiles: Array.isArray(bundle.layoutProfiles) ? bundle.layoutProfiles : []

@@ -1,5 +1,5 @@
 /**
- * Hash canonique des documents (devis/facture) pour preuve d'intégrité.
+ * Hash canonique des documents (devis/facture/achat) pour preuve d'intégrité.
  * Utilise SHA-256 (Web Crypto API), algorithme recommandé pour l'intégrité (non obsolète).
  * Seules les infos métier sont incluses, pas les positions de blocs (layout).
  */
@@ -44,6 +44,39 @@ export function canonicalDocumentForHash(document, documentType) {
  */
 export async function hashDocument(document, documentType) {
   const canonical = canonicalDocumentForHash(document, documentType);
+  const enc = new TextEncoder();
+  const bytes = await crypto.subtle.digest('SHA-256', enc.encode(canonical));
+  return arrayBufferToHex(bytes);
+}
+
+/**
+ * Construit la représentation canonique d'un achat pour hash d'intégrité.
+ * Inclut les champs métier utilisés dans le module Achats.
+ */
+export function canonicalAchatForHash(achat) {
+  if (!achat) return '';
+  const canonical = {
+    type: 'achat',
+    id: achat.id ?? '',
+    date: achat.date ?? '',
+    fournisseur: achat.fournisseur ?? '',
+    categorie: achat.categorie ?? '',
+    description: achat.description ?? '',
+    montantHT: achat.montantHT ?? 0,
+    tva: achat.tva ?? 0,
+    montantTTC: achat.montantTTC ?? 0,
+    modePaiement: achat.modePaiement ?? '',
+    numeroFacture: achat.numeroFacture ?? '',
+    documentId: achat.documentId ?? null
+  };
+  return JSON.stringify(sortKeys(canonical));
+}
+
+/**
+ * Hash SHA-256 (hex) d'un achat canonique.
+ */
+export async function hashAchat(achat) {
+  const canonical = canonicalAchatForHash(achat);
   const enc = new TextEncoder();
   const bytes = await crypto.subtle.digest('SHA-256', enc.encode(canonical));
   return arrayBufferToHex(bytes);
