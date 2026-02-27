@@ -1,42 +1,50 @@
-# Audit Technique & Recommandations pour l'Implémentation
+# Audit Technique – État des implémentations
 
-## 1. Sécurité & Stabilité Backend (Priorité Haute)
+> Dernière mise à jour : 2026-02-27
 
-### Problème : Gestion des Sessions en RAM
-Actuellement, `express-session` utilise le `MemoryStore` par défaut.
-- **Risque** : Fuites de mémoire en prod, déconnexion de tous les utilisateurs à chaque redémarrage du serveur.
-- **Solution** : Passer à un store persistant (PostgreSQL via `connect-pg-simple` ou Redis).
-- **Code concerné** : `backend/server.js`.
+---
 
-### Problème : Validation des Entrées Auth
-La validation dans `backend/routes/auth.js` est trop basique.
-- **Risque** : Injection de données trop longues (DoS DB) ou mal formées.
-- **Solution** : Ajouter des vérifications strictes :
-  - Regex Email.
-  - Limites de caractères (ex: pwd max 128 chars, nom/prénom max 100).
-- **Code concerné** : `backend/routes/auth.js`.
+## 1. Sécurité & Stabilité Backend
 
-## 2. Implémentation Zero-Knowledge (Cœur du Projet - Manquant)
+### Sessions persistantes ✅ Résolu
+`connect-pg-simple` est en place : les sessions sont stockées dans la table `session` (PostgreSQL). Pas de perte de sessions au redémarrage du backend.
 
-### Architecture Actuelle
-Les données sensibles (devis, factures) sont stockées dans `IndexedDB` via `frontend/src/lib/db.js`.
-- **État actuel** : Stockage en CLAIR (`plainClone`). Aucune protection si le poste est compromis.
+### Validation des entrées Auth ✅ Résolu
+Les routes `auth.js` et `recovery.js` utilisent des validators Joi (`validators/authValidator.js`) avec regex email, limites de longueur (pwd max 128, nom/prénom max 100, etc.) et sanitisation des entrées.
 
-### Implémentation Requise (Client-Side)
-1. **Génération de Clé** : À la connexion (`login`), dériver une clé de chiffrement (AES-GCM) depuis le mot de passe utilisateur ou la recevoir du serveur (si chiffrée par une clé maître).
-2. **Chiffrement** : Modifier `addDevis`, `addFacture` dans `db.js`.
-   - Avant d'écrire dans IndexedDB : `crypto.subtle.encrypt(AES-GCM, key, data)`.
-3. **Déchiffrement** : Modifier `getDevis`, `getFacture`, `getAllDevis`.
-   - À la lecture : `crypto.subtle.decrypt(...)`.
-4. **Preuves (Hash)** :
-   - Calculer le SHA-256 du document.
-   - Envoyer ce hash au serveur pour preuve d'intégrité (Timestamping).
+---
 
-### Implémentation Requise (Server-Side)
-- **Endpoint Preuves** : Créer les routes dans `backend/routes/secure.js` pour recevoir et stocker les hashs (`invoiceHash`) dans la table `Proof` (déjà définie dans `schema.prisma`).
+## 2. Zero-Knowledge ✅ Implémenté
+
+### Chiffrement local (AES-GCM)
+`frontend/src/lib/dbEncrypted.js` chiffre tous les devis et factures avec AES-GCM avant stockage dans IndexedDB. La clé de chiffrement est dérivée localement depuis le mot de passe (PBKDF2 + sel stocké en `meta`), jamais envoyée au serveur.
+
+### Preuves d'intégrité (SHA-256)
+Hash SHA-256 calculé côté client sur le contenu canonique du document. Envoyé au backend via `POST /api/proofs`. Le serveur stocke le hash (table `Proof`) sans jamais voir le contenu.
+
+### Sauvegarde serveur zero-knowledge ✅ Implémenté (2026-02)
+Archive chiffrée (même schéma que l'export manuel) stockée sur le serveur (table `user_backup`). Le serveur ne peut pas déchiffrer le contenu. Permet la récupération après perte du cache et le **fonctionnement multiposte** (voir `SAUVEGARDE_ZERO_KNOWLEDGE.md`).
+
+### Écran Unlock ✅ Implémenté
+Si la session est valide mais que la clé de chiffrement n'est pas en mémoire (rechargement de page), l'app affiche l'écran **Déverrouiller** (`Unlock.svelte`) et exige le mot de passe avant d'afficher le menu. Il est impossible d'accéder aux données chiffrées sans repasser par cet écran.
+
+---
 
 ## 3. Scalabilité & Production
 
-- **Sessions** : (Voir point 1 - résolu par le store persistent).
-- **Rate Limiting** : Actuellement en mémoire. Si plusieurs instances backend, utiliser un store Redis pour le rate limiter.
-- **Docker** : La configuration actuelle est bonne pour le backend + DB. Le frontend est servi séparément (Vite), ce qui est optimal.
+- **Sessions** : store PostgreSQL (résolu, voir § 1).
+- **Rate Limiting** : en mémoire. Si plusieurs instances backend à terme, migrer vers un store Redis partagé.
+- **Docker** : configuration backend + DB opérationnelle. Frontend servi séparément (build Vite → Nginx ou équivalent).
+- **CI/CD** : GitHub Actions — deploy-backend (build, migrate, restart) et deploy-frontend (build, scp). Migrations via `prisma migrate deploy` dans le pipeline.
+
+---
+
+## 4. Points encore ouverts / à surveiller
+
+| # | Sujet | Statut | Commentaire |
+|---|-------|--------|-------------|
+| 1 | Rate limiting multi-instance | À faire si scale | Redis pour partager l'état entre instances |
+| 2 | Coffre-fort : drag & drop upload | À faire | Voir `SPEC_COFFRE_FORT_PHASE2.md` |
+| 3 | Export ZIP (facture + docs liés) | À faire | Voir `SPEC_COFFRE_FORT_PHASE2.md` |
+| 4 | Clients / société en clair | Par conception | Décision d'architecture : ces données ne sont pas chiffrées localement (niveau de sensibilité moindre). Peut évoluer. |
+| 5 | Jeton offline (déchiffrement sans réseau) | À faire plus tard | Voir `PLAN_STOCKAGE_CRYPTO.md` § 4 |

@@ -4,15 +4,17 @@ Phase 2 améliore l’expérience utilisateur du coffre-fort (preview, drag & dr
 
 ---
 
-## État d’implémentation (référence doc / code)
+## État d’implémentation (vérifié sur le code — 2026-02-27)
 
 | # | Livrable | Statut | Commentaire |
 |---|----------|--------|-------------|
-| 1 | **Preview PDF / images** | ✅ Fait | DocumentPreviewModal.svelte, aperçu img/PDF. |
-| 2 | **Drag & drop upload** | ❌ À faire | Zone drop non présente dans UploadSection / formulaire upload. |
-| 3 | **Métadonnées** | ✅ Fait | Champs description, amount, category, tags dans metadata. |
-| 4 | **Recherche** | ✅ Fait | CoffreFortSearchField + filterDocuments. |
-| 5 | **Export ZIP (facture + docs)** | ❌ À faire | Pas de bouton export ZIP dans ListeDocuments.svelte. |
+| 1 | **Preview PDF / images** | ✅ Fait | `DocumentPreviewModal.svelte`, aperçu img/PDF. |
+| 2 | **Drag & drop upload** | ✅ Fait | `UploadSection.svelte` : zone `.upload-dropzone`, handlers `onDrop`/`onDragOver`/`onDragLeave`, feedback visuel `.is-dragover`. |
+| 3 | **Métadonnées** | ✅ Fait | Champs description, category, tags dans formulaire upload ; stockés dans `metadata`. |
+| 4 | **Recherche** | ✅ Fait | `ListeDocumentsSearch.svelte` + `ListeDocumentsControlsFields.js`. |
+| 5 | **Export ZIP (pièces jointes)** | ✅ Fait | `coffreFortExport.js` (JSZip) + `doExportPiecesJointesZip` dans `ListeDocuments.svelte`. Protégé par confirmation mot de passe. |
+
+**Phase 2 : 100 % implémentée.**
 
 ---
 
