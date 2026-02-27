@@ -94,8 +94,8 @@
               <button
                 type="button"
                 class="btn-send-row"
-                disabled={sendingForSignatureId === f.id || (!paymentStatusMap[f.id]?.paid && !clientsMap[f.entete?.clientId]?.email)}
-                title={!clientsMap[f.entete?.clientId]?.email && !paymentStatusMap[f.id]?.paid ? 'Ajoutez un email au client' : 'Envoyer la facture au client pour signature'}
+                disabled={!clientsMap[f.entete?.clientId]?.email || sendingForSignatureId === f.id || paymentStatusMap[f.id]?.paid}
+                title={paymentStatusMap[f.id]?.paid ? 'Facture déjà payée' : !clientsMap[f.entete?.clientId]?.email ? 'Ajoutez un email au client' : 'Envoyer la facture au client pour signature'}
                 onclick={() => onSendForSignature(f)}
               >
                 {sendingForSignatureId === f.id ? '…' : 'Envoyer'}
@@ -239,8 +239,8 @@
     border-radius: 4px;
     font-size: 0.85rem;
     font-weight: 500;
-    background: var(--color-primary-bg, #ecfdf5);
-    color: var(--color-primary, #059669);
+    background: var(--color-primary-bg);
+    color: var(--color-primary);
   }
   .paid-badge--no {
     background: transparent;

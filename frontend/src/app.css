@@ -19,6 +19,7 @@
   --color-border-strong: #cbd5e1;
   --color-primary: #0f766e;
   --color-primary-hover: #0d9488;
+  --color-primary-bg: #ecfdf5;
   --color-error: #b91c1c;
   --color-error-bg: #fef2f2;
   color-scheme: light;
@@ -36,6 +37,7 @@
   --color-border-strong: #475569;
   --color-primary: #2dd4bf;
   --color-primary-hover: #5eead4;
+  --color-primary-bg: rgba(45, 212, 191, 0.15);
   --color-error: #f87171;
   --color-error-bg: #450a0a;
   color-scheme: dark;
