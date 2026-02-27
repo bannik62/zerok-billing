@@ -134,6 +134,11 @@
           <span>La base locale a été reconstituée depuis le serveur témoin (données différentes).</span>
           <button type="button" class="sync-banner-dismiss" onclick={() => syncResultStore.set(null)} aria-label="Fermer">Fermer</button>
         </div>
+      {:else if $syncResultStore === 'backup_error'}
+        <div class="sync-banner sync-banner-error" role="alert">
+          <span>La restauration locale a réussi, mais la mise à jour du backup serveur a échoué. Vérifiez votre connexion.</span>
+          <button type="button" class="sync-banner-dismiss" onclick={() => syncResultStore.set(null)} aria-label="Fermer">Fermer</button>
+        </div>
       {/if}
       <SessionTemoin content={Menu} {logout} onUnauthorized={() => { user = null; page = 'auth'; view = 'login'; }} />
     {:else}
@@ -270,6 +275,16 @@
   .sync-banner-restored {
     background: var(--color-primary);
     color: white;
+  }
+  .sync-banner-error {
+    background: var(--color-error-bg, #fef2f2);
+    color: var(--color-error, #b91c1c);
+    border-bottom: 1px solid var(--color-error, #b91c1c);
+  }
+  .sync-banner-error .sync-banner-dismiss {
+    background: var(--color-bg-elevated);
+    color: var(--color-error);
+    border: 1px solid var(--color-error);
   }
   .sync-banner-dismiss {
     flex-shrink: 0;

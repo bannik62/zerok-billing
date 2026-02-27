@@ -43,11 +43,15 @@ function pickFactureAmounts(facture) {
     );
   const tvaMontant = toNumber(facture?.tvaMontant, 0);
   const totalHT = totalTTC - tvaMontant;
-  return {
+  const result = {
     totalTTC: Math.round(totalTTC * 100) / 100,
     totalHT: Math.round(totalHT * 100) / 100,
     tva: Math.round(tvaMontant * 100) / 100
   };
+  if (![result.totalTTC, result.totalHT, result.tva].every(Number.isFinite)) {
+    return { totalTTC: 0, totalHT: 0, tva: 0 };
+  }
+  return result;
 }
 
 function pickAchatAmounts(achat) {
@@ -59,11 +63,15 @@ function pickAchatAmounts(achat) {
   } else {
     tva = ttc - ht;
   }
-  return {
+  const result = {
     totalTTC: Math.round(ttc * 100) / 100,
     totalHT: Math.round(ht * 100) / 100,
     tva: Math.round(tva * 100) / 100
   };
+  if (![result.totalTTC, result.totalHT, result.tva].every(Number.isFinite)) {
+    return { totalTTC: 0, totalHT: 0, tva: 0 };
+  }
+  return result;
 }
 
 /**

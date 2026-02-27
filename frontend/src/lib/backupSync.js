@@ -18,7 +18,7 @@ import { getBackup, putBackup } from '$lib/backupApi.js';
  * - 'restored_empty' : base etait vide, recuperee depuis le serveur
  * - 'restored_overwritten' : base locale avait des donnees mais differentes du serveur, reconstituee depuis le serveur
  */
-export const syncResultStore = writable(/** @type {null | 'unchanged' | 'restored_empty' | 'restored_overwritten'} */ (null));
+export const syncResultStore = writable(/** @type {null | 'unchanged' | 'restored_empty' | 'restored_overwritten' | 'backup_error'} */ (null));
 
 /** True quand la sync post-unlock est terminee (safe d'afficher le menu). Faux pendant la sync. */
 export const syncReadyStore = writable(true);
@@ -82,8 +82,13 @@ export async function syncAfterUnlock(uid, password) {
       if (result.status === 200 && result.payload) {
         const restoredBundle = await openArchive(result.payload, password);
         await applyRestore(uid, restoredBundle);
-        await _putCurrentState(uid, password).catch(() => {});
-        syncResultStore.set('restored_empty');
+        try {
+          await _putCurrentState(uid, password);
+          syncResultStore.set('restored_empty');
+        } catch (err) {
+          console.error('[zerok-billing] Échec mise à jour backup serveur après restauration:', err);
+          syncResultStore.set('backup_error');
+        }
         return { restored: true };
       }
       return { restored: false };
@@ -103,8 +108,13 @@ export async function syncAfterUnlock(uid, password) {
     if (result.status === 200 && result.payload) {
       const restoredBundle = await openArchive(result.payload, password);
       await applyRestore(uid, restoredBundle);
-      await _putCurrentState(uid, password).catch(() => {});
-      syncResultStore.set('restored_overwritten');
+      try {
+        await _putCurrentState(uid, password);
+        syncResultStore.set('restored_overwritten');
+      } catch (err) {
+        console.error('[zerok-billing] Échec mise à jour backup serveur après restauration:', err);
+        syncResultStore.set('backup_error');
+      }
       return { restored: true };
     }
     return { restored: false };
