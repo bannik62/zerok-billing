@@ -10,6 +10,7 @@
   import CsrfTemoin from './modules/session/CsrfTemoin.svelte';
   import CleTemoin from './modules/session/CleTemoin.svelte';
   import DatabaseTemoin from './modules/session/DatabaseTemoin.svelte';
+  import IndexedDBTemoin from './modules/session/IndexedDBTemoin.svelte';
   import Menu from './modules/menu/Menu.svelte';
   import { apiClient } from '$lib/apiClient.js';
   import { fetchCsrfToken } from '$lib/csrf.js';
@@ -101,9 +102,12 @@
   }
 </script>
 
-<CsrfTemoin />
-<CleTemoin />
-<DatabaseTemoin />
+<nav class="temoin-bar" aria-label="État de l’application">
+  <CsrfTemoin />
+  <CleTemoin />
+  <DatabaseTemoin />
+  <IndexedDBTemoin />
+</nav>
 <main class:fullscreen={page === 'menu'}>
   {#if loading}
     <p class="loading">Chargement…</p>
@@ -119,7 +123,7 @@
     <div class="auth-header">
       <h1>Zero-Knowledge Facturation</h1>
       <button type="button" class="btn-theme" onclick={toggleTheme} aria-label={$themeStore === 'dark' ? 'Passer en mode jour' : 'Passer en mode nuit'}>
-        {$themeStore === 'dark' ? '☀ Jour' : '☽ Nuit'}
+        {$themeStore === 'dark' ? 'Jour ☀' : 'Nuit ☽'}
       </button>
     </div>
     <p class="tagline">Facturation local-first · Le serveur ne voit jamais le contenu de vos factures.</p>
@@ -157,7 +161,7 @@
   main {
     max-width: 420px;
     margin: 2rem auto;
-    padding: 0 1rem;
+    padding: 0 1rem 3.5rem 1rem;
     font-family: system-ui, sans-serif;
   }
   main.fullscreen {
@@ -166,6 +170,7 @@
     margin: 0;
     min-height: 100vh;
     box-sizing: border-box;
+    padding-bottom: 3.5rem; /* même réserve en bas que la barre témoins */
   }
   .loading { margin: 2rem 0; }
   .auth-header {
@@ -190,4 +195,41 @@
     background: var(--color-bg-muted);
   }
   .tagline { color: var(--color-text-muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+
+  .temoin-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: stretch;
+    align-items: stretch;
+    gap: 0.5rem;
+    padding: 0.6rem 0.75rem;
+    background: var(--color-bg-muted);
+    border-top: 1px solid var(--color-border);
+    z-index: var(--z-critical);
+    box-sizing: border-box;
+  }
+  .temoin-bar > :global(*) {
+    flex: 1 1 0;
+    min-width: 5rem;
+    min-height: 2.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+  }
+  :global(.temoin-bar > * > *) {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  @media (max-width: 380px) {
+    .temoin-bar { padding: 0.5rem 0.5rem; gap: 0.4rem; }
+    .temoin-bar > :global(*) { min-width: 4rem; min-height: 2.25rem; }
+  }
 </style>

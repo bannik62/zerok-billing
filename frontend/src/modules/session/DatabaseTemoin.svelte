@@ -1,17 +1,18 @@
 <script>
   /**
-   * Témoin base de données : bouton qui appelle GET /api/health et affiche "Database ok" (ou autre statut).
+   * Témoin serveur : bouton qui appelle GET /api/health (vérifie que le backend et sa DB répondent) et affiche le statut.
    */
+  import { onMount } from 'svelte';
   import { apiClient } from '$lib/apiClient.js';
 
   let status = $state('idle'); // 'idle' | 'loading' | 'ok' | 'none' | 'unavailable' | 'error'
   let label = $derived(
-    status === 'idle' ? 'Database' :
-    status === 'loading' ? 'Database…' :
-    status === 'ok' ? 'Database ok' :
-    status === 'none' ? 'Database (aucune)' :
-    status === 'unavailable' ? 'Database indisponible' :
-    'Database erreur'
+    status === 'idle' ? 'Serveur' :
+    status === 'loading' ? 'Serveur…' :
+    status === 'ok' ? 'Serveur ok' :
+    status === 'none' ? 'Serveur (aucune)' :
+    status === 'unavailable' ? 'Serveur indisponible' :
+    'Serveur erreur'
   );
 
   async function checkHealth() {
@@ -27,9 +28,13 @@
       status = 'error';
     }
   }
+
+  onMount(() => {
+    checkHealth();
+  });
 </script>
 
-<div class="db-temoin" aria-live="polite" aria-label="État de la base de données">
+<div class="db-temoin" aria-live="polite" aria-label="État du serveur">
   <button
     type="button"
     class="db-temoin-btn"
@@ -44,25 +49,29 @@
 
 <style>
   .db-temoin {
-    position: fixed;
-    bottom: 4.75rem;
-    right: 0.75rem;
-    z-index: var(--z-critical);
+    width: 100%;
+    min-height: 2.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
   }
   .db-temoin-btn {
-    padding: 0.35rem 0.6rem;
-    border-radius: 6px;
-    font-size: 0.75rem;
+    width: 100%;
+    min-height: 2.5rem;
+    padding: 0.5rem 0.6rem;
+    border-radius: 8px;
+    font-size: clamp(0.78rem, 2vw, 0.9rem);
     font-weight: 500;
     font-family: system-ui, sans-serif;
-    background: var(--color-bg-muted);
+    box-sizing: border-box;
+    background: var(--color-bg-elevated);
     color: var(--color-text-soft);
     border: 1px solid var(--color-border);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
     cursor: pointer;
-  }
-  .db-temoin-btn:hover:not(:disabled) {
-    background: var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   .db-temoin-btn:disabled {
     cursor: wait;
@@ -70,4 +79,7 @@
   }
   .db-temoin-btn.db-ok { color: var(--color-primary); }
   .db-temoin-btn.db-err { color: var(--color-error); }
+  @media (max-width: 380px) {
+    .db-temoin, .db-temoin-btn { min-height: 2rem; font-size: 0.7rem; padding: 0.35rem 0.4rem; }
+  }
 </style>

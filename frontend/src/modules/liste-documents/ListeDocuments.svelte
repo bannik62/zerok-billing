@@ -439,7 +439,7 @@
 </script>
 
 <div class="liste-documents">
-  <h2 class="liste-documents-title">Liste documents</h2>
+  <h2 class="liste-documents-title">Liste Devis/Facture</h2>
 
   {#if !user}
     <p class="liste-documents-msg liste-documents-msg--error">

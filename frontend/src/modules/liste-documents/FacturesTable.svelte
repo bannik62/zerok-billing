@@ -94,8 +94,8 @@
               <button
                 type="button"
                 class="btn-send-row"
-                disabled={!clientsMap[f.entete?.clientId]?.email || sendingForSignatureId === f.id}
-                title={!clientsMap[f.entete?.clientId]?.email ? 'Ajoutez un email au client' : 'Envoyer la facture au client pour signature'}
+                disabled={sendingForSignatureId === f.id || (!paymentStatusMap[f.id]?.paid && !clientsMap[f.entete?.clientId]?.email)}
+                title={!clientsMap[f.entete?.clientId]?.email && !paymentStatusMap[f.id]?.paid ? 'Ajoutez un email au client' : 'Envoyer la facture au client pour signature'}
                 onclick={() => onSendForSignature(f)}
               >
                 {sendingForSignatureId === f.id ? '…' : 'Envoyer'}

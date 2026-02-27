@@ -272,7 +272,7 @@
 </script>
 
 <div class="coffre-fort">
-  <h2 class="coffre-title">Coffre-fort</h2>
+  <h2 class="coffre-title">Coffre fort</h2>
   <p class="coffre-desc">Documents chiffrés (justificatifs, contrats…). Seuls vous pouvez les déchiffrer.</p>
 
   {#if !user}

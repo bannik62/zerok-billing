@@ -69,7 +69,7 @@
     <h1><button type="button" class="h1-link" onclick={showAccueil} aria-label="Retour à l'accueil">Accueil</button></h1>
     <p class="welcome">Bienvenue, <strong>{user.prenom} {user.nom}</strong>.</p>
     <button type="button" class="btn-theme" onclick={toggleTheme} aria-label={$themeStore === 'dark' ? 'Passer en mode jour' : 'Passer en mode nuit'}>
-      {$themeStore === 'dark' ? '☀ Jour' : '☽ Nuit'}
+      {$themeStore === 'dark' ? 'Jour ☀' : 'Nuit ☽'}
     </button>
     <button type="button" class="btn-logout" onclick={logout}>Déconnexion</button>
   </header>
@@ -82,8 +82,8 @@
         <button type="button" role="tab" class="tab" class:active={displayModule === 'ajouter-client'} aria-selected={displayModule === 'ajouter-client'} aria-label="Ajouter client" onclick={showAjouterClient}>Ajouter client</button>
         <button type="button" role="tab" class="tab" class:active={displayModule === 'creer-devis'} aria-selected={displayModule === 'creer-devis'} aria-label="Créer devis" onclick={showCreerDevis}>Créer devis</button>
         <button type="button" role="tab" class="tab" class:active={displayModule === 'facture'} aria-selected={displayModule === 'facture'} aria-label="Facture" onclick={showFacture}>Facture</button>
-        <button type="button" role="tab" class="tab" class:active={displayModule === 'liste-documents'} aria-selected={displayModule === 'liste-documents'} aria-label="Liste documents" onclick={showListeDocuments}>Liste documents</button>
-        <button type="button" role="tab" class="tab" class:active={displayModule === 'coffre-fort'} aria-selected={displayModule === 'coffre-fort'} aria-label="Mes fichiers — Coffre-fort" onclick={showCoffreFort}>Mes fichiers</button>
+        <button type="button" role="tab" class="tab" class:active={displayModule === 'liste-documents'} aria-selected={displayModule === 'liste-documents'} aria-label="Liste Devis/Facture" onclick={showListeDocuments}>Liste Devis/Facture</button>
+        <button type="button" role="tab" class="tab" class:active={displayModule === 'coffre-fort'} aria-selected={displayModule === 'coffre-fort'} aria-label="Coffre fort" onclick={showCoffreFort}>Coffre fort</button>
         <button type="button" role="tab" class="tab" class:active={displayModule === 'explorer-base'} aria-selected={displayModule === 'explorer-base'} aria-label="Explorer la base" onclick={showExplorerBase}>Explorer la base</button>
         <button type="button" role="tab" class="tab" class:active={displayModule === 'sauvegarder-restaurer'} aria-selected={displayModule === 'sauvegarder-restaurer'} aria-label="Sauvegarder ou restaurer" onclick={showSauvegarderRestaurer}>Sauvegarder / Restaurer</button>
         <button type="button" role="tab" class="tab" class:active={displayModule === 'paiement'} aria-selected={displayModule === 'paiement'} aria-label="Paiement" onclick={showPaiement}>Paiement</button>
@@ -259,12 +259,17 @@
     min-height: 0;
     overflow: auto;
     border: 1px solid var(--color-border);
-    border-radius: 0 12px 12px 12px;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 12px;
+    border-bottom-left-radius: 12px;
     background: var(--color-bg-muted);
     padding: clamp(1rem, 3vw, 1.5rem);
   }
   .welcome-presentation {
     max-width: 52rem;
+    width: 100%;
+    box-sizing: border-box;
     padding: 0.5rem 0;
   }
   .welcome-presentation-title {
@@ -278,6 +283,9 @@
     font-size: clamp(0.95rem, 2.2vw, 1.05rem);
     line-height: 1.5;
     color: var(--color-text-soft);
+    overflow-wrap: break-word;
+    word-break: break-word;
+    max-width: 100%;
   }
   .welcome-presentation-section {
     margin-bottom: 1.5rem;
@@ -294,6 +302,9 @@
     line-height: 1.55;
     color: var(--color-text-soft);
     font-size: clamp(0.9rem, 2vw, 1rem);
+    overflow-wrap: break-word;
+    word-break: break-word;
+    max-width: 100%;
   }
   .welcome-presentation-list li {
     margin-bottom: 0.4rem;
@@ -303,6 +314,9 @@
     line-height: 1.55;
     color: var(--color-text-soft);
     font-size: clamp(0.9rem, 2vw, 1rem);
+    overflow-wrap: break-word;
+    word-break: break-word;
+    max-width: 100%;
   }
   .welcome-presentation-cta {
     margin: 1.5rem 0 0 0;
