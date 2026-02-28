@@ -1,6 +1,8 @@
 /**
  * Configuration CORS.
  * Responsabilité unique : politique d'origine pour les requêtes cross-origin.
+ * Note : les requêtes same-origin (frontend + API même domaine) n'envoient pas Origin,
+ * donc on accepte !origin pour ne pas casser ce cas (ex. billing.zerok.vitalinfo.site).
  */
 import { env } from './env.js';
 

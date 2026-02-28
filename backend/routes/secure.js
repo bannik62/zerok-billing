@@ -17,6 +17,7 @@ import { getConfiguredProviders } from '../services/paymentConfigService.js';
 import { getPaymentStatusByInvoiceIds } from '../services/invoicePaymentService.js';
 import { prisma } from '../lib/prisma.js';
 import { env } from '../config/env.js';
+import { log } from '../lib/logger.js';
 import { encryptCredentials, isEncryptionAvailable } from '../lib/credentialsEncryption.js';
 import { PDF_ATTACHMENT_MAX_BYTES, VERIFY_BATCH_MAX } from '../config/constants.js';
 
@@ -274,7 +275,14 @@ secureRouter.post('/documents/send-for-signature', async (req, res, next) => {
       attachments = [{ filename: name.endsWith('.pdf') ? name : `${name}.pdf`, content: buffer }];
     }
 
-    await sendMail({ to, subject, text, html, attachments });
+    try {
+      await sendMail({ to, subject, text, html, attachments });
+    } catch (mailErr) {
+      log('[zerok-billing] Envoi email signature échoué:', mailErr?.message);
+      return res.status(503).json({
+        error: "Impossible d'envoyer l'email. Vérifiez la configuration serveur ou réessayez plus tard."
+      });
+    }
     return res.status(200).json({ ok: true, sentTo: to });
   } catch (e) {
     next(e);

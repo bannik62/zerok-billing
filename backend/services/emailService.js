@@ -35,7 +35,9 @@ function getTransport() {
  */
 export async function sendMail({ to, subject, text, html, from, replyTo, attachments }) {
   const transport = getTransport();
-  if (!transport) return;
+  if (!transport) {
+    throw new Error('Envoi d\'email désactivé : GMAIL_USER ou GMAIL_APP_PASSWORD manquant');
+  }
   const payload = {
     from: from ?? env.GMAIL_USER,
     to,

@@ -75,14 +75,19 @@ authRouter.post('/register', authRateLimiter, async (req, res, next) => {
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
     await setEmailVerificationCode(user.id, code, expiresAt);
-    sendMail({
-      to: user.email,
-      subject: 'Vérifiez votre email – ZeroK Billing',
-      text: `Votre code de vérification est : ${code}\n\nIl expire dans 15 minutes. Ne le partagez avec personne.`,
-      html: `<p>Votre code de vérification est : <strong>${code}</strong></p><p>Il expire dans 15 minutes. Ne le partagez avec personne.</p>`
-    }).catch((err) => {
-      log('[zerok-billing] Envoi email vérification échoué:', err?.message);
-    });
+    try {
+      await sendMail({
+        to: user.email,
+        subject: 'Vérifiez votre email – ZeroK Billing',
+        text: `Votre code de vérification est : ${code}\n\nIl expire dans 15 minutes. Ne le partagez avec personne.`,
+        html: `<p>Votre code de vérification est : <strong>${code}</strong></p><p>Il expire dans 15 minutes. Ne le partagez avec personne.</p>`
+      });
+    } catch (mailErr) {
+      log('[zerok-billing] Envoi email vérification échoué:', mailErr?.message);
+      return res.status(503).json({
+        error: "Impossible d'envoyer l'email de vérification. Vérifiez la configuration serveur (GMAIL_USER, GMAIL_APP_PASSWORD) ou réessayez plus tard."
+      });
+    }
     req.session.userId = user.id;
     req.session.save((err) => {
       if (err) return next(err);
@@ -173,12 +178,19 @@ authRouter.post('/resend-verification', resendVerifyLimiter, requireAuth, async 
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
     await setEmailVerificationCode(user.id, code, expiresAt);
-    await sendMail({
-      to: user.email,
-      subject: 'Vérifiez votre email – ZeroK Billing',
-      text: `Votre code de vérification est : ${code}\n\nIl expire dans 15 minutes. Ne le partagez avec personne.`,
-      html: `<p>Votre code de vérification est : <strong>${code}</strong></p><p>Il expire dans 15 minutes. Ne le partagez avec personne.</p>`
-    });
+    try {
+      await sendMail({
+        to: user.email,
+        subject: 'Vérifiez votre email – ZeroK Billing',
+        text: `Votre code de vérification est : ${code}\n\nIl expire dans 15 minutes. Ne le partagez avec personne.`,
+        html: `<p>Votre code de vérification est : <strong>${code}</strong></p><p>Il expire dans 15 minutes. Ne le partagez avec personne.</p>`
+      });
+    } catch (mailErr) {
+      log('[zerok-billing] Envoi email vérification échoué:', mailErr?.message);
+      return res.status(503).json({
+        error: "Impossible d'envoyer l'email de vérification. Réessayez plus tard."
+      });
+    }
     res.json({ ok: true });
   } catch (e) {
     next(e);
