@@ -4,7 +4,7 @@
  */
 
 import { writable } from 'svelte/store';
-import { getAllClients, getSociete } from '$lib/db.js';
+import { getAllClients, getSociete, getAllDocuments } from '$lib/db.js';
 import { getAllDevis, getAllFactures, getAllAchats } from '$lib/dbEncrypted.js';
 import { createArchive, openArchive } from '$lib/archive.js';
 import { applyRestore } from '$lib/restore.js';
@@ -40,22 +40,24 @@ export function clearBackupPassword() {
 }
 
 /**
- * Construit le bundle local (coffre + documents + achats) pour l'utilisateur.
+ * Construit le bundle local (coffre + documents + achats + coffre-fort fichiers) pour l'utilisateur.
  */
 export async function buildBundle(uid) {
-  const [clients, societe, devis, factures, achats] = await Promise.all([
+  const [clients, societe, devis, factures, achats, coffreFortDocuments] = await Promise.all([
     getAllClients(uid),
     getSociete(uid),
     getAllDevis(uid),
     getAllFactures(uid),
-    getAllAchats(uid)
+    getAllAchats(uid),
+    getAllDocuments(uid)
   ]);
   return {
     clients: clients ?? [],
     societe: societe ? { id: 'societe', ...societe } : null,
     devis: devis ?? [],
     factures: factures ?? [],
-    achats: achats ?? []
+    achats: achats ?? [],
+    coffreFortDocuments: coffreFortDocuments ?? []
   };
 }
 

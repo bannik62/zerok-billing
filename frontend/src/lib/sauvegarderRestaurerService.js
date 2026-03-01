@@ -93,6 +93,7 @@ export async function importArchive({ file, password, uid }) {
   const restored = [];
   if (bundle.clients?.length > 0 || bundle.societe != null) restored.push('coffre fort');
   if (bundle.devis?.length > 0 || bundle.factures?.length > 0 || bundle.achats?.length > 0) restored.push('documents');
+  if (bundle.coffreFortDocuments?.length > 0) restored.push('pièces jointes');
   return { success: `Restauration terminée (${restored.join(', ')}). Données réimportées et chiffrées avec la clé actuelle.` };
 }
 

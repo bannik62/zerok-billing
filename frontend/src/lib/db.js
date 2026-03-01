@@ -414,10 +414,11 @@ export async function deleteAchat(id, userId = null) {
 
 /**
  * Options pour clearLocalDataForUser : quelles données effacer avant restauration.
- * @typedef {{ coffre?: boolean, documents?: boolean, achats?: boolean }} ClearLocalDataOptions
+ * @typedef {{ coffre?: boolean, documents?: boolean, achats?: boolean, coffreFortFiles?: boolean }} ClearLocalDataOptions
  * - coffre: clients, société (défaut true si non fourni)
  * - documents: devis et factures (défaut true si non fourni)
  * - achats: achats/factures fournisseur (défaut: suit `documents` si absent)
+ * - coffreFortFiles: pièces jointes du coffre-fort / store documents (défaut false)
  */
 
 /**
@@ -430,6 +431,7 @@ export async function clearLocalDataForUser(userId, options = {}) {
   const clearCoffre = options.coffre !== false;
   const clearDocuments = options.documents !== false;
   const clearAchats = options.achats != null ? options.achats !== false : clearDocuments;
+  const clearCoffreFortFiles = options.coffreFortFiles === true;
 
   const match = (r) =>
     userId != null ? r.userId === userId : (r.userId == null || r.userId === '');
@@ -460,6 +462,12 @@ export async function clearLocalDataForUser(userId, options = {}) {
     const achats = await db[STORE_ACHATS].toArray();
     const achatIds = achats.filter(match).map((r) => r.id);
     if (achatIds.length > 0) await db[STORE_ACHATS].bulkDelete(achatIds);
+  }
+
+  if (clearCoffreFortFiles) {
+    const docs = await db[STORE_DOCUMENTS].toArray();
+    const docIds = docs.filter(match).map((r) => r.id);
+    if (docIds.length > 0) await db[STORE_DOCUMENTS].bulkDelete(docIds);
   }
 }
 

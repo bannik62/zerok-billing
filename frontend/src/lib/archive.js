@@ -12,7 +12,7 @@ const ARCHIVE_VERSION = 1;
 /**
  * Crée une archive chiffrée à partir du bundle et du mot de passe.
  * Le bundle peut être partiel (ex. seulement coffre ou seulement documents).
- * @param {Object} bundle - { devis?, factures?, achats?, clients?, societe? }
+ * @param {Object} bundle - { devis?, factures?, achats?, clients?, societe?, coffreFortDocuments? }
  * @param {string} password - Mot de passe pour protéger l'archive
  * @returns {Promise<Object>} - { v, salt, iv, payload } prêt à être JSON.stringify + téléchargé
  */
@@ -34,7 +34,7 @@ export async function createArchive(bundle, password) {
  * @param {string} fileContent - Contenu du fichier (JSON string)
  * @param {string} password - Mot de passe utilisé à l'export
  * @returns {Promise<Object>} - bundle normalisé
- * { devis, factures, achats, clients, societe, layoutProfiles, includesAchats }
+ * { devis, factures, achats, clients, societe, coffreFortDocuments, layoutProfiles, includesAchats }
  * (`includesAchats` indique si la clé achats était présente dans l'archive source)
  */
 export async function openArchive(fileContent, password) {
@@ -52,7 +52,8 @@ export async function openArchive(fileContent, password) {
   const hasDocuments = Array.isArray(bundle.devis) || Array.isArray(bundle.factures);
   const includesAchats = Object.prototype.hasOwnProperty.call(bundle, 'achats');
   const hasAchats = Array.isArray(bundle.achats);
-  if (!hasCoffre && !hasDocuments && !hasAchats) {
+  const hasCoffreFortFiles = Array.isArray(bundle.coffreFortDocuments) && bundle.coffreFortDocuments.length > 0;
+  if (!hasCoffre && !hasDocuments && !hasAchats && !hasCoffreFortFiles) {
     throw new Error('Archive invalide ou mot de passe incorrect');
   }
   return {
@@ -62,6 +63,7 @@ export async function openArchive(fileContent, password) {
     includesAchats,
     clients: Array.isArray(bundle.clients) ? bundle.clients : [],
     societe: bundle.societe != null && typeof bundle.societe === 'object' ? bundle.societe : null,
+    coffreFortDocuments: Array.isArray(bundle.coffreFortDocuments) ? bundle.coffreFortDocuments : [],
     layoutProfiles: Array.isArray(bundle.layoutProfiles) ? bundle.layoutProfiles : []
   };
 }

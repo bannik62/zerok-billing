@@ -24,9 +24,26 @@ function sortKeysDeep(value) {
 }
 
 /**
+ * Réduit les documents coffre-fort à leurs métadonnées (sans payload) pour le hash.
+ * Évite de hasher les binaires chiffrés.
+ */
+function canonicalCoffreFortDocuments(docs) {
+  if (!Array.isArray(docs)) return [];
+  return docs.map((d) => ({
+    id: d?.id,
+    fileHash: d?.fileHash,
+    clientId: d?.clientId,
+    linkedInvoiceId: d?.linkedInvoiceId,
+    type: d?.type,
+    uploadedAt: d?.uploadedAt
+  }));
+}
+
+/**
  * Représentation canonique pour le hash : tri des clés à tous les niveaux pour reproductibilité.
  * Doit inclure les mêmes données que buildBundle (backupSync) pour que hash local === hash serveur.
- * @param {Object} bundle - { devis?, factures?, achats?, clients?, societe? }
+ * Les documents coffre-fort sont représentés par leurs métadonnées uniquement.
+ * @param {Object} bundle - { devis?, factures?, achats?, clients?, societe?, coffreFortDocuments? }
  * @returns {string} JSON string déterministe
  */
 function canonicalBundleString(bundle) {
@@ -35,14 +52,15 @@ function canonicalBundleString(bundle) {
     factures: Array.isArray(bundle.factures) ? bundle.factures : [],
     achats: Array.isArray(bundle.achats) ? bundle.achats : [],
     clients: Array.isArray(bundle.clients) ? bundle.clients : [],
-    societe: bundle.societe != null && typeof bundle.societe === 'object' ? bundle.societe : null
+    societe: bundle.societe != null && typeof bundle.societe === 'object' ? bundle.societe : null,
+    coffreFortDocuments: canonicalCoffreFortDocuments(bundle.coffreFortDocuments)
   });
   return JSON.stringify(canonical);
 }
 
 /**
  * Calcule le hash SHA-256 (hex) de l'état du bundle.
- * @param {Object} bundle - { devis?, factures?, achats?, clients?, societe? }
+ * @param {Object} bundle - { devis?, factures?, achats?, clients?, societe?, coffreFortDocuments? }
  * @returns {Promise<string>} hash hex
  */
 export async function computeStateHash(bundle) {

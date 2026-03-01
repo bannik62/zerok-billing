@@ -12,6 +12,7 @@
     verifyPassword
   } from '$lib/dbEncrypted.js';
   import { sendDocumentProof, verifyDocumentProofs, getDocumentProofs, deleteDocumentProof, cleanupDocumentProofs } from '$lib/proofs.js';
+  import { scheduleBackupUpload } from '$lib/backupSync.js';
   import { filterDocuments } from '$lib/coffreFortSearch.js';
   import { getDocTypeLabel, getCategoryLabel } from './constants.js';
   import UploadSection from './UploadSection.svelte';
@@ -197,6 +198,7 @@
         throw e;
       }
       await loadData();
+      scheduleBackupUpload(uid);
     } catch (e) {
       uploadError = e?.message || 'Erreur lors de l’ajout du document';
     } finally {
@@ -258,13 +260,15 @@
   async function handleDelete(doc) {
     if (!confirm(`Supprimer « ${doc.filename} » du coffre-fort ?`)) return;
     try {
-      await deleteDocument(doc.id, user?.id ?? null);
+      const uid = user?.id ?? null;
+      await deleteDocument(doc.id, uid);
       try {
         await deleteDocumentProof(doc.id);
       } catch (_) {
         error = 'Document supprimé localement ; la preuve n\'a pas pu être retirée du serveur.';
       }
       await loadData();
+      scheduleBackupUpload(uid);
     } catch (e) {
       error = e?.message || 'Erreur suppression';
     }
