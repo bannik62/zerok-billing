@@ -393,6 +393,10 @@
     grid-template-columns: repeat(3, 1fr);
     gap: 1rem;
     align-items: start;
+    border: 2px solid var(--color-frame-docs);
+    padding: 1rem;
+    border-radius: 8px;
+    background: var(--color-bg-muted);
   }
   .upload-field {
     display: flex;

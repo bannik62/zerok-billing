@@ -83,12 +83,18 @@ export class FormField {
   }
 }
 
-/** Champ email (maxLength DEFAULT_MAX_LENGTH, trim, autocomplete email) */
+/** Email : format xxx@yyy.zz */
+export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const EMAIL_PATTERN_MESSAGE = 'Email invalide';
+
+/** Champ email (maxLength DEFAULT_MAX_LENGTH, trim, pattern, autocomplete) */
 export function createEmailField(initial = '') {
   return new FormField({
     maxLength: DEFAULT_MAX_LENGTH,
     trim: true,
     required: true,
+    pattern: EMAIL_PATTERN,
+    patternMessage: EMAIL_PATTERN_MESSAGE,
     autocomplete: 'email',
     initial
   });
@@ -108,14 +114,84 @@ export function createPasswordField(initial = '', options = {}) {
   });
 }
 
+/** Nom / Prénom : lettres, espaces, tiret, apostrophe – pas de chiffres */
+export const NOM_PRENOM_PATTERN = /^[^\d]+$/;
+export const NOM_PRENOM_PATTERN_MESSAGE = 'Pas de chiffres autorisés';
+
 /** Champ texte libre (nom, prénom, adresse, etc.) */
 export function createTextField(options = {}) {
   const maxLength = options.maxLength != null ? options.maxLength : DEFAULT_MAX_LENGTH;
+  const minLength = options.minLength != null ? options.minLength : 0;
   const required = options.required != null ? options.required : false;
   const autocomplete = options.autocomplete != null ? options.autocomplete : null;
   const initial = options.initial != null ? options.initial : '';
-  return new FormField({ maxLength, trim: true, required, autocomplete, initial });
+  const pattern = options.pattern != null ? options.pattern : null;
+  const patternMessage = options.patternMessage != null ? options.patternMessage : 'Format invalide';
+  return new FormField({ maxLength, minLength, trim: true, required, autocomplete, initial, pattern, patternMessage });
 }
+
+/** SIRET : 14 chiffres (espaces autorisés) */
+export const SIRET_PATTERN = /^(\d\s?){14}$/;
+export const SIRET_PATTERN_MESSAGE = 'SIRET : 14 chiffres requis';
+
+/** TVA intracommunautaire FR : FR + 2 chiffres clé + 9 chiffres SIREN (espaces autorisés) */
+export const TVA_INTRA_FR_PATTERN = /^FR\s*(\d\s?){11}$/;
+export const TVA_INTRA_PATTERN_MESSAGE = 'TVA : FR + 11 chiffres (ex. FR12345678901)';
+
+/** Capital social : au moins un chiffre, espaces, virgule/point, symbole € */
+export const CAPITAL_PATTERN = /^[\d\s.,€]*\d[\d\s.,€]*$/;
+export const CAPITAL_PATTERN_MESSAGE = 'Chiffres, espaces, virgule ou point, symbole €';
+
+/** Champ SIRET (14 chiffres, espaces autorisés) */
+export function createSiretField(options = {}) {
+  const maxLength = options.maxLength != null ? options.maxLength : 20;
+  const required = options.required != null ? options.required : false;
+  const initial = options.initial != null ? options.initial : '';
+  return new FormField({
+    maxLength,
+    trim: true,
+    required,
+    pattern: SIRET_PATTERN,
+    patternMessage: SIRET_PATTERN_MESSAGE,
+    initial
+  });
+}
+
+/** Champ TVA intracommunautaire (FR + 11 chiffres) */
+export function createTvaIntraField(options = {}) {
+  const maxLength = options.maxLength != null ? options.maxLength : 30;
+  const required = options.required != null ? options.required : false;
+  const initial = options.initial != null ? options.initial : '';
+  return new FormField({
+    maxLength,
+    trim: true,
+    required,
+    pattern: TVA_INTRA_FR_PATTERN,
+    patternMessage: TVA_INTRA_PATTERN_MESSAGE,
+    initial
+  });
+}
+
+/** Champ capital social (chiffres, espaces, virgule, point, €) */
+export function createCapitalField(options = {}) {
+  const maxLength = options.maxLength != null ? options.maxLength : 100;
+  const required = options.required != null ? options.required : false;
+  const initial = options.initial != null ? options.initial : '';
+  const pattern = options.pattern != null ? options.pattern : CAPITAL_PATTERN;
+  const patternMessage = options.patternMessage != null ? options.patternMessage : CAPITAL_PATTERN_MESSAGE;
+  return new FormField({
+    maxLength,
+    trim: true,
+    required,
+    pattern,
+    patternMessage,
+    initial
+  });
+}
+
+/** URL : http(s):// ou data: (pour images base64) si non vide */
+export const URL_PATTERN = /^(https?:\/\/\S+|data:[^,]+,\S+)$/;
+export const URL_PATTERN_MESSAGE = 'URL invalide (https://… ou data:image/…)';
 
 /** Champ URL (logo, lien) – maxLength URL_MAX_LENGTH, trim */
 export function createUrlField(initial = '') {
@@ -123,14 +199,46 @@ export function createUrlField(initial = '') {
     maxLength: URL_MAX_LENGTH,
     trim: true,
     required: false,
+    pattern: URL_PATTERN,
+    patternMessage: URL_PATTERN_MESSAGE,
     initial
   });
 }
 
-/** Champ téléphone – maxLength TEL_DEFAULT_MAX_LENGTH, trim */
+/** Téléphone : chiffres, espaces, +, -, ., () – min 10 caractères */
+export const TEL_PATTERN = /^[\d\s.\-+()]{10,}$/;
+export const TEL_PATTERN_MESSAGE = 'Téléphone : min. 10 caractères (chiffres, espaces, +, -)';
+
+/** Code postal FR : 5 chiffres */
+export const CODE_POSTAL_PATTERN = /^\d{5}$/;
+export const CODE_POSTAL_PATTERN_MESSAGE = 'Code postal : 5 chiffres';
+
+/** Champ téléphone – maxLength TEL_DEFAULT_MAX_LENGTH, trim, pattern */
 export function createTelField(options = {}) {
   const maxLength = options.maxLength != null ? options.maxLength : TEL_DEFAULT_MAX_LENGTH;
   const required = options.required != null ? options.required : false;
   const initial = options.initial != null ? options.initial : '';
-  return new FormField({ maxLength, trim: true, required, initial });
+  return new FormField({
+    maxLength,
+    trim: true,
+    required,
+    pattern: TEL_PATTERN,
+    patternMessage: TEL_PATTERN_MESSAGE,
+    initial
+  });
+}
+
+/** Champ code postal français (5 chiffres) */
+export function createCodePostalField(options = {}) {
+  const maxLength = options.maxLength != null ? options.maxLength : 10;
+  const required = options.required != null ? options.required : false;
+  const initial = options.initial != null ? options.initial : '';
+  return new FormField({
+    maxLength,
+    trim: true,
+    required,
+    pattern: CODE_POSTAL_PATTERN,
+    patternMessage: CODE_POSTAL_PATTERN_MESSAGE,
+    initial
+  });
 }

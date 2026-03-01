@@ -207,8 +207,9 @@
     flex-direction: column;
     gap: 1.25rem;
     min-height: 0;
-    border-left: 4px solid var(--color-primary);
-    padding-left: 1rem;
+    border: 2px solid var(--color-frame-form);
+    border-radius: 8px;
+    padding: 1rem;
   }
   .facture-form-header { margin-bottom: 0.25rem; }
   .facture-form-title { margin: 0; font-size: 1.25rem; color: var(--color-primary); font-weight: 700; }

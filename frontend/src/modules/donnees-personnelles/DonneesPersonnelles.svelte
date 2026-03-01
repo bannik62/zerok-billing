@@ -1,6 +1,12 @@
 <script>
   import { getSociete, saveSociete } from '$lib/db.js';
-  import { createTextField, createUrlField } from '$lib/formField.js';
+  import {
+    createTextField,
+    createUrlField,
+    createSiretField,
+    createTvaIntraField,
+    createCapitalField
+  } from '$lib/formField.js';
   import { scheduleBackupUpload } from '$lib/backupSync.js';
 
   /**
@@ -27,11 +33,11 @@
   const logoField = createUrlField();
   const nomField = createTextField({ maxLength: 255 });
   const formeJuridiqueField = createTextField({ maxLength: 100 });
-  const siretField = createTextField({ maxLength: 20 });
+  const siretField = createSiretField({ maxLength: 20 });
   const rcsField = createTextField({ maxLength: 100 });
-  const capitalField = createTextField({ maxLength: 100 });
+  const capitalField = createCapitalField({ maxLength: 100 });
   const siegeSocialField = createTextField({ maxLength: 255 });
-  const tvaIntraField = createTextField({ maxLength: 30 });
+  const tvaIntraField = createTvaIntraField({ maxLength: 30 });
 
   const logoStore = logoField.store;
   const nomStore = nomField.store;
@@ -71,6 +77,20 @@
 
   async function saveEdit(e) {
     e.preventDefault();
+    const errors = [
+      logoField.getError(),
+      nomField.getError(),
+      formeJuridiqueField.getError(),
+      siretField.getError(),
+      rcsField.getError(),
+      capitalField.getError(),
+      siegeSocialField.getError(),
+      tvaIntraField.getError()
+    ].filter(Boolean);
+    if (errors.length > 0) {
+      message = { type: 'error', text: errors[0] };
+      return;
+    }
     saving = true;
     try {
       await saveSociete(
@@ -164,7 +184,7 @@
         </div>
         <div class="form-row">
           <label for="edit-siret">SIRET</label>
-          <input id="edit-siret" type="text" value={$siretStore} oninput={(e) => siretField.value = e.target.value} placeholder="14 chiffres" />
+          <input id="edit-siret" type="text" inputmode="numeric" value={$siretStore} oninput={(e) => siretField.value = e.target.value} placeholder="14 chiffres" />
         </div>
         <div class="form-row">
           <label for="edit-rcs">RCS</label>
@@ -172,7 +192,7 @@
         </div>
         <div class="form-row">
           <label for="edit-capital">Capital social</label>
-          <input id="edit-capital" type="text" value={$capitalStore} oninput={(e) => capitalField.value = e.target.value} />
+          <input id="edit-capital" type="text" inputmode="decimal" value={$capitalStore} oninput={(e) => capitalField.value = e.target.value} placeholder="ex. 1 000 €" />
         </div>
         <div class="form-row">
           <label for="edit-siege">Siège social</label>
@@ -180,7 +200,7 @@
         </div>
         <div class="form-row">
           <label for="edit-tva">N° TVA intracommunautaire</label>
-          <input id="edit-tva" type="text" value={$tvaIntraStore} oninput={(e) => tvaIntraField.value = e.target.value} placeholder="FR…" />
+          <input id="edit-tva" type="text" inputmode="numeric" value={$tvaIntraStore} oninput={(e) => tvaIntraField.value = e.target.value} placeholder="FR12345678901" />
         </div>
         <div class="modal-actions">
           <button type="button" class="btn-cancel" onclick={cancelEdit}>Annuler</button>
@@ -197,6 +217,9 @@
     flex-direction: column;
     gap: 1.25rem;
     min-height: 0;
+    border: 2px solid var(--color-frame-form);
+    border-radius: 8px;
+    padding: 1rem;
   }
   .donnees-header {
     display: flex;

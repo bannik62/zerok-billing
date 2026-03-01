@@ -1,14 +1,8 @@
 <script>
   import { createPasswordField } from '$lib/formField.js';
-  import { getAllClients, getSociete } from '$lib/db.js';
-  import { getAllDevis, getAllFactures, getAllAchats, hasEncryptionKey } from '$lib/dbEncrypted.js';
-  import { createArchive, openArchive } from '$lib/archive.js';
-  import { applyRestore } from '$lib/restore.js';
-  import { uploadBackupNow, scheduleBackupUpload } from '$lib/backupSync.js';
-  import { buildPdfDocumentHtml } from '$lib/pdfDocumentHtml.js';
-  import html2pdf from 'html2pdf.js';
-  import JSZip from 'jszip';
-  import { downloadBlob } from '$lib/coffreFortExport.js';
+  import { hasEncryptionKey } from '$lib/dbEncrypted.js';
+  import { uploadBackupNow } from '$lib/backupSync.js';
+  import { exportArchive, importArchive, preRestoreBackupPdf } from '$lib/sauvegarderRestaurerService.js';
 
   let { user = null } = $props();
   const uid = $derived(user?.id ?? null);
@@ -112,12 +106,6 @@
     restoreModalOpen = false;
   }
 
-  /** Génère un nom de fichier sûr pour le PDF (sans caractères interdits). */
-  function safePdfFilename(prefix, numero, id) {
-    const base = numero && String(numero).trim() ? String(numero).replace(/[/\\?*:|"]/g, '-') : (id || '');
-    return (prefix + (base ? `-${base}` : '') + '.pdf').trim() || prefix + '.pdf';
-  }
-
   /** Télécharge les documents actuels (devis + factures) en PDF dans un ZIP. */
   async function doPreRestoreBackup() {
     backupError = '';
@@ -128,58 +116,9 @@
     }
     backupLoading = true;
     try {
-      const [devis, factures, clients, societe] = await Promise.all([
-        getAllDevis(uid),
-        getAllFactures(uid),
-        getAllClients(uid),
-        getSociete(uid)
-      ]);
-      const clientsMap = {};
-      for (const c of clients) {
-        if (c && c.id != null) clientsMap[c.id] = c;
-      }
-      const zip = new JSZip();
-      const usedNames = new Set();
-
-      const addPdfToZip = async (document, docType) => {
-        const clientId = document?.entete?.clientId ?? document?.clientId;
-        const client = clientId ? clientsMap[clientId] : null;
-        const numero = document?.entete?.numero ?? '';
-        const prefix = docType === 'devis' ? 'Devis' : 'Facture';
-        let filename = safePdfFilename(prefix, numero, document?.id);
-        if (usedNames.has(filename)) {
-          let n = 1;
-          while (usedNames.has(prefix + '-' + n + '.pdf')) n++;
-          filename = prefix + '-' + n + '.pdf';
-        }
-        usedNames.add(filename);
-        const htmlString = buildPdfDocumentHtml(document, client, societe, docType);
-        const blob = await html2pdf()
-          .set({
-            margin: 4,
-            image: { type: 'jpeg', quality: 0.95 },
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-          })
-          .from(htmlString)
-          .outputPdf('blob');
-        zip.file(filename, blob);
-      };
-
-      for (const doc of devis) {
-        if (doc) await addPdfToZip(doc, 'devis');
-      }
-      for (const doc of factures) {
-        if (doc) await addPdfToZip(doc, 'facture');
-      }
-
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      const zipFilename = `zerok-documents-avant-restore-${new Date().toISOString().slice(0, 10)}.zip`;
-      downloadBlob(zipBlob, zipFilename);
-      const count = devis.length + factures.length;
-      backupSuccess = count > 0
-        ? `${count} document(s) PDF téléchargé(s) dans le ZIP. Enregistrez le fichier où vous voulez, puis cliquez sur « Régénérer la BDD » pour lancer la restauration.`
-        : 'Aucun devis ni facture. ZIP vide téléchargé. Vous pouvez quand même lancer la restauration.';
+      const result = await preRestoreBackupPdf({ uid });
+      if (result.error) backupError = result.error;
+      else backupSuccess = result.success;
     } catch (e) {
       backupError = e?.message || 'Erreur lors de la génération des PDF.';
     } finally {
@@ -235,10 +174,6 @@
   async function doExport() {
     exportError = '';
     exportSuccess = '';
-    if (!exportCoffre && !exportDocuments) {
-      exportError = 'Cochez au moins une option : Coffre fort ou Documents.';
-      return;
-    }
     const err = exportPwd.getError();
     if (err) {
       exportError = err;
@@ -254,43 +189,15 @@
     }
     exportLoading = true;
     try {
-      const bundle = {};
-      if (exportCoffre) {
-        const [clients, societe] = await Promise.all([
-          getAllClients(uid),
-          getSociete(uid)
-        ]);
-        bundle.clients = clients;
-        bundle.societe = { id: 'societe', ...societe };
-      }
-      if (exportDocuments) {
-        const [devis, factures] = await Promise.all([
-          getAllDevis(uid),
-          getAllFactures(uid)
-        ]);
-        bundle.devis = devis;
-        bundle.factures = factures;
-        if (exportAchats) {
-          bundle.achats = await getAllAchats(uid);
-        }
-      }
-      const archive = await createArchive(bundle, exportPwd.value);
-      const blob = new Blob([JSON.stringify(archive)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      try {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `zerok-archive-${new Date().toISOString().slice(0, 10)}.zerok-archive`;
-        a.click();
-      } finally {
-        URL.revokeObjectURL(url);
-      }
-      const parts = [];
-      if (exportCoffre) parts.push('coffre fort');
-      if (exportDocuments) {
-        parts.push(exportAchats ? 'documents + achats' : 'documents (sans achats)');
-      }
-      exportSuccess = `Archive téléchargée (${parts.join(', ')}). Pour l'ouvrir ailleurs, utilisez « Restaurer » et le même mot de passe.`;
+      const result = await exportArchive({
+        uid,
+        exportCoffre,
+        exportDocuments,
+        exportAchats,
+        password: exportPwd.value
+      });
+      if (result.error) exportError = result.error;
+      else exportSuccess = result.success;
     } catch (e) {
       exportError = e?.message || 'Erreur lors de la création de l\'archive.';
     } finally {
@@ -324,16 +231,15 @@
     }
     importLoading = true;
     try {
-      const content = await file.text();
-      const bundle = await openArchive(content, importPwd.value);
-      await applyRestore(uid, bundle);
-      scheduleBackupUpload(uid);
+      const result = await importArchive({
+        file,
+        password: importPwd.value,
+        uid
+      });
       archiveRestoreFields.clearImportFile(fileInputEl);
       selectedFileName = '';
-      const restored = [];
-      if (bundle.clients?.length > 0 || bundle.societe != null) restored.push('coffre fort');
-      if (bundle.devis?.length > 0 || bundle.factures?.length > 0 || bundle.achats?.length > 0) restored.push('documents');
-      importSuccess = `Restauration terminée (${restored.join(', ')}). Données réimportées et chiffrées avec la clé actuelle.`;
+      if (result.error) importError = result.error;
+      else importSuccess = result.success;
     } catch (e) {
       importError = e?.message || 'Erreur : archive invalide ou mot de passe incorrect.';
     } finally {

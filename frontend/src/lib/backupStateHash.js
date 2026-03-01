@@ -1,5 +1,5 @@
 /**
- * Hash canonique de l'état local (devis, factures, clients, société) pour la sauvegarde serveur.
+ * Hash canonique de l'état local (devis, factures, achats, clients, société) pour la sauvegarde serveur.
  * Permet d'éviter de télécharger le blob quand local et serveur sont identiques.
  * Tri récursif des clés pour que le même contenu produise toujours le même hash.
  */
@@ -25,13 +25,15 @@ function sortKeysDeep(value) {
 
 /**
  * Représentation canonique pour le hash : tri des clés à tous les niveaux pour reproductibilité.
- * @param {Object} bundle - { devis?, factures?, clients?, societe? }
+ * Doit inclure les mêmes données que buildBundle (backupSync) pour que hash local === hash serveur.
+ * @param {Object} bundle - { devis?, factures?, achats?, clients?, societe? }
  * @returns {string} JSON string déterministe
  */
 function canonicalBundleString(bundle) {
   const canonical = sortKeysDeep({
     devis: Array.isArray(bundle.devis) ? bundle.devis : [],
     factures: Array.isArray(bundle.factures) ? bundle.factures : [],
+    achats: Array.isArray(bundle.achats) ? bundle.achats : [],
     clients: Array.isArray(bundle.clients) ? bundle.clients : [],
     societe: bundle.societe != null && typeof bundle.societe === 'object' ? bundle.societe : null
   });
@@ -40,7 +42,7 @@ function canonicalBundleString(bundle) {
 
 /**
  * Calcule le hash SHA-256 (hex) de l'état du bundle.
- * @param {Object} bundle - { devis?, factures?, clients?, societe? }
+ * @param {Object} bundle - { devis?, factures?, achats?, clients?, societe? }
  * @returns {Promise<string>} hash hex
  */
 export async function computeStateHash(bundle) {

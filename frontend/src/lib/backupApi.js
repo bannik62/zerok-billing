@@ -6,8 +6,10 @@
 import { apiClient } from '$lib/apiClient.js';
 
 /**
- * GET /api/backup
- * @param {string|null} stateHash - Si fourni, le serveur peut renvoyer { unchanged: true } sans blob.
+ * GET /api/backup — Récupère la sauvegarde serveur (blob chiffré).
+ * Logique mise à jour ou pas : si stateHash est fourni et égal au stateHash stocké côté serveur,
+ * le serveur renvoie { unchanged: true } sans blob (pas de téléchargement). Sinon il renvoie le blob.
+ * @param {string|null} stateHash - Hash du bundle local ; null si IndexedDB vide (on veut toujours le blob si existant).
  * @returns {Promise<{ status: 200 | 404, unchanged?: boolean, payload?: string, stateHash?: string }>}
  */
 export async function getBackup(stateHash = null) {

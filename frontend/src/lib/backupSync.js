@@ -60,9 +60,23 @@ export async function buildBundle(uid) {
 }
 
 /**
- * Sync apres deverrouillage : BDD vide -> GET et restaurer si 200+blob ; BDD pleine -> GET avec hash (404->PUT, 200 unchanged->rien, 200+blob->restaurer).
+ * Sync après déverrouillage (sauvegarde automatique multiposte).
+ * Règle : le serveur fait foi. À l’ouverture sur un poste (IndexedDB vide ou pleine), on décide
+ * de télécharger le blob ou pas selon la comparaison de hash côté serveur.
+ *
+ * Logique mise à jour ou pas :
+ * 1) IndexedDB vide (autre poste / premier usage)
+ *    - GET /api/backup sans hash → si 404 : rien à faire ; si 200 + blob : on télécharge et on restaure (serveur fait foi).
+ * 2) IndexedDB pleine (données locales présentes)
+ *    - GET /api/backup avec hash = hash du bundle local.
+ *    - Serveur compare hash avec son stateHash stocké :
+ *      - hash identique → 200 { unchanged: true } → on ne fait rien (déjà à jour).
+ *      - hash différent  → 200 + blob → on télécharge et on restaure (serveur fait foi).
+ *      - 404 (pas de backup serveur) → on envoie notre bundle en PUT (création backup ; cas premier poste).
+ * Après toute restauration, on envoie un PUT pour aligner le stateHash serveur sur l’état qu’on vient de restaurer.
+ *
  * @param {string|number} uid
- * @param {string} password - Mot de passe (utilise pour openArchive et pour PUT si premiere sauvegarde)
+ * @param {string} password - Mot de passe (openArchive + PUT si première sauvegarde)
  * @returns {{ restored: boolean }}
  */
 export async function syncAfterUnlock(uid, password) {
@@ -77,6 +91,7 @@ export async function syncAfterUnlock(uid, password) {
 
   try {
     if (isEmpty) {
+      // IndexedDB vide : on demande le blob (pas de hash). Serveur fait foi.
       const result = await getBackup(null);
       if (result.status === 404) return { restored: false };
       if (result.status === 200 && result.payload) {
@@ -94,18 +109,22 @@ export async function syncAfterUnlock(uid, password) {
       return { restored: false };
     }
 
+    // IndexedDB pleine : on envoie notre hash. Serveur décide (unchanged vs blob).
     const stateHash = await computeStateHash(bundle);
     const result = await getBackup(stateHash);
     if (result.status === 404) {
+      // Pas de backup serveur → on crée le backup avec notre état (ex. premier poste).
       const archive = await createArchive(bundle, password);
       await putBackup(JSON.stringify(archive), stateHash);
       return { restored: false };
     }
     if (result.status === 200 && result.unchanged) {
+      // Hash identique : rien à télécharger.
       syncResultStore.set('unchanged');
       return { restored: false };
     }
     if (result.status === 200 && result.payload) {
+      // Hash différent : serveur fait foi, on restaure depuis le blob.
       const restoredBundle = await openArchive(result.payload, password);
       await applyRestore(uid, restoredBundle);
       try {

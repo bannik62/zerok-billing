@@ -157,6 +157,10 @@
   .liste-section {
     display: flex;
     flex-direction: column;
+    border: 2px solid rgb(144, 144, 233);
+    padding: 1rem;
+    border-radius: 8px;
+    background: var(--color-bg-muted);
     gap: 0.75rem;
   }
   .liste-section-head {

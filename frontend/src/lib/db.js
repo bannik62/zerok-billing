@@ -4,6 +4,7 @@
  */
 
 import Dexie from 'dexie';
+import { getClientDevisSlug, computeNextDevisNumber, computeNextFactureNumber } from './numbering.js';
 
 const DB_NAME = 'zerok-billing';
 const DB_VERSION = 8;
@@ -271,60 +272,18 @@ export async function getAllDevisRaw(userId = null) {
   return all.filter((r) => r.userId === userId);
 }
 
-/**
- * Slug pour le numéro de devis : basé sur raison sociale ou prénom+nom, unique parmi les clients.
- * @param {Object} client - { raisonSociale?, prenom?, nom? }
- * @param {Object[]} allClients - liste des clients pour garantir unicité du slug
- * @returns {string}
- */
-export function getClientDevisSlug(client, allClients = []) {
-  const raw =
-    (client && (client.raisonSociale || [client.prenom, client.nom].filter(Boolean).join(' '))) || '';
-  const slug = raw
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '') || 'client';
-  const sameSlug = allClients.filter((c) => {
-    const s =
-      (c.raisonSociale || [c.prenom, c.nom].filter(Boolean).join(' '))
-        .trim()
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/\p{Diacritic}/gu, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '') || 'client';
-    return s === slug;
-  });
-  const index = sameSlug.findIndex((c) => c.id === client?.id);
-  if (index < 0) return slug;
-  return sameSlug.length > 1 ? `${slug}${index + 1}` : slug;
-}
+export { getClientDevisSlug };
 
 /**
- * Prochain numéro de devis : {clientSlug}-{année}-{NNN}, NNN par client.
+ * Prochain numéro de devis : DEV-{clientSlug}-{année}-NNN, NNN par client.
  * @param {string} [clientId]
  * @param {Object[]} [clients] - liste des clients (pour le slug)
  * @param {string|number|null} [userId] - partition utilisateur
  * @returns {Promise<string>} numéro ou '' si pas de client
  */
 export async function getNextDevisNumber(clientId, clients = [], userId = null) {
-  if (!clientId || !Array.isArray(clients)) return '';
-  const client = clients.find((c) => c.id === clientId);
-  if (!client) return '';
-  const slug = getClientDevisSlug(client, clients);
-  const year = new Date().getFullYear();
-  const prefix = `DEV-${slug}-${year}-`;
   const all = await getAllDevis(userId);
-  const forClient = all.filter((d) => d.clientId === clientId && (d.entete?.numero || '').startsWith(prefix));
-  let max = 0;
-  for (const d of forClient) {
-    const n = parseInt((d.entete?.numero || '').slice(prefix.length), 10);
-    if (!Number.isNaN(n) && n > max) max = n;
-  }
-  return prefix + String(max + 1).padStart(3, '0');
+  return computeNextDevisNumber(clientId, clients, all);
 }
 
 export async function updateDevis(devis, userId = null) {
@@ -358,29 +317,15 @@ export async function getAllFactures(userId = null) {
 }
 
 /**
- * Prochain numéro de facture : FAC-{clientSlug}-{année}-{NNN}, NNN par client.
+ * Prochain numéro de facture : FAC-{clientSlug}-{année}-NNN, NNN par client.
  * @param {string} [clientId]
  * @param {Object[]} [clients]
  * @param {string|number|null} [userId] - partition utilisateur
  * @returns {Promise<string>}
  */
 export async function getNextFactureNumber(clientId, clients = [], userId = null) {
-  if (!clientId || !Array.isArray(clients)) return '';
-  const client = clients.find((c) => c.id === clientId);
-  if (!client) return '';
-  const slug = getClientDevisSlug(client, clients);
-  const year = new Date().getFullYear();
-  const prefix = `FAC-${slug}-${year}-`;
   const all = await getAllFactures(userId);
-  const forClient = all.filter(
-    (f) => f.clientId === clientId && (f.entete?.numero || '').startsWith(prefix)
-  );
-  let max = 0;
-  for (const f of forClient) {
-    const n = parseInt((f.entete?.numero || '').slice(prefix.length), 10);
-    if (!Number.isNaN(n) && n > max) max = n;
-  }
-  return prefix + String(max + 1).padStart(3, '0');
+  return computeNextFactureNumber(clientId, clients, all);
 }
 
 export async function addFacture(facture, userId = null) {

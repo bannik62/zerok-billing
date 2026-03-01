@@ -34,7 +34,6 @@ import {
   putAchatRaw,
   getAchatRaw,
   getAllAchatsRaw,
-  getClientDevisSlug,
   addDocument as dbAddDocument,
   putDocumentRaw,
   getDocument,
@@ -43,6 +42,7 @@ import {
   getDocumentsByInvoiceId,
   deleteDocument
 } from './db.js';
+import { computeNextDevisNumber, computeNextFactureNumber } from './numbering.js';
 import {
   deriveKey,
   generateSalt,
@@ -235,23 +235,8 @@ export async function deleteDevis(id, userId = null) {
 }
 
 export async function getNextDevisNumber(clientId, clients = [], userId = null) {
-  if (!clientId || !Array.isArray(clients)) return '';
-  const client = clients.find((c) => c.id === clientId);
-  if (!client) return '';
-  const slug = getClientDevisSlug(client, clients);
-  const year = new Date().getFullYear();
-  const prefix = `DEV-${slug}-${year}-`;
   const all = await getAllDevis(userId);
-  const getNumero = (d) => (d && d.entete && d.entete.numero) ? d.entete.numero : '';
-  const forClient = all.filter(
-    (d) => d.clientId === clientId && getNumero(d).startsWith(prefix)
-  );
-  let max = 0;
-  for (const d of forClient) {
-    const n = parseInt(getNumero(d).slice(prefix.length), 10);
-    if (!Number.isNaN(n) && n > max) max = n;
-  }
-  return prefix + String(max + 1).padStart(3, '0');
+  return computeNextDevisNumber(clientId, clients, all);
 }
 
 export async function addFacture(facture, userId = null) {
@@ -304,27 +289,9 @@ export async function deleteFacture(id, userId = null) {
   await dbDeleteFacture(id, userId);
 }
 
-function getFactureNumero(f) {
-  return f && f.entete && f.entete.numero ? f.entete.numero : '';
-}
-
 export async function getNextFactureNumber(clientId, clients = [], userId = null) {
-  if (!clientId || !Array.isArray(clients)) return '';
-  const client = clients.find((c) => c.id === clientId);
-  if (!client) return '';
-  const slug = getClientDevisSlug(client, clients);
-  const year = new Date().getFullYear();
-  const prefix = `FAC-${slug}-${year}-`;
   const all = await getAllFactures(userId);
-  const forClient = all.filter(
-    (f) => f.clientId === clientId && getFactureNumero(f).startsWith(prefix)
-  );
-  let max = 0;
-  for (const f of forClient) {
-    const n = parseInt(getFactureNumero(f).slice(prefix.length), 10);
-    if (!Number.isNaN(n) && n > max) max = n;
-  }
-  return prefix + String(max + 1).padStart(3, '0');
+  return computeNextFactureNumber(clientId, clients, all);
 }
 
 /**

@@ -9,6 +9,7 @@
     reduction = $bindable(),
     clients = [],
     saving = false,
+    validationError = '',
     onValider = () => {}
   } = $props();
 
@@ -18,6 +19,15 @@
   const DESIGNATION_MAX_LENGTH = 500;
   const UNITE_MAX_LENGTH = 10;
   const TVA_OPTIONS = [0, 2.1, 5.5, 10, 20];
+  const DEVISE_OPTIONS = [
+    { code: 'EUR', label: 'EUR (€)' },
+    { code: 'USD', label: 'USD ($)' },
+    { code: 'GBP', label: 'GBP (£)' },
+    { code: 'CHF', label: 'CHF' },
+    { code: 'CAD', label: 'CAD ($)' },
+    { code: 'JPY', label: 'JPY (¥)' }
+  ];
+  const deviseSymbole = $derived(({ EUR: '€', USD: '$', GBP: '£', CHF: ' CHF', CAD: '$', JPY: '¥' })[entete.devise] || entete.devise || '€');
 
   /**
    * Normalisation des champs du formulaire devis (entête + lignes + réduction).
@@ -78,18 +88,15 @@
 
   const dateEmissionField = createTextField({ maxLength: 10 });
   const dateValiditeField = createTextField({ maxLength: 10 });
-  const deviseField = createTextField({ maxLength: 10 });
-  const objetField = createTextField({ maxLength: 500 });
+  const objetField = createTextField({ maxLength: 500, required: true, minLength: 2 });
 
   const dateEmissionStore = dateEmissionField.store;
   const dateValiditeStore = dateValiditeField.store;
-  const deviseStore = deviseField.store;
   const objetStore = objetField.store;
 
   onMount(() => {
     dateEmissionField.value = entete.dateEmission ?? '';
     dateValiditeField.value = entete.dateValidite ?? '';
-    deviseField.value = entete.devise ?? '';
     objetField.value = entete.objet ?? '';
   });
 
@@ -184,7 +191,11 @@
       </div>
       <div class="form-row">
         <label for="devis-devise">Devise</label>
-        <input id="devis-devise" type="text" value={$deviseStore} oninput={(e) => { deviseField.value = e.currentTarget.value; entete = { ...entete, devise: deviseField.value }; }} />
+        <select id="devis-devise" value={entete.devise || 'EUR'} onchange={(e) => { entete = { ...entete, devise: e.currentTarget.value }; }}>
+          {#each DEVISE_OPTIONS as opt}
+            <option value={opt.code}>{opt.label}</option>
+          {/each}
+        </select>
       </div>
       <div class="form-row">
         <label for="devis-objet">Objet</label>
@@ -225,7 +236,7 @@
               <td><input type="number" min="0" step="1" value={ligne.quantite} oninput={(e) => { const v = formFields.normalizeQuantite(e.currentTarget.value); lignes = lignes.map((l, j) => j === i ? { ...l, quantite: v } : l); }} class="input-num" /></td>
               <td><input type="text" maxlength="10" value={ligne.unite} oninput={(e) => { const v = formFields.normalizeUnite(e.currentTarget.value); lignes = lignes.map((l, j) => j === i ? { ...l, unite: v } : l); }} class="input-unite" /></td>
               <td><input type="number" min="0" step="0.01" value={ligne.prixUnitaire} oninput={(e) => { const v = formFields.normalizePrixUnitaire(e.currentTarget.value); lignes = lignes.map((l, j) => j === i ? { ...l, prixUnitaire: v } : l); }} class="input-num" /></td>
-              <td class="montant">{formatMontant(montant)} €</td>
+              <td class="montant">{formatMontant(montant)} {deviseSymbole}</td>
               <td><button type="button" class="btn-remove" onclick={() => removeLigne(ligne.id)} title="Supprimer">×</button></td>
             </tr>
           {/each}
@@ -238,7 +249,7 @@
   <section class="devis-section devis-totaux">
     <div class="totaux-row">
       <span>Sous-total HT</span>
-      <strong>{formatMontant(sousTotal)} €</strong>
+      <strong>{formatMontant(sousTotal)} {deviseSymbole}</strong>
     </div>
     <div class="form-row-inline">
       <label for="devis-reduction-type">Réduction</label>
@@ -263,26 +274,29 @@
     </div>
     <div class="totaux-row">
       <span>Total HT</span>
-      <strong>{formatMontant(totalHT)} €</strong>
+      <strong>{formatMontant(totalHT)} {deviseSymbole}</strong>
     </div>
     {#if (Number(entete.tvaTaux) || 0) > 0}
       <div class="totaux-row">
         <span>TVA ({entete.tvaTaux} %)</span>
-        <strong>{formatMontant(tvaMontant)} €</strong>
+        <strong>{formatMontant(tvaMontant)} {deviseSymbole}</strong>
       </div>
       <div class="totaux-row total-row">
         <span>Total TTC</span>
-        <strong>{formatMontant(totalTTC)} €</strong>
+        <strong>{formatMontant(totalTTC)} {deviseSymbole}</strong>
       </div>
     {:else}
       <div class="totaux-row total-row">
         <span>Total</span>
-        <strong>{formatMontant(total)} €</strong>
+        <strong>{formatMontant(total)} {deviseSymbole}</strong>
       </div>
     {/if}
   </section>
 
   <div class="step-actions">
+    {#if validationError}
+      <p class="form-error" role="alert">{validationError}</p>
+    {/if}
     <button type="button" class="btn-submit" disabled={saving || datesInvalides} onclick={onValider}>
       {saving ? 'Enregistrement…' : "Valider – Passer à l'éditeur"}
     </button>
@@ -295,8 +309,9 @@
     flex-direction: column;
     gap: 1.25rem;
     min-height: 0;
-    border-left: 4px solid var(--color-primary);
-    padding-left: 1rem;
+    border: 2px solid var(--color-frame-form);
+    border-radius: 8px;
+    padding: 1rem;
   }
   .devis-header { margin-bottom: 0.25rem; }
   .devis-title {

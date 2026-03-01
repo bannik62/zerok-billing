@@ -1,6 +1,14 @@
 <script>
   import { addClient, getAllClients, updateClient, deleteClient } from '$lib/db.js';
-  import { createTextField, createTelField } from '$lib/formField.js';
+  import {
+    createTextField,
+    createEmailField,
+    createTelField,
+    createCodePostalField,
+    createSiretField,
+    NOM_PRENOM_PATTERN,
+    NOM_PRENOM_PATTERN_MESSAGE
+  } from '$lib/formField.js';
   import { scheduleBackupUpload } from '$lib/backupSync.js';
 
   /**
@@ -16,25 +24,25 @@
   let editingClientId = $state(null);
   let savingEdit = $state(false);
 
-  const raisonSocialeField = createTextField({ maxLength: 255 });
-  const nomField = createTextField({ maxLength: 100 });
-  const prenomField = createTextField({ maxLength: 100 });
-  const emailField = createTextField({ maxLength: 255 });
-  const telephoneField = createTelField();
-  const adresseField = createTextField({ maxLength: 255 });
-  const codePostalField = createTextField({ maxLength: 10 });
-  const villeField = createTextField({ maxLength: 100 });
-  const siretField = createTextField({ maxLength: 20 });
+  const raisonSocialeField = createTextField({ maxLength: 255, required: true, minLength: 2 });
+  const nomField = createTextField({ maxLength: 100, required: true, minLength: 2, pattern: NOM_PRENOM_PATTERN, patternMessage: NOM_PRENOM_PATTERN_MESSAGE });
+  const prenomField = createTextField({ maxLength: 100, required: true, minLength: 2, pattern: NOM_PRENOM_PATTERN, patternMessage: NOM_PRENOM_PATTERN_MESSAGE });
+  const emailField = createEmailField();
+  const telephoneField = createTelField({ required: true });
+  const adresseField = createTextField({ maxLength: 255, required: true });
+  const codePostalField = createCodePostalField({ required: true });
+  const villeField = createTextField({ maxLength: 100, required: true });
+  const siretField = createSiretField({ required: true });
 
-  const editRaisonSocialeField = createTextField({ maxLength: 255 });
-  const editNomField = createTextField({ maxLength: 100 });
-  const editPrenomField = createTextField({ maxLength: 100 });
-  const editEmailField = createTextField({ maxLength: 255 });
-  const editTelephoneField = createTelField();
-  const editAdresseField = createTextField({ maxLength: 255 });
-  const editCodePostalField = createTextField({ maxLength: 10 });
-  const editVilleField = createTextField({ maxLength: 100 });
-  const editSiretField = createTextField({ maxLength: 20 });
+  const editRaisonSocialeField = createTextField({ maxLength: 255, required: true, minLength: 2 });
+  const editNomField = createTextField({ maxLength: 100, required: true, minLength: 2, pattern: NOM_PRENOM_PATTERN, patternMessage: NOM_PRENOM_PATTERN_MESSAGE });
+  const editPrenomField = createTextField({ maxLength: 100, required: true, minLength: 2, pattern: NOM_PRENOM_PATTERN, patternMessage: NOM_PRENOM_PATTERN_MESSAGE });
+  const editEmailField = createEmailField();
+  const editTelephoneField = createTelField({ required: true });
+  const editAdresseField = createTextField({ maxLength: 255, required: true });
+  const editCodePostalField = createCodePostalField({ required: true });
+  const editVilleField = createTextField({ maxLength: 100, required: true });
+  const editSiretField = createSiretField({ required: true });
 
   const raisonSocialeStore = raisonSocialeField.store;
   const nomStore = nomField.store;
@@ -69,6 +77,21 @@
   async function submit(e) {
     e.preventDefault();
     message = { type: '', text: '' };
+    const errors = [
+      raisonSocialeField.getError(),
+      nomField.getError(),
+      prenomField.getError(),
+      emailField.getError(),
+      telephoneField.getError(),
+      adresseField.getError(),
+      codePostalField.getError(),
+      villeField.getError(),
+      siretField.getError()
+    ].filter(Boolean);
+    if (errors.length > 0) {
+      message = { type: 'error', text: errors[0] };
+      return;
+    }
     loading = true;
     try {
       await addClient(
@@ -124,6 +147,21 @@
   async function saveEdit(e) {
     e.preventDefault();
     if (editingClientId == null) return;
+    const errors = [
+      editRaisonSocialeField.getError(),
+      editNomField.getError(),
+      editPrenomField.getError(),
+      editEmailField.getError(),
+      editTelephoneField.getError(),
+      editAdresseField.getError(),
+      editCodePostalField.getError(),
+      editVilleField.getError(),
+      editSiretField.getError()
+    ].filter(Boolean);
+    if (errors.length > 0) {
+      message = { type: 'error', text: errors[0] };
+      return;
+    }
     savingEdit = true;
     try {
       await updateClient(
@@ -200,17 +238,17 @@
       <div class="form-row-group">
         <div class="form-row">
           <label for="code-postal">Code postal</label>
-          <input id="code-postal" type="text" value={$codePostalStore} oninput={(e) => codePostalField.value = e.target.value} />
+          <input id="code-postal" type="text" inputmode="numeric" value={$codePostalStore} oninput={(e) => codePostalField.value = e.target.value} placeholder="5 chiffres" />
         </div>
         <div class="form-row">
           <label for="ville">Ville</label>
           <input id="ville" type="text" value={$villeStore} oninput={(e) => villeField.value = e.target.value} />
         </div>
       </div>
-      <div class="form-row">
-        <label for="siret">SIRET</label>
-        <input id="siret" type="text" value={$siretStore} oninput={(e) => siretField.value = e.target.value} placeholder="14 chiffres" />
-      </div>
+        <div class="form-row">
+          <label for="siret">SIRET</label>
+          <input id="siret" type="text" inputmode="numeric" value={$siretStore} oninput={(e) => siretField.value = e.target.value} placeholder="14 chiffres" />
+        </div>
       <div class="form-actions">
         <button type="submit" class="btn-submit" disabled={loading}>
           {loading ? 'Enregistrement…' : 'Enregistrer le client'}
@@ -283,7 +321,7 @@
         <div class="form-row-group">
           <div class="form-row">
             <label for="edit-code-postal">Code postal</label>
-            <input id="edit-code-postal" type="text" value={$editCodePostalStore} oninput={(e) => editCodePostalField.value = e.target.value} />
+            <input id="edit-code-postal" type="text" inputmode="numeric" value={$editCodePostalStore} oninput={(e) => editCodePostalField.value = e.target.value} placeholder="5 chiffres" />
           </div>
           <div class="form-row">
             <label for="edit-ville">Ville</label>
@@ -292,7 +330,7 @@
         </div>
         <div class="form-row">
           <label for="edit-siret">SIRET</label>
-          <input id="edit-siret" type="text" value={$editSiretStore} oninput={(e) => editSiretField.value = e.target.value} placeholder="14 chiffres" />
+          <input id="edit-siret" type="text" inputmode="numeric" value={$editSiretStore} oninput={(e) => editSiretField.value = e.target.value} placeholder="14 chiffres" />
         </div>
         <div class="modal-actions">
           <button type="button" class="btn-cancel" onclick={cancelEdit}>Annuler</button>
@@ -309,6 +347,9 @@
     flex-direction: column;
     gap: 1.25rem;
     min-height: 0;
+    border: 2px solid var(--color-frame-form);
+    border-radius: 8px;
+    padding: 1rem;
   }
   .clients-title {
     margin: 0;
@@ -426,7 +467,7 @@
   }
   .client-item-name {
     font-weight: 600;
-    color: #0f172a;
+    color: #5EEAD4;
   }
   .client-item-email {
     font-size: 0.85rem;

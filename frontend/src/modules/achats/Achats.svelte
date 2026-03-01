@@ -574,7 +574,7 @@
     padding: 0.75rem;
     border-radius: 8px;
     background: var(--color-bg-elevated);
-    border: 1px solid var(--color-border);
+    border: 2px solid var(--color-frame-docs);
   }
   .achats-form-row {
     display: flex;

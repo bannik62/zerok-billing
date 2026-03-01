@@ -314,8 +314,8 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    border-left: 4px solid var(--color-primary);
-    padding-left: 1rem;
+    border: 2px solid var(--color-primary);
+    padding: 1rem;
   }
   .facture-title { margin: 0; font-size: 1.25rem; color: var(--color-primary); font-weight: 700; }
   .facture-intro { margin: 0; color: var(--color-text-muted); font-size: 0.95rem; }

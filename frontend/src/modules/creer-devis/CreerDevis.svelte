@@ -75,7 +75,31 @@
   });
 
   let saving = $state(false);
+  let formValidationError = $state('');
   function valider() {
+    formValidationError = '';
+    if (!entete.clientId) {
+      formValidationError = 'Choisissez un client.';
+      return;
+    }
+    if (!entete.dateEmission) {
+      formValidationError = 'Date d\'émission requise.';
+      return;
+    }
+    if (!entete.dateValidite) {
+      formValidationError = 'Date de validité requise.';
+      return;
+    }
+    const objet = (entete.objet || '').trim();
+    if (objet.length < 2) {
+      formValidationError = 'Objet requis (min. 2 caractères).';
+      return;
+    }
+    const hasLigneAvecDesignation = lignes.some((l) => (l.designation || '').trim().length > 0);
+    if (!hasLigneAvecDesignation) {
+      formValidationError = 'Au moins une ligne avec désignation requise.';
+      return;
+    }
     const devis = {
       id: crypto.randomUUID(),
       clientId: entete.clientId || null,
@@ -135,6 +159,7 @@
     const clientId = client?.id ?? '';
     const nextNum = await getNextDevisNumber(clientId, clients, uid);
     entete = { clientId, numero: nextNum || '', dateEmission: '', dateValidite: '', devise: 'EUR', objet: '', tvaTaux: 0 };
+    formValidationError = '';
     lignes = [{ id: crypto.randomUUID(), designation: '', quantite: 1, unite: 'u', prixUnitaire: 0 }];
     reduction = { type: 'percent', value: 0 };
   }
@@ -211,6 +236,7 @@
     bind:reduction
     clients={clients}
     {saving}
+    validationError={formValidationError}
     onValider={valider}
   />
 {:else}

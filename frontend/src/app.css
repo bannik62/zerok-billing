@@ -22,6 +22,10 @@
   --color-primary-bg: #ecfdf5;
   --color-error: #b91c1c;
   --color-error-bg: #fef2f2;
+  /* Code couleur des cadres (formulaire = bleu, preuves = rouge, liste docs = vert) */
+  --color-frame-form: #2563eb;
+  --color-frame-proof: #dc2626;
+  --color-frame-docs: #059669;
   color-scheme: light;
 }
 
@@ -40,6 +44,9 @@
   --color-primary-bg: rgba(45, 212, 191, 0.15);
   --color-error: #f87171;
   --color-error-bg: #450a0a;
+  --color-frame-form: #3b82f6;
+  --color-frame-proof: #ef4444;
+  --color-frame-docs: #10b981;
   color-scheme: dark;
 }
 

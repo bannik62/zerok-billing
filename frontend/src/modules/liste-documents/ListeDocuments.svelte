@@ -2,32 +2,21 @@
   import { onMount } from 'svelte';
   import { ListeDocumentsControlsFields, LISTE_DOCS_SEARCH_MAX_LENGTH } from '$lib/liste-documents/ListeDocumentsControlsFields.js';
   import { clientDisplayName, getProofLabel } from '$lib/liste-documents/listeDocumentsHelpers.js';
+  import { verifyPassword } from '$lib/dbEncrypted.js';
   import {
-    getAllDevis,
-    getAllFactures,
-    getAllClients,
-    getSociete,
-    deleteDevis,
-    deleteFacture,
-    updateDevis,
-    updateFacture,
-    getDocumentsByInvoiceId,
-    decryptDocumentBlob,
-    verifyPassword
-  } from '$lib/dbEncrypted.js';
-  import { hashDocument } from '$lib/crypto/index.js';
-  import { getProofs, verifyProofs, deleteProof } from '$lib/proofs.js';
-  import { buildAttachmentsZip, downloadBlob } from '$lib/coffreFortExport.js';
+    exportPiecesJointesZip as doExportPiecesJointesZipService,
+    sendForSignature as sendForSignatureService,
+    loadListeDocuments,
+    deleteDevisSelection as deleteDevisSelectionService,
+    deleteFacturesSelection as deleteFacturesSelectionService,
+    deleteProofFromServer
+  } from '$lib/listeDocumentsService.js';
   import PrintPreviewModal from './PrintPreviewModal.svelte';
   import PasswordConfirmModal from '$lib/PasswordConfirmModal.svelte';
   import ListeDocumentsSearch from './ListeDocumentsSearch.svelte';
   import DevisTable from './DevisTable.svelte';
   import FacturesTable from './FacturesTable.svelte';
   import ProofsPanel from '$lib/ProofsPanel.svelte';
-  import { apiClient } from '$lib/apiClient.js';
-  import { buildPdfDocumentHtml } from '$lib/pdfDocumentHtml.js';
-  import html2pdf from 'html2pdf.js';
-  import { scheduleBackupUpload } from '$lib/backupSync.js';
 
   const controlsFields = new ListeDocumentsControlsFields();
   const searchStore = controlsFields.searchStore;
@@ -90,21 +79,8 @@
     if (!invoiceId) return;
     zipExportingId = invoiceId;
     try {
-      const docs = await getDocumentsByInvoiceId(invoiceId, user?.id ?? null);
-      if (!docs.length) {
-        alert('Aucune pièce jointe pour ce document.');
-        return;
-      }
-      const decrypted = [];
-      for (const doc of docs) {
-        const blob = await decryptDocumentBlob(doc);
-        decrypted.push({ id: doc.id, filename: doc.filename || 'document', blob });
-      }
-      const baseName = type === 'devis'
-        ? `Devis-${numero || invoiceId}-pieces-jointes`
-        : `Facture-${numero || invoiceId}-pieces-jointes`;
-      const zipBlob = await buildAttachmentsZip(decrypted, baseName);
-      downloadBlob(zipBlob, `${baseName}.zip`);
+      const result = await doExportPiecesJointesZipService(invoiceId, type, numero, user?.id ?? null);
+      if (result.error) error = result.error;
     } catch (e) {
       error = e?.message || 'Erreur lors de l’export ZIP.';
     } finally {
@@ -126,57 +102,17 @@
     const id = document?.id;
     if (!id) return;
     const client = document?.entete?.clientId ? clientsMap[document.entete.clientId] : null;
-    const email = client?.email;
-    if (!email) return;
-    const numero = String(document?.entete?.numero ?? '').trim();
+    if (!client?.email) return;
     sendingForSignatureId = id;
     sendSignatureFeedback = null;
     try {
-      const uid = user?.id ?? null;
-      const societe = await getSociete(uid);
-      const pdfFilename = (docType === 'devis' ? 'Devis' : 'Facture') + (numero ? `-${numero}` : '') + '.pdf';
-      const htmlString = buildPdfDocumentHtml(document, client, societe, docType);
-      const blob = await html2pdf()
-        .set({
-          margin: 4,
-          filename: pdfFilename,
-          image: { type: 'jpeg', quality: 0.95 },
-          html2canvas: { scale: 2, useCORS: true },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        })
-        .from(htmlString)
-        .outputPdf('blob');
-      const pdfBase64 = await new Promise((res, rej) => {
-        const r = new FileReader();
-        r.onload = () => {
-          const dataUrl = r.result;
-          const str = typeof dataUrl === 'string' ? dataUrl : '';
-          res(str.includes(',') ? str.split(',')[1] : '');
-        };
-        r.onerror = rej;
-        r.readAsDataURL(blob);
-      });
-      const payload = {
-        to: email,
-        invoiceId: id,
-        documentType: docType,
-        numero,
-        pdfBase64,
-        pdfFilename
-      };
-      if (docType === 'facture') {
-        const totalTTC = Number(document?.totalTTC) ?? Number(document?.total) ?? 0;
-        const amountCents = Math.round(totalTTC * 100);
-        if (amountCents < 50) {
-          sendSignatureFeedback = { type: 'error', text: 'Le montant minimum pour paiement en ligne est de 0,50 €' };
-          return;
-        }
-        payload.amountCents = amountCents;
-        payload.currency = 'eur';
+      const result = await sendForSignatureService(document, docType, client, user?.id ?? null);
+      if (result.error) {
+        sendSignatureFeedback = { type: 'error', text: result.error };
+      } else {
+        sendSignatureFeedback = { type: 'success', text: result.success };
+        setTimeout(() => { sendSignatureFeedback = null; }, 4000);
       }
-      await apiClient.post('/api/documents/send-for-signature', payload);
-      sendSignatureFeedback = { type: 'success', text: `Email envoyé à ${email} avec le PDF` };
-      setTimeout(() => { sendSignatureFeedback = null; }, 4000);
     } catch (e) {
       const msg = e.response?.data?.error ?? e?.message ?? 'Erreur lors de l’envoi';
       sendSignatureFeedback = { type: 'error', text: msg };
@@ -282,14 +218,15 @@
     if (!confirm(msg)) return;
     deletingDevis = true;
     try {
-      for (const id of $selectedDevisIdsStore) {
-        await deleteDevis(id, user?.id ?? null);
-        await deleteProof(id).catch(() => {});
+      const ids = [...$selectedDevisIdsStore];
+      const result = await deleteDevisSelectionService(ids, user?.id ?? null);
+      if (result.error) {
+        error = result.error;
+      } else {
+        controlsFields.selectedDevisIds = new Set();
+        devisList = result.devis;
+        backendProofs = result.backendProofs;
       }
-      controlsFields.selectedDevisIds = new Set();
-      devisList = await getAllDevis(user?.id ?? null);
-      backendProofs = await getProofs();
-      scheduleBackupUpload(user?.id ?? null);
     } catch (e) {
       error = e?.message || 'Erreur lors de la suppression.';
     } finally {
@@ -316,14 +253,15 @@
     if (!confirm(msg)) return;
     deleting = true;
     try {
-      for (const id of $selectedFactureIdsStore) {
-        await deleteFacture(id, user?.id ?? null);
-        await deleteProof(id).catch(() => {});
+      const ids = [...$selectedFactureIdsStore];
+      const result = await deleteFacturesSelectionService(ids, user?.id ?? null);
+      if (result.error) {
+        error = result.error;
+      } else {
+        controlsFields.selectedFactureIds = new Set();
+        facturesList = result.factures;
+        backendProofs = result.backendProofs;
       }
-      controlsFields.selectedFactureIds = new Set();
-      facturesList = await getAllFactures(user?.id ?? null);
-      backendProofs = await getProofs();
-      scheduleBackupUpload(user?.id ?? null);
     } catch (e) {
       error = e?.message || 'Erreur lors de la suppression.';
     } finally {
@@ -336,8 +274,12 @@
     if (!invoiceId) return;
     deletingProofId = invoiceId;
     try {
-      await deleteProof(invoiceId);
-      backendProofs = await getProofs();
+      const result = await deleteProofFromServer(invoiceId);
+      if (result.error) {
+        error = result.error;
+      } else {
+        backendProofs = result.backendProofs;
+      }
     } catch (e) {
       error = e?.message || 'Erreur suppression preuve sur le serveur.';
     } finally {
@@ -353,80 +295,16 @@
     verifiedMap = {};
     paymentStatusMap = {};
     try {
-      const [devis, factures, clients] = await Promise.all([
-        getAllDevis(uid),
-        getAllFactures(uid),
-        getAllClients(uid)
-      ]);
+      const result = await loadListeDocuments(uid);
       if (!mounted) return;
-      devisList = devis;
-      facturesList = factures;
-      clientsMap = Object.fromEntries((clients || []).map((c) => [c.id, c]));
+      devisList = result.devis;
+      facturesList = result.factures;
+      clientsMap = result.clientsMap;
+      paymentStatusMap = result.paymentStatusMap;
+      backendProofs = result.backendProofs;
+      proofsPanelError = result.proofsPanelError;
+      verifiedMap = result.verifiedMap;
       controlsFields.clearSelections();
-
-      // Sync « Accepté » depuis les signatures enregistrées côté serveur
-      try {
-        const res = await apiClient.get('/api/signatures');
-        const signedIds = new Set(res.data?.signedInvoiceIds || []);
-        for (const id of signedIds) {
-          const d = devisList.find((doc) => doc.id === id);
-          if (d && d.accepted !== true) await updateDevis({ ...d, accepted: true }, uid);
-          const f = facturesList.find((doc) => doc.id === id);
-          if (f) await updateFacture({ ...f, accepted: true }, uid);
-        }
-        if (signedIds.size > 0 && mounted) {
-          devisList = devisList.map((doc) => (signedIds.has(doc.id) ? { ...doc, accepted: true } : doc));
-          facturesList = facturesList.map((doc) => (signedIds.has(doc.id) ? { ...doc, accepted: true } : doc));
-          scheduleBackupUpload(uid);
-        }
-      } catch (_) {
-        // ignore (non connecté ou route absente)
-      }
-
-      // Statut payé des factures (colonne Payé)
-      try {
-        const ids = facturesList.map((f) => f.id).filter(Boolean);
-        if (ids.length > 0) {
-          const res = await apiClient.get('/api/invoices/payment-status', { params: { ids: ids.join(',') } });
-          if (mounted && res.data && typeof res.data === 'object') paymentStatusMap = res.data;
-        }
-      } catch (_) {
-        if (mounted) paymentStatusMap = {};
-      }
-
-      verifiedLoading = true;
-      proofsPanelError = '';
-      try {
-        backendProofs = await getProofs();
-      } catch (e) {
-        backendProofs = [];
-        const status = e.response?.status;
-        if (status === 401) proofsPanelError = 'Non connecté';
-        else if (status === 404) proofsPanelError = 'Route introuvable (404). Démarrez le backend.';
-        else proofsPanelError = e?.message || 'Erreur chargement preuves';
-      }
-      try {
-        const checks = [];
-        for (const d of devisList) {
-          const invoiceHash = await hashDocument(d, 'devis');
-          checks.push({ invoiceId: d.id, invoiceHash });
-        }
-        for (const f of facturesList) {
-          const invoiceHash = await hashDocument(f, 'facture');
-          checks.push({ invoiceId: f.id, invoiceHash });
-        }
-        if (checks.length > 0 && mounted) {
-          const results = await verifyProofs(checks);
-          if (!mounted) return;
-          const next = {};
-          for (const r of results) next[r.invoiceId] = r.verified;
-          verifiedMap = next;
-        }
-      } catch (_) {
-        if (mounted) verifiedMap = {};
-      } finally {
-        if (mounted) verifiedLoading = false;
-      }
     } catch (e) {
       if (!mounted) return;
       error = e?.message || 'Erreur lors du chargement des listes.';
@@ -552,6 +430,10 @@
     min-width: 280px;
     display: flex;
     flex-direction: column;
+    border: 2px solid var(--color-frame-docs);
+    border-radius: 8px;
+    padding: 1rem;
+    background: var(--color-bg-muted);
     gap: 1.5rem;
   }
   .liste-documents-title {

@@ -164,7 +164,7 @@
   .proofs-panel {
     flex: 0 0 280px;
     min-width: 240px;
-    border: 1px solid var(--color-border);
+    border: 2px solid var(--color-frame-proof);
     border-radius: 8px;
     padding: 1rem;
     background: var(--color-bg-muted);
