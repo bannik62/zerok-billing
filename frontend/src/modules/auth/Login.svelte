@@ -2,6 +2,7 @@
   import { apiClient } from '$lib/apiClient.js';
   import { createEmailField, createPasswordField } from '$lib/formField.js';
   import { initEncryption } from '$lib/dbEncrypted.js';
+  import { syncAfterUnlock } from '$lib/backupSync.js';
 
   let { onSuccess, onError, onSwitchToRegister, onSwitchToForgot } = $props();
 
@@ -30,7 +31,11 @@
         email: (emailField.value || '').trim(),
         password
       });
-      await initEncryption(password, (res.data?.user ?? res.data)?.id ?? null);
+      const userId = (res.data?.user ?? res.data)?.id ?? null;
+      await initEncryption(password, userId);
+      if (userId) {
+        await syncAfterUnlock(userId, password).catch(() => {});
+      }
       onSuccess?.(res.data);
     } catch (e) {
       error = e.response?.data?.error || e?.message || 'Erreur réseau';
