@@ -152,10 +152,9 @@ export async function syncAfterUnlock(uid, password) {
       return { restored: false };
     }
     if (result.status === 200 && result.payload) {
-      // Hash différent : on fusionne local + serveur (agrégation multiposte), puis on applique.
+      // Hash différent : serveur fait foi — on applique le blob tel quel (suppressions sur un poste propagées à l'autre).
       const restoredBundle = await openArchive(result.payload, password);
-      const mergedBundle = mergeBundles(bundle, restoredBundle);
-      await applyRestore(uid, mergedBundle);
+      await applyRestore(uid, restoredBundle);
       try {
         await _putCurrentState(uid, password);
         syncResultStore.set('restored_overwritten');
@@ -183,30 +182,9 @@ async function _putCurrentState(uid, password) {
 }
 
 /**
- * Récupère le blob serveur s'il existe, fusionne avec le bundle local, applique en base puis retourne le bundle à envoyer.
- * Évite d'écraser le serveur avec un sous-ensemble (ex. poste sans docs qui overwrite un blob contenant des docs).
- * @param {string|number} uid
- * @param {string} password
- * @param {Object} localBundle - bundle actuel (buildBundle)
- * @returns {Promise<Object>} bundle à archiver et PUT (local ou fusionné)
- */
-async function _mergeWithServerThenBuild(uid, password, localBundle) {
-  const stateHash = await computeStateHash(localBundle);
-  const result = await getBackup(stateHash);
-  if (result.status !== 200 || !result.payload) return localBundle;
-  try {
-    const serverBundle = await openArchive(result.payload, password);
-    const merged = mergeBundles(localBundle, serverBundle);
-    await applyRestore(uid, merged);
-    return await buildBundle(uid);
-  } catch (_) {
-    return localBundle;
-  }
-}
-
-/**
  * Declenche un PUT /api/backup en arriere-plan (debounce). No-op si mot de passe non defini.
  * A appeler apres chaque modification (devis, facture, achats, coffre).
+ * Envoie l'état local uniquement (pas de merge avant PUT) pour que les suppressions soient bien prises en compte.
  */
 export function scheduleBackupUpload(uid) {
   if (_backupPassword == null || uid == null) return;
@@ -214,10 +192,9 @@ export function scheduleBackupUpload(uid) {
   _uploadTimeout = setTimeout(async () => {
     _uploadTimeout = null;
     try {
-      const localBundle = await buildBundle(uid);
-      const bundleToPut = await _mergeWithServerThenBuild(uid, _backupPassword, localBundle);
-      const stateHash = await computeStateHash(bundleToPut);
-      const archive = await createArchive(bundleToPut, _backupPassword);
+      const bundle = await buildBundle(uid);
+      const stateHash = await computeStateHash(bundle);
+      const archive = await createArchive(bundle, _backupPassword);
       await putBackup(JSON.stringify(archive), stateHash);
     } catch (_) {
       // echec silencieux (reseau, etc.)
@@ -230,9 +207,8 @@ export function scheduleBackupUpload(uid) {
  */
 export async function uploadBackupNow(uid) {
   if (_backupPassword == null || uid == null) return;
-  const localBundle = await buildBundle(uid);
-  const bundleToPut = await _mergeWithServerThenBuild(uid, _backupPassword, localBundle);
-  const stateHash = await computeStateHash(bundleToPut);
-  const archive = await createArchive(bundleToPut, _backupPassword);
+  const bundle = await buildBundle(uid);
+  const stateHash = await computeStateHash(bundle);
+  const archive = await createArchive(bundle, _backupPassword);
   await putBackup(JSON.stringify(archive), stateHash);
 }
