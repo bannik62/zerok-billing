@@ -199,6 +199,7 @@
   });
 
   async function handleUpload(formData) {
+    console.log('[CoffreFort] handleUpload appelé', formData?.file?.name, 'size:', formData?.file?.size);
     uploading = true;
     uploadError = null;
     try {
