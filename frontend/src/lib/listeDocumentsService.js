@@ -18,7 +18,7 @@ import { hashDocument } from '$lib/crypto/index.js';
 import { getProofs, verifyProofs, deleteProof } from '$lib/proofs.js';
 import { buildAttachmentsZip, downloadBlob } from '$lib/coffreFortExport.js';
 import { buildPdfDocumentHtml } from '$lib/pdfDocumentHtml.js';
-import { scheduleBackupUpload } from '$lib/backupSync.js';
+import { scheduleBackupUpload, uploadBackupNow } from '$lib/backupSync.js';
 import { apiClient } from '$lib/apiClient.js';
 import html2pdf from 'html2pdf.js';
 
@@ -212,6 +212,7 @@ export async function deleteDevisSelection(ids, uid) {
     await deleteProof(id).catch(() => {});
   }
   scheduleBackupUpload(uid);
+  await uploadBackupNow(uid);
   const [devis, backendProofs] = await Promise.all([
     getAllDevis(uid),
     getProofs()
@@ -231,6 +232,7 @@ export async function deleteFacturesSelection(ids, uid) {
     await deleteProof(id).catch(() => {});
   }
   scheduleBackupUpload(uid);
+  await uploadBackupNow(uid);
   const [factures, backendProofs] = await Promise.all([
     getAllFactures(uid),
     getProofs()

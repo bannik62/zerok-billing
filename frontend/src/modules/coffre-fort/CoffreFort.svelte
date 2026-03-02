@@ -201,6 +201,7 @@
       }
       await loadData();
       scheduleBackupUpload(uid);
+      await uploadBackupNow(uid);
     } catch (e) {
       uploadError = e?.message || 'Erreur lors de l’ajout du document';
     } finally {
