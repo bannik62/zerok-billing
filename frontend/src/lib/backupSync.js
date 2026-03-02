@@ -183,6 +183,28 @@ async function _putCurrentState(uid, password) {
 }
 
 /**
+ * Récupère le blob serveur s'il existe, fusionne avec le bundle local, applique en base puis retourne le bundle à envoyer.
+ * Évite d'écraser le serveur avec un sous-ensemble (ex. poste sans docs qui overwrite un blob contenant des docs).
+ * @param {string|number} uid
+ * @param {string} password
+ * @param {Object} localBundle - bundle actuel (buildBundle)
+ * @returns {Promise<Object>} bundle à archiver et PUT (local ou fusionné)
+ */
+async function _mergeWithServerThenBuild(uid, password, localBundle) {
+  const stateHash = await computeStateHash(localBundle);
+  const result = await getBackup(stateHash);
+  if (result.status !== 200 || !result.payload) return localBundle;
+  try {
+    const serverBundle = await openArchive(result.payload, password);
+    const merged = mergeBundles(localBundle, serverBundle);
+    await applyRestore(uid, merged);
+    return await buildBundle(uid);
+  } catch (_) {
+    return localBundle;
+  }
+}
+
+/**
  * Declenche un PUT /api/backup en arriere-plan (debounce). No-op si mot de passe non defini.
  * A appeler apres chaque modification (devis, facture, achats, coffre).
  */
@@ -192,9 +214,10 @@ export function scheduleBackupUpload(uid) {
   _uploadTimeout = setTimeout(async () => {
     _uploadTimeout = null;
     try {
-      const bundle = await buildBundle(uid);
-      const stateHash = await computeStateHash(bundle);
-      const archive = await createArchive(bundle, _backupPassword);
+      const localBundle = await buildBundle(uid);
+      const bundleToPut = await _mergeWithServerThenBuild(uid, _backupPassword, localBundle);
+      const stateHash = await computeStateHash(bundleToPut);
+      const archive = await createArchive(bundleToPut, _backupPassword);
       await putBackup(JSON.stringify(archive), stateHash);
     } catch (_) {
       // echec silencieux (reseau, etc.)
@@ -207,8 +230,9 @@ export function scheduleBackupUpload(uid) {
  */
 export async function uploadBackupNow(uid) {
   if (_backupPassword == null || uid == null) return;
-  const bundle = await buildBundle(uid);
-  const stateHash = await computeStateHash(bundle);
-  const archive = await createArchive(bundle, _backupPassword);
+  const localBundle = await buildBundle(uid);
+  const bundleToPut = await _mergeWithServerThenBuild(uid, _backupPassword, localBundle);
+  const stateHash = await computeStateHash(bundleToPut);
+  const archive = await createArchive(bundleToPut, _backupPassword);
   await putBackup(JSON.stringify(archive), stateHash);
 }
