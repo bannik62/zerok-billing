@@ -204,7 +204,9 @@
     try {
       const uid = user?.id ?? null;
       const maxBytes = MAX_FILE_SIZE_MB * 1024 * 1024;
-      if (formData?.file?.size > maxBytes) {
+      const fileSize = formData?.file?.size;
+      console.log('[CoffreFort] Taille fichier:', { MAX_FILE_SIZE_MB, maxBytes, fileSize, reject: fileSize > maxBytes });
+      if (fileSize > maxBytes) {
         throw new Error(`Fichier trop volumineux (max ${MAX_FILE_SIZE_MB} Mo)`);
       }
       const { record, fileHash } = await addDocument({
