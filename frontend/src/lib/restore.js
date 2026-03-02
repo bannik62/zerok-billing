@@ -12,11 +12,11 @@ import { addDevis, addFacture, addAchat } from '$lib/dbEncrypted.js';
  * @param {Object} bundle - { devis?, factures?, achats?, includesAchats?, clients?, societe?, coffreFortDocuments? } (format normalise openArchive)
  */
 export async function applyRestore(uid, bundle) {
-  const hasCoffre = (Array.isArray(bundle.clients) && bundle.clients.length > 0) || (bundle.societe != null && typeof bundle.societe === 'object');
-  const hasDocuments = (Array.isArray(bundle.devis) && bundle.devis.length > 0) || (Array.isArray(bundle.factures) && bundle.factures.length > 0);
-  const hasAchats = bundle?.includesAchats === true
-    || (Array.isArray(bundle.achats) && bundle.achats.length > 0);
-  const hasCoffreFortFiles = Array.isArray(bundle.coffreFortDocuments) && bundle.coffreFortDocuments.length > 0;
+  // Présence du tableau = on restaure cette section (y compris liste vide → suppressions propagées).
+  const hasCoffre = Array.isArray(bundle.clients) || (bundle.societe != null && typeof bundle.societe === 'object');
+  const hasDocuments = Array.isArray(bundle.devis) || Array.isArray(bundle.factures);
+  const hasAchats = bundle?.includesAchats === true || Array.isArray(bundle.achats);
+  const hasCoffreFortFiles = Array.isArray(bundle.coffreFortDocuments);
   await clearLocalDataForUser(uid, {
     coffre: hasCoffre,
     documents: hasDocuments,
