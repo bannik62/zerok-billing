@@ -32,12 +32,28 @@ export async function decrypt(encrypted, key) {
   return JSON.parse(dec.decode(plaintext));
 }
 
+const B64_CHUNK = 8192;
+
 function arrayBufferToBase64(buffer) {
   const bytes = new Uint8Array(buffer);
-  return btoa(String.fromCharCode(...bytes));
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += B64_CHUNK) {
+    const chunk = bytes.subarray(i, Math.min(i + B64_CHUNK, bytes.length));
+    let chunkStr = '';
+    for (let j = 0; j < chunk.length; j++) {
+      chunkStr += String.fromCharCode(chunk[j]);
+    }
+    binary += chunkStr;
+  }
+  return btoa(binary);
 }
 
 function base64ToArrayBuffer(base64) {
   const bin = atob(base64);
-  return new Uint8Array([...bin].map((c) => c.charCodeAt(0))).buffer;
+  const len = bin.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = bin.charCodeAt(i);
+  }
+  return bytes.buffer;
 }
