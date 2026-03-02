@@ -30,7 +30,8 @@
     {@const devisItems = items.filter((i) => i.documentType === 'devis')}
     {@const factureItems = items.filter((i) => i.documentType === 'facture')}
     {@const achatItems = items.filter((i) => i.documentType === 'achat')}
-    {@const otherItems = items.filter((i) => i.documentType !== 'devis' && i.documentType !== 'facture' && i.documentType !== 'achat')}
+    {@const documentItems = items.filter((i) => i.documentType === 'document')}
+    {@const otherItems = items.filter((i) => i.documentType !== 'devis' && i.documentType !== 'facture' && i.documentType !== 'achat' && i.documentType !== 'document')}
     <div class="proofs-sections">
       {#if devisItems.length > 0}
         <section class="proofs-section" aria-label="Preuves devis">
@@ -114,6 +115,37 @@
                     type="button"
                     class="proof-delete-btn"
                     title="Document supprimé en local — supprimer la preuve sur le serveur"
+                    disabled={deletingProofId === item.id}
+                    onclick={() => onDeleteFromServer(item.id)}
+                  >
+                    {deletingProofId === item.id ? '…' : 'Supprimer du serveur'}
+                  </button>
+                {/if}
+              </li>
+            {/each}
+          </ul>
+        </section>
+      {/if}
+      {#if documentItems.length > 0}
+        <section class="proofs-section" aria-label="Preuves documents coffre-fort">
+          <h4 class="proofs-section-title">Documents</h4>
+          <ul class="proofs-list">
+            {#each documentItems as item (item.id)}
+              <li class="proof-item">
+                <span class="proof-label" title={item.id}>{item.label}</span>
+                <code class="proof-hash" title={item.hash}>{item.hash ? item.hash.slice(0, HASH_DISPLAY_LEN) + '…' : '—'}</code>
+                {#if verifiedLoading && verifiedMap[item.id] === undefined}
+                  <span class="proof-status proof-pending" title="Vérification…">—</span>
+                {:else if verifiedMap[item.id] === true}
+                  <span class="proof-status proof-ok" title="Hash local = hash backend">✓ conforme</span>
+                {:else}
+                  <span class="proof-status proof-diff" title="Hash local ≠ hash backend">✗ différent</span>
+                {/if}
+                {#if item.isOrphan && onDeleteFromServer}
+                  <button
+                    type="button"
+                    class="proof-delete-btn"
+                    title="Preuve orpheline — supprimer la preuve sur le serveur"
                     disabled={deletingProofId === item.id}
                     onclick={() => onDeleteFromServer(item.id)}
                   >

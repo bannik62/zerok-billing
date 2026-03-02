@@ -128,7 +128,8 @@
       id: p.documentId,
       hash: p.fileHash || '',
       label: getDocumentProofLabel(p),
-      isOrphan: !docIds.has(p.documentId)
+      isOrphan: !docIds.has(p.documentId),
+      documentType: 'document'
     }));
   });
 

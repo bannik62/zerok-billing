@@ -1,7 +1,7 @@
 <script>
   import { getAllClients, getClientById, getSociete, addDevis, updateDevis, getNextDevisNumber } from '$lib/dbEncrypted.js';
   import { sendProof } from '$lib/proofs.js';
-  import { scheduleBackupUpload } from '$lib/backupSync.js';
+  import { scheduleBackupUpload, uploadBackupNow } from '$lib/backupSync.js';
   import DevisFormStep from './DevisFormStep.svelte';
   import DocumentLayout from '../document-layout/DocumentLayout.svelte';
   import { DEFAULT_LAYOUT_ID, LAYOUTS } from '$lib/documentLayouts.js';
@@ -200,6 +200,7 @@
         await sendProof(currentDevis, 'devis').catch((err) => console.warn('Preuve non envoyée:', err));
       }
       scheduleBackupUpload(uid);
+      await uploadBackupNow(uid);
       if (saveMessageTimer != null) clearTimeout(saveMessageTimer);
       saveMessageTimer = setTimeout(() => { saveMessage = ''; saveMessageTimer = null; }, 3000);
     } catch (e) {
