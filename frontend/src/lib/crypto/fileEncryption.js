@@ -5,7 +5,7 @@
 
 const IV_LENGTH_BYTES = 12;
 
-/** Taille de chunk pour éviter "Maximum call stack size exceeded" avec de gros buffers. */
+/** Taille de chunk pour encoder en base64 sans saturer la pile. */
 const B64_CHUNK = 8192;
 
 function arrayBufferToBase64(buffer) {
@@ -13,7 +13,11 @@ function arrayBufferToBase64(buffer) {
   let binary = '';
   for (let i = 0; i < bytes.length; i += B64_CHUNK) {
     const chunk = bytes.subarray(i, Math.min(i + B64_CHUNK, bytes.length));
-    binary += String.fromCharCode.apply(null, chunk);
+    let chunkStr = '';
+    for (let j = 0; j < chunk.length; j++) {
+      chunkStr += String.fromCharCode(chunk[j]);
+    }
+    binary += chunkStr;
   }
   return btoa(binary);
 }
