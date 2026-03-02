@@ -9,7 +9,8 @@
     addDocument,
     deleteDocument,
     decryptDocumentBlob,
-    verifyPassword
+    verifyPassword,
+    initEncryption
   } from '$lib/dbEncrypted.js';
   import { sendDocumentProof, verifyDocumentProofs, getDocumentProofs, deleteDocumentProof, cleanupDocumentProofs } from '$lib/proofs.js';
   import { scheduleBackupUpload, uploadBackupNow } from '$lib/backupSync.js';
@@ -262,6 +263,8 @@
     const uid = user?.id ?? null;
     const ok = await verifyPassword(pwd, uid);
     if (!ok) return false;
+    // Recharge la clé de chiffrement en mémoire pour que decryptDocumentBlob fonctionne
+    await initEncryption(pwd, uid);
     if (pendingPreview) {
       openPreview(pendingPreview);
     }
