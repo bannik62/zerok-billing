@@ -2,7 +2,35 @@
 
 Ce document décrit le mécanisme de sauvegarde des données sur le serveur et explique pourquoi il conserve le modèle **zero knowledge** : le serveur ne peut jamais lire le contenu des devis, factures, clients ou société.
 
-> Dernière mise à jour : 2026-02-27 — Ajout de la section Multiposte et mise à jour de la section réaligement de hash.
+> Dernière mise à jour : 2026-03-01 — Conflits/merge, deux KDF, limites (backup N-1, pas d'offline).
+
+---
+
+## Schéma : sync après déverrouillage (Mermaid)
+
+```mermaid
+flowchart TD
+  A[Déverrouillage] --> B[buildBundle]
+  B --> C{Base vide ?}
+  C -->|Oui| D[GET backup sans hash]
+  C -->|Non| E[GET backup avec stateHash]
+  D --> F{404 ?}
+  F -->|Oui| G[Fin]
+  F -->|Non| H[openArchive + applyRestore]
+  H --> I[PUT état]
+  E --> J{404 ?}
+  J -->|Oui| K[PUT notre bundle]
+  J -->|Non| L{unchanged ?}
+  L -->|Oui| G
+  L -->|Non| M[openArchive]
+  M --> N[mergeBundles local + serveur]
+  N --> O[applyRestore merged]
+  O --> I
+```
+
+- **Base vide** : on restaure le blob serveur tel quel.
+- **Base non vide + hash différent** : on fusionne local et serveur par id (serveur gagne en conflit), puis on applique le bundle fusionné.
+- **Preuves** : `cleanupDocumentProofs` uniquement si au moins un doc en local ; liste vide côté backend = ne rien supprimer.
 
 ---
 
@@ -69,10 +97,10 @@ GET /api/backup?hash=<hash>
        ├── 200 { unchanged: true } → local = serveur → rien à faire
        │                              syncResultStore = 'unchanged'
        │
-       └── 200 + { payload, stateHash } → serveur fait foi
+       └── 200 + { payload, stateHash } → fusion local + serveur
                │
                ▼
-         openArchive + applyRestore + _putCurrentState
+         openArchive → mergeBundles(local, serveur) → applyRestore(merged) + _putCurrentState
                │
                ▼
          syncResultStore = 'restored_overwritten'
@@ -144,9 +172,38 @@ PC 2 (nouveau / IndexedDB vide)
 
 La synchronisation se fait **à chaque déverrouillage**. Ce n'est pas du temps réel (pas de WebSocket), mais suffit pour un usage nomade classique (PC bureau vs PC portable, par exemple).
 
+### Conflits et merge : pourquoi le modèle tient la route
+
+- **Un compte = un utilisateur = une adresse mail.** Le scénario de conflit sur le **même id** (deux postes modifiant le même devis/facture en même temps) est quasi inexistant. Le seul cas serait quelqu'un qui ouvre l'app sur son PC et son téléphone en même temps et modifie le même document simultanément — tellement rare que « serveur gagne » est largement suffisant.
+- **Le merge par id** sert au cas classique : « J'ai créé un devis sur mon PC du bureau, et un autre sur mon portable, sans avoir rechargé entre les deux » → au prochain déverrouillage, les deux nouveaux ids sont fusionnés proprement. C'est le vrai use case multiposte.
+- **Pas de mode offline prévu** : l'accès à l'interface nécessite une session (backend). Pas de travail sans connexion, donc pas de conflits longs « offline ».
+
+**En résumé** : le modèle actuel (merge + serveur gagne en conflit sur même id) est solide pour cet usage.
+
 ---
 
-## 7. Architecture des fichiers
+## 7. Dérivations de clé (local vs archive)
+
+Il existe **deux dérivations de clé distinctes** à partir du mot de passe :
+
+| Usage | Salt | Où | Rôle |
+|-------|------|-----|------|
+| **IndexedDB locale** | `keyDerivationSalt` (propre à chaque poste) | Stocké en local | Chiffre/déchiffre les données dans le navigateur (devis, factures, clients, etc.). |
+| **Archive / backup serveur** | Salt dans le payload (fichier ou blob) | Envoyé avec l'archive | Dérivé du mot de passe + ce salt → clé d'archivage. Permet d'ouvrir la même archive sur un autre poste. |
+
+- La **clé locale** ne sert qu'à sécuriser le stockage sur la machine ; elle n'est pas partagée.
+- La **clé d'archive** est recalculée à chaque ouverture (mot de passe + salt de l'archive), ce qui rend l'archive **portable** : même mot de passe sur un autre PC → même clé d'archivage → déchiffrement OK, même si le `keyDerivationSalt` local de ce PC est différent.
+
+---
+
+## 8. Limites et évolutions possibles
+
+- **Backup N-1 côté serveur** : aujourd'hui, un PUT écrase le blob précédent. En cas de bug qui uploade un blob corrompu ou vide, il n'y a pas de filet de sécurité. Une évolution utile serait de conserver une version précédente (N-1) et de permettre une restauration par l'admin ou l'utilisateur en cas de problème.
+- **Sync non temps réel** : le dernier à déverrouiller « gagne » pour un même id ; à documenter clairement si on expose le comportement à l'utilisateur (ex. message sur la page Sauvegarder / Restaurer).
+
+---
+
+## 9. Architecture des fichiers
 
 | Fichier | Rôle |
 |---------|------|

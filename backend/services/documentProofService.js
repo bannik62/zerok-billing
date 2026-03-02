@@ -57,10 +57,12 @@ export async function deleteDocumentProof(documentId, userId) {
 /**
  * Supprime les preuves dont le documentId n'est pas dans la liste (nettoyage des orphelines).
  * À appeler avec la liste des ids des documents encore présents en local (IndexedDB).
+ * Liste vide = ne rien supprimer (évite de tout effacer en cas d'appel pendant une sync/restauration).
  */
 export async function deleteDocumentProofsNotInList(userId, keepDocumentIds) {
   if (!userId) return;
-  const keep = new Set((keepDocumentIds || []).map((id) => String(id).trim()).filter(Boolean));
+  if (!Array.isArray(keepDocumentIds) || keepDocumentIds.length === 0) return;
+  const keep = new Set(keepDocumentIds.map((id) => String(id).trim()).filter(Boolean));
   const all = await prisma.documentProof.findMany({
     where: { userId },
     select: { documentId: true }

@@ -15,7 +15,7 @@ Ce document recense les schémas du projet zerok-billing, leur emplacement et le
 | **WORKFLOWS.md** | ASCII | `docs/WORKFLOWS.md` | Flux au démarrage, login, dérivation de clé, backup sync, multiposte. |
 | **auth-session-derivation-cle.md** | Mermaid | `docs/auth-session-derivation-cle.md` | Connexion/session, dérivation de clé, backup sync, déconnexion. |
 | **MIGRATIONS_FRONTEND.md** | Mermaid | `docs/MIGRATIONS_FRONTEND.md` | Migrations Dexie et migration métier legacy. |
-| **SAUVEGARDE_ZERO_KNOWLEDGE.md** | ASCII + tableaux | `docs/SAUVEGARDE_ZERO_KNOWLEDGE.md` | Sauvegarde serveur chiffrée, multiposte, export manuel. |
+| **SAUVEGARDE_ZERO_KNOWLEDGE.md** | Mermaid + ASCII + tableaux | `docs/SAUVEGARDE_ZERO_KNOWLEDGE.md` | Sync après déverrouillage (flowchart), sauvegarde serveur chiffrée, multiposte, merge, export manuel. |
 
 ---
 

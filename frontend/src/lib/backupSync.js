@@ -40,6 +40,31 @@ export function clearBackupPassword() {
 }
 
 /**
+ * Fusionne deux bundles par id : union des entrées, serveur gagne en cas de doublon.
+ * Permet l'agrégation multiposte (ajouter les éléments manquants sans perdre le local).
+ * @param {Object} local - bundle local (buildBundle)
+ * @param {Object} server - bundle serveur (openArchive)
+ * @returns {Object} bundle fusionné
+ */
+function mergeBundles(local, server) {
+  const mergeById = (localArr, serverArr) => {
+    const byId = new Map();
+    (serverArr || []).forEach((x) => { if (x?.id != null) byId.set(String(x.id), x); });
+    (localArr || []).forEach((x) => { if (x?.id != null && !byId.has(String(x.id))) byId.set(String(x.id), x); });
+    return [...byId.values()];
+  };
+  return {
+    clients: mergeById(local.clients ?? [], server.clients ?? []),
+    societe: server.societe != null && typeof server.societe === 'object' ? server.societe : (local.societe != null && typeof local.societe === 'object' ? local.societe : null),
+    devis: mergeById(local.devis ?? [], server.devis ?? []),
+    factures: mergeById(local.factures ?? [], server.factures ?? []),
+    achats: mergeById(local.achats ?? [], server.achats ?? []),
+    coffreFortDocuments: mergeById(local.coffreFortDocuments ?? [], server.coffreFortDocuments ?? []),
+    includesAchats: server.includesAchats === true || (Array.isArray(local.achats) && local.achats.length > 0) || (Array.isArray(server.achats) && server.achats.length > 0)
+  };
+}
+
+/**
  * Construit le bundle local (coffre + documents + achats + coffre-fort fichiers) pour l'utilisateur.
  */
 export async function buildBundle(uid) {
@@ -89,7 +114,8 @@ export async function syncAfterUnlock(uid, password) {
   const isEmpty = bundle.clients.length === 0
     && bundle.devis.length === 0
     && bundle.factures.length === 0
-    && bundle.achats.length === 0;
+    && bundle.achats.length === 0
+    && (bundle.coffreFortDocuments?.length ?? 0) === 0;
 
   try {
     if (isEmpty) {
@@ -126,9 +152,10 @@ export async function syncAfterUnlock(uid, password) {
       return { restored: false };
     }
     if (result.status === 200 && result.payload) {
-      // Hash différent : serveur fait foi, on restaure depuis le blob.
+      // Hash différent : on fusionne local + serveur (agrégation multiposte), puis on applique.
       const restoredBundle = await openArchive(result.payload, password);
-      await applyRestore(uid, restoredBundle);
+      const mergedBundle = mergeBundles(bundle, restoredBundle);
+      await applyRestore(uid, mergedBundle);
       try {
         await _putCurrentState(uid, password);
         syncResultStore.set('restored_overwritten');

@@ -151,7 +151,9 @@
       verifiedLoading = true;
       proofsPanelError = '';
       try {
-        await cleanupDocumentProofs(docs.map((d) => d.id));
+        if (docs.length > 0) {
+          await cleanupDocumentProofs(docs.map((d) => d.id));
+        }
         backendDocumentProofs = await getDocumentProofs();
         verifiedMap = await verifyDocumentProofs(docs);
       } catch (e) {
