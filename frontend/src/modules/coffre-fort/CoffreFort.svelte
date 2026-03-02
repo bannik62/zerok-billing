@@ -216,16 +216,24 @@
         metadata: formData.metadata,
         userId: uid
       });
-      // Preuve envoyée uniquement après addDocument réussi (évite hash orphelin si taille / erreur avant persistance).
+      // Preuve envoyée uniquement après addDocument réussi. En cas d'erreur, on annule le doc mais on ne bloque pas la sauvegarde.
       try {
         await sendDocumentProof(record, fileHash);
       } catch (e) {
-        await deleteDocument(record.id, uid);
-        throw e;
+        try {
+          await deleteDocument(record.id, uid);
+        } catch (_) {
+          // no-op : doc déjà supprimé ou indisponible.
+        }
+        uploadError = e?.message || 'Erreur lors de l’envoi de la preuve du document.';
       }
-      await loadData();
       scheduleBackupUpload(uid);
       await uploadBackupNow(uid);
+      try {
+        await loadData();
+      } catch (_) {
+        // Rafraîchissement UI/proofs non bloquant pour la sauvegarde.
+      }
     } catch (e) {
       uploadError = e?.message || 'Erreur lors de l’ajout du document';
     } finally {
@@ -294,9 +302,13 @@
       } catch (_) {
         error = 'Document supprimé localement ; la preuve n\'a pas pu être retirée du serveur.';
       }
-      await loadData();
       scheduleBackupUpload(uid);
       await uploadBackupNow(uid);
+      try {
+        await loadData();
+      } catch (_) {
+        // Rafraîchissement UI/proofs non bloquant pour la sauvegarde.
+      }
     } catch (e) {
       error = e?.message || 'Erreur suppression';
     }
