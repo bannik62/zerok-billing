@@ -199,15 +199,12 @@
   });
 
   async function handleUpload(formData) {
-    console.log('[CoffreFort] handleUpload appelé', formData?.file?.name, 'size:', formData?.file?.size);
     uploading = true;
     uploadError = null;
     try {
       const uid = user?.id ?? null;
       const maxBytes = MAX_FILE_SIZE_MB * 1024 * 1024;
-      const fileSize = formData?.file?.size;
-      console.log('[CoffreFort] Taille fichier:', { MAX_FILE_SIZE_MB, maxBytes, fileSize, reject: fileSize > maxBytes });
-      if (fileSize > maxBytes) {
+      if (formData?.file?.size > maxBytes) {
         throw new Error(`Fichier trop volumineux (max ${MAX_FILE_SIZE_MB} Mo)`);
       }
       const { record, fileHash } = await addDocument({

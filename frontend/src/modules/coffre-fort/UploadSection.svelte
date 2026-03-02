@@ -173,9 +173,7 @@
     if (!uploadFields.isAcceptedFile(file)) {
       return { ok: false, error: `Format non supporté (extensions autorisées: ${ACCEPT_TYPES})` };
     }
-    const maxBytes = MAX_FILE_SIZE_MB * 1024 * 1024;
-    if (file.size > maxBytes) {
-      console.log('[UploadSection] Taille fichier:', { MAX_FILE_SIZE_MB, maxBytes, fileSize: file.size, reject: true });
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
       return { ok: false, error: `Fichier trop volumineux (max ${MAX_FILE_SIZE_MB} Mo)` };
     }
     return { ok: true, error: null };
