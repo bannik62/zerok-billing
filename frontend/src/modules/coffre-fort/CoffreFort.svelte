@@ -2,6 +2,7 @@
   import { writable, get } from 'svelte/store';
   import {
     getAllDocuments,
+    getDocument,
     getAllClients,
     getAllDevis,
     getAllFactures,
@@ -266,10 +267,20 @@
     // Recharge la clé de chiffrement en mémoire pour que decryptDocumentBlob fonctionne
     await initEncryption(pwd, uid);
     if (pendingPreview) {
-      openPreview(pendingPreview);
+      const full = await getDocument(pendingPreview.id, uid);
+      if (full?.encrypted && full?.payload != null && full?.iv != null) {
+        openPreview(full);
+      } else {
+        error = 'Document introuvable ou incomplet (payload manquant).';
+      }
     }
     if (pendingDownload) {
-      await doDownload(pendingDownload);
+      const full = await getDocument(pendingDownload.id, uid);
+      if (full?.encrypted && full?.payload != null && full?.iv != null) {
+        await doDownload(full);
+      } else {
+        error = 'Document introuvable ou incomplet (payload manquant).';
+      }
     }
     return true;
   }
@@ -287,7 +298,8 @@
         URL.revokeObjectURL(url);
       }
     } catch (e) {
-      error = e?.message || 'Impossible de télécharger';
+      const msg = e?.message || String(e);
+      error = msg.includes('requise') || msg.includes('invalide') ? msg : `Impossible de télécharger : ${msg}`;
     }
   }
 
