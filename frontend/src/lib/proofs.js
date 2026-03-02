@@ -73,7 +73,8 @@ export async function verifyProofs(checks) {
 
 /**
  * Envoie la preuve d'un document du coffre-fort (hash fichier + métadonnées, pas le contenu).
- * À appeler après addDocument (avec le record et le fileHash retournés).
+ * À appeler uniquement après addDocument réussi (avec le record et le fileHash retournés).
+ * Tout appel sans document persisté en local crée un hash orphelin côté serveur.
  * @param {{ id: string, filename: string, mimeType: string, size: number, linkedInvoiceId?: string }} record
  * @param {string} fileHash - SHA-256 hex du fichier
  */

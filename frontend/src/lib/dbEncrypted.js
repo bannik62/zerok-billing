@@ -365,9 +365,14 @@ export async function deleteAchat(id, userId = null) {
   return dbDeleteAchat(id, userId);
 }
 
+const COFFRE_FORT_MAX_FILE_BYTES = 20 * 1024 * 1024; // 20 Mo, aligné avec l’UI
+
 /** Coffre-fort : ajoute un document (fichier chiffré). Retourne { record, fileHash } pour envoyer la preuve. */
 export async function addDocument({ clientId, linkedInvoiceId, type, filename, file, metadata, userId }) {
   if (!_encryptionKey) throw new Error('Clé de chiffrement requise pour le coffre-fort');
+  if (file?.size > COFFRE_FORT_MAX_FILE_BYTES) {
+    throw new Error(`Fichier trop volumineux (max ${COFFRE_FORT_MAX_FILE_BYTES / (1024 * 1024)} Mo)`);
+  }
   const fileHash = await hashFile(file);
   const { payload, iv, mimeType, originalSize } = await encryptFile(file, _encryptionKey);
   const record = await dbAddDocument({

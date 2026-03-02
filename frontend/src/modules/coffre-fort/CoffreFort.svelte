@@ -14,7 +14,7 @@
   import { sendDocumentProof, verifyDocumentProofs, getDocumentProofs, deleteDocumentProof, cleanupDocumentProofs } from '$lib/proofs.js';
   import { scheduleBackupUpload, uploadBackupNow } from '$lib/backupSync.js';
   import { filterDocuments } from '$lib/coffreFortSearch.js';
-  import { getDocTypeLabel, getCategoryLabel } from './constants.js';
+  import { getDocTypeLabel, getCategoryLabel, MAX_FILE_SIZE_MB } from './constants.js';
   import UploadSection from './UploadSection.svelte';
   import DocumentTable from './DocumentTable.svelte';
   import DocumentPreviewModal from './DocumentPreviewModal.svelte';
@@ -122,13 +122,31 @@
   }
 
   /** Items pour l’encart Preuves : id, hash, label (documents coffre-fort). */
-  const proofItems = $derived.by(() =>
-    backendDocumentProofs.map((p) => ({
+  const proofItems = $derived.by(() => {
+    const docIds = new Set(documents.map((d) => d.id));
+    return backendDocumentProofs.map((p) => ({
       id: p.documentId,
       hash: p.fileHash || '',
-      label: getDocumentProofLabel(p)
-    }))
-  );
+      label: getDocumentProofLabel(p),
+      isOrphan: !docIds.has(p.documentId)
+    }));
+  });
+
+  let deletingProofId = $state(null);
+
+  async function handleDeleteProofFromServer(documentId) {
+    if (!documentId) return;
+    deletingProofId = documentId;
+    try {
+      await deleteDocumentProof(documentId);
+      backendDocumentProofs = await getDocumentProofs();
+      verifiedMap = await verifyDocumentProofs(documents);
+    } catch (e) {
+      error = e?.message || 'Erreur suppression preuve sur le serveur.';
+    } finally {
+      deletingProofId = null;
+    }
+  }
 
   async function loadData() {
     if (!user) return;
@@ -184,6 +202,10 @@
     uploadError = null;
     try {
       const uid = user?.id ?? null;
+      const maxBytes = MAX_FILE_SIZE_MB * 1024 * 1024;
+      if (formData?.file?.size > maxBytes) {
+        throw new Error(`Fichier trop volumineux (max ${MAX_FILE_SIZE_MB} Mo)`);
+      }
       const { record, fileHash } = await addDocument({
         clientId: formData.clientId,
         linkedInvoiceId: formData.linkedInvoiceId,
@@ -193,6 +215,7 @@
         metadata: formData.metadata,
         userId: uid
       });
+      // Preuve envoyée uniquement après addDocument réussi (évite hash orphelin si taille / erreur avant persistance).
       try {
         await sendDocumentProof(record, fileHash);
       } catch (e) {
@@ -341,6 +364,8 @@
         verifiedMap={verifiedMap}
         verifiedLoading={verifiedLoading}
         ariaLabel="Preuves documents — comparaison hash local / backend"
+        onDeleteFromServer={handleDeleteProofFromServer}
+        deletingProofId={deletingProofId}
       />
     </div>
   {/if}
