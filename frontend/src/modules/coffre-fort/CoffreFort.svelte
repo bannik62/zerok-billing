@@ -12,7 +12,7 @@
     verifyPassword
   } from '$lib/dbEncrypted.js';
   import { sendDocumentProof, verifyDocumentProofs, getDocumentProofs, deleteDocumentProof, cleanupDocumentProofs } from '$lib/proofs.js';
-  import { scheduleBackupUpload } from '$lib/backupSync.js';
+  import { scheduleBackupUpload, uploadBackupNow } from '$lib/backupSync.js';
   import { filterDocuments } from '$lib/coffreFortSearch.js';
   import { getDocTypeLabel, getCategoryLabel } from './constants.js';
   import UploadSection from './UploadSection.svelte';
@@ -271,6 +271,7 @@
       }
       await loadData();
       scheduleBackupUpload(uid);
+      await uploadBackupNow(uid);
     } catch (e) {
       error = e?.message || 'Erreur suppression';
     }
