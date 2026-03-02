@@ -36,7 +36,7 @@ export const RECOVERY_KEY_CHECK_IV_MAX_LENGTH = 128;
 
 // ——— Server / session ———
 export const SESSION_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-export const JSON_BODY_LIMIT = '512kb';
+export const JSON_BODY_LIMIT = '100mb';
 
 // ——— Pièce jointe email (PDF) ———
 export const PDF_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024; // 5 Mo
