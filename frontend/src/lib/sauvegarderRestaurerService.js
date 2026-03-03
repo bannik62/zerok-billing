@@ -2,7 +2,7 @@
  * Service sauvegarde/restauration : logique métier d'export, import et backup PDF avant restauration.
  */
 
-import { getAllClients, getSociete } from '$lib/db.js';
+import { getAllClients, getSociete, getAllDocuments } from '$lib/db.js';
 import { getAllDevis, getAllFactures, getAllAchats } from '$lib/dbEncrypted.js';
 import { createArchive, openArchive } from '$lib/archive.js';
 import { applyRestore } from '$lib/restore.js';
@@ -40,12 +40,14 @@ export async function exportArchive({ uid, exportCoffre, exportDocuments, export
   }
   const bundle = {};
   if (exportCoffre) {
-    const [clients, societe] = await Promise.all([
+    const [clients, societe, coffreFortDocuments] = await Promise.all([
       getAllClients(uid),
-      getSociete(uid)
+      getSociete(uid),
+      getAllDocuments(uid)
     ]);
     bundle.clients = clients;
     bundle.societe = { id: 'societe', ...societe };
+    bundle.coffreFortDocuments = coffreFortDocuments;
   }
   if (exportDocuments) {
     const [devis, factures] = await Promise.all([

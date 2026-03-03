@@ -516,28 +516,28 @@ export async function addDocument(doc) {
 export async function getDocument(id, userId = null) {
   const record = (await db[STORE_DOCUMENTS].get(id)) ?? null;
   if (!record) return null;
-  if (userId != null && record.userId !== userId) return null;
+  if (userId != null && record.userId != userId) return null;
   return record;
 }
 export async function getAllDocuments(userId = null) {
   const all = await db[STORE_DOCUMENTS].toArray();
   if (userId == null) return all;
-  return all.filter((r) => r.userId === userId);
+  return all.filter((r) => r.userId == userId);
 }
 export async function getDocumentsByClientId(clientId, userId = null) {
   const rows = await db[STORE_DOCUMENTS].where('clientId').equals(clientId).toArray();
   if (userId == null) return rows;
-  return rows.filter((r) => r.userId === userId);
+  return rows.filter((r) => r.userId == userId);
 }
 export async function getDocumentsByInvoiceId(linkedInvoiceId, userId = null) {
   const rows = await db[STORE_DOCUMENTS].where('linkedInvoiceId').equals(linkedInvoiceId).toArray();
   if (userId == null) return rows;
-  return rows.filter((r) => r.userId === userId);
+  return rows.filter((r) => r.userId == userId);
 }
 export async function deleteDocument(id, userId = null) {
   if (userId != null) {
     const record = await db[STORE_DOCUMENTS].get(id);
-    if (!record || record.userId !== userId) throw new Error('Document introuvable ou non autorisé');
+    if (!record || record.userId != userId) throw new Error('Document introuvable ou non autorisé');
   }
   await db[STORE_DOCUMENTS].delete(id);
 }
