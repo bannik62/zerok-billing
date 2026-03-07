@@ -65,7 +65,9 @@ function mergeBundles(local, server) {
 }
 
 /**
- * Construit le bundle local (coffre + documents + achats + coffre-fort fichiers) pour l'utilisateur.
+ * Construit le bundle local complet pour la sauvegarde automatique serveur.
+ * Inclut toujours tout (clients, societe, devis, factures, achats, coffreFortDocuments) — pas de filtre selon les cases de l'export manuel.
+ * Pour l'export manuel (.zerok-archive), voir exportArchive dans sauvegarderRestaurerService.js qui respecte les options Coffre fort / Documents.
  */
 export async function buildBundle(uid) {
   const [clients, societe, devis, factures, achats, coffreFortDocuments] = await Promise.all([
@@ -82,7 +84,10 @@ export async function buildBundle(uid) {
     devis: devis ?? [],
     factures: factures ?? [],
     achats: achats ?? [],
-    coffreFortDocuments: coffreFortDocuments ?? []
+    coffreFortDocuments: coffreFortDocuments ?? [],
+    includesAchats: true,
+    includesCoffreFortSection: true,
+    includesDocumentsSection: true
   };
 }
 

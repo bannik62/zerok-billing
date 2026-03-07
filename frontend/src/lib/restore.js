@@ -12,11 +12,14 @@ import { addDevis, addFacture, addAchat } from '$lib/dbEncrypted.js';
  * @param {Object} bundle - { devis?, factures?, achats?, includesAchats?, clients?, societe?, coffreFortDocuments? } (format normalise openArchive)
  */
 export async function applyRestore(uid, bundle) {
-  // Présence du tableau = on restaure cette section (y compris liste vide → suppressions propagées).
+  // Ne toucher une section que si elle était explicitement incluse (flag === true).
+  // buildBundle et openArchive fournissent ces flags ; sans flag, on ne clear ni ne restaure (évite d'effacer le coffre-fort à chaque sync serveur).
   const hasCoffre = Array.isArray(bundle.clients) || (bundle.societe != null && typeof bundle.societe === 'object');
-  const hasDocuments = Array.isArray(bundle.devis) || Array.isArray(bundle.factures);
-  const hasAchats = bundle?.includesAchats === true || Array.isArray(bundle.achats);
-  const hasCoffreFortFiles = Array.isArray(bundle.coffreFortDocuments);
+  const hasDocuments = bundle.includesDocumentsSection === true;
+  const hasAchats = bundle.includesAchats === true;
+  const hasCoffreFortFiles = bundle.includesCoffreFortSection === true;
+  const coffreDocsCount = Array.isArray(bundle.coffreFortDocuments) ? bundle.coffreFortDocuments.length : 0;
+  console.log('[zerok restore] applyRestore — hasCoffreFortFiles:', hasCoffreFortFiles, '| coffreFortDocuments à réinsérer:', coffreDocsCount);
   await clearLocalDataForUser(uid, {
     coffre: hasCoffre,
     documents: hasDocuments,
@@ -40,6 +43,10 @@ export async function applyRestore(uid, bundle) {
     for (const f of bundle.factures || []) {
       await addFacture(f, uid);
     }
+    for (const doc of bundle.linkedDocuments || []) {
+      const toPut = { ...doc, ...(uid != null && { userId: uid }) };
+      await putDocumentRaw(toPut);
+    }
   }
   if (hasAchats) {
     for (const a of bundle.achats || []) {
@@ -47,8 +54,12 @@ export async function applyRestore(uid, bundle) {
     }
   }
   if (hasCoffreFortFiles) {
-    for (const doc of bundle.coffreFortDocuments) {
-      await putDocumentRaw({ ...doc, ...(uid != null && { userId: uid }) });
+    const docs = Array.isArray(bundle.coffreFortDocuments) ? bundle.coffreFortDocuments : [];
+    for (const doc of docs) {
+      if (doc && (doc.id != null || doc.payload != null)) {
+        const toPut = { ...doc, ...(uid != null && { userId: uid }) };
+        await putDocumentRaw(toPut);
+      }
     }
   }
 }

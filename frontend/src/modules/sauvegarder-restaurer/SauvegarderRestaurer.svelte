@@ -2,7 +2,7 @@
   import { createPasswordField } from '$lib/formField.js';
   import { hasEncryptionKey } from '$lib/dbEncrypted.js';
   import { uploadBackupNow } from '$lib/backupSync.js';
-  import { exportArchive, importArchive, preRestoreBackupPdf } from '$lib/sauvegarderRestaurerService.js';
+  import { exportArchive, exportZipWithFiles, importArchive } from '$lib/sauvegarderRestaurerService.js';
 
   let { user = null } = $props();
   const uid = $derived(user?.id ?? null);
@@ -78,14 +78,14 @@
   let exportCoffre = $state(true);
   /** Inclure documents (devis, factures) dans l'export */
   let exportDocuments = $state(true);
-  /** Inclure les achats dans l'archive exportée (radio Oui/Non) */
+  /** Inclure les achats dans l'archive (radio Oui/Non) */
   let exportAchats = $state(true);
 
-  /** Modale au clic sur Restaurer : choix entre régénérer la BDD (destructif) ou télécharger d'abord une sauvegarde */
+  /** Modale au clic sur Restaurer : confirmer régénérer ou sauvegarder l'état en local */
   let restoreModalOpen = $state(false);
+  let backupLoading = $state(false);
   let backupError = $state('');
   let backupSuccess = $state('');
-  let backupLoading = $state(false);
 
   /** Sauvegarde serveur (bouton « Sauvegarder maintenant ») */
   let backupServerLoading = $state(false);
@@ -102,28 +102,28 @@
     restoreModalOpen = true;
   }
 
-  function closeRestoreModal() {
-    restoreModalOpen = false;
-  }
-
-  /** Télécharge les documents actuels (devis + factures) en PDF dans un ZIP. */
-  async function doPreRestoreBackup() {
+  /** Télécharge un ZIP avec les vrais fichiers : PDF devis/factures + coffre fort + pièces jointes. */
+  async function doSaveToDiskFromModal() {
     backupError = '';
     backupSuccess = '';
     if (!keyLoaded) {
-      backupError = 'Clé non chargée.';
+      backupError = 'Déverrouillez d\'abord avec votre mot de passe.';
       return;
     }
     backupLoading = true;
     try {
-      const result = await preRestoreBackupPdf({ uid });
+      const result = await exportZipWithFiles({ uid });
       if (result.error) backupError = result.error;
       else backupSuccess = result.success;
     } catch (e) {
-      backupError = e?.message || 'Erreur lors de la génération des PDF.';
+      backupError = e?.message || 'Erreur lors de la sauvegarde.';
     } finally {
       backupLoading = false;
     }
+  }
+
+  function closeRestoreModal() {
+    restoreModalOpen = false;
   }
 
   function tryRestore() {
@@ -171,7 +171,7 @@
     }
   }
 
-  async function doExport() {
+  async function doExport(e) {
     exportError = '';
     exportSuccess = '';
     const err = exportPwd.getError();
@@ -189,10 +189,14 @@
     }
     exportLoading = true;
     try {
+      const form = (e?.target?.tagName === 'FORM' ? e.target : document.getElementById('export-form')) ?? null;
+      const exportCoffreVal = form?.elements?.namedItem?.('exportCoffre')?.checked ?? exportCoffre;
+      const exportDocumentsVal = form?.elements?.namedItem?.('exportDocuments')?.checked ?? exportDocuments;
+      console.log('[zerok export] UI au clic (depuis formulaire) — Coffre fort:', exportCoffreVal, '| Documents:', exportDocumentsVal, '| Achats:', exportAchats);
       const result = await exportArchive({
         uid,
-        exportCoffre,
-        exportDocuments,
+        exportCoffre: exportCoffreVal,
+        exportDocuments: exportDocumentsVal,
         exportAchats,
         password: exportPwd.value
       });
@@ -263,25 +267,40 @@
   <div class="blocks-row">
   <section class="block export-block">
     <h3>Créer une archive et l'exporter</h3>
-    <form onsubmit={(e) => { e.preventDefault(); doExport(); }} class="form">
-      <p class="label-like">Inclure dans l'archive</p>
-      <div class="checkbox-group">
+    <form id="export-form" onsubmit={(e) => { e.preventDefault(); doExport(e); }} class="form" autocomplete="off">
+      <input type="text" name="archive-export-username" autocomplete="username" class="sr-only" aria-hidden="true" tabindex="-1" />
+      <p class="label-like">Choisir ce qui entre dans l'archive (au moins une case)</p>
+      <div class="checkbox-group export-options">
         <label class="checkbox-label">
-          <input type="checkbox" bind:checked={exportCoffre} disabled={exportLoading} />
-          Coffre fort (clients, société, profils)
+          <input
+            id="export-option-coffre"
+            name="exportCoffre"
+            type="checkbox"
+            checked={exportCoffre}
+            onchange={(e) => (exportCoffre = e.currentTarget.checked)}
+            disabled={exportLoading}
+          />
+          <span><strong>Coffre fort</strong> — fichiers du coffre-fort uniquement</span>
         </label>
         <label class="checkbox-label">
-          <input type="checkbox" bind:checked={exportDocuments} disabled={exportLoading} />
-          Documents (devis et factures)
+          <input
+            id="export-option-documents"
+            name="exportDocuments"
+            type="checkbox"
+            checked={exportDocuments}
+            onchange={(e) => (exportDocuments = e.currentTarget.checked)}
+            disabled={exportLoading}
+          />
+          <span><strong>Documents</strong> — devis, factures et pièces jointes</span>
         </label>
       </div>
-      <div class="radio-group">
-        <p class="label-like">Inclure les achats dans l'archive</p>
+      <div class="radio-group export-achats-option" class:disabled={!exportDocuments}>
+        <p class="label-like">Si « Documents » est coché : inclure aussi les achats ?</p>
         <label class="checkbox-label">
           <input
             type="radio"
             name="export-achats"
-            checked={exportAchats}
+            checked={exportAchats === true}
             onchange={() => (exportAchats = true)}
             disabled={exportLoading || !exportDocuments}
           />
@@ -291,7 +310,7 @@
           <input
             type="radio"
             name="export-achats"
-            checked={!exportAchats}
+            checked={exportAchats === false}
             onchange={() => (exportAchats = false)}
             disabled={exportLoading || !exportDocuments}
           />
@@ -303,6 +322,7 @@
         id="export-pwd"
         type="password"
         placeholder="Mot de passe"
+        autocomplete="new-password"
         minlength={exportPwd.minLength}
         maxlength={exportPwd.maxLength}
         value={$exportPwdStore}
@@ -314,6 +334,7 @@
         id="export-pwd-confirm"
         type="password"
         placeholder="Confirmer"
+        autocomplete="new-password"
         minlength={exportPwdConfirm.minLength}
         maxlength={exportPwdConfirm.maxLength}
         value={$exportPwdConfirmStore}
@@ -331,7 +352,8 @@
   <section class="block import-block">
     <h3>Restaurer depuis une archive</h3>
     <p class="hint-small">Remplace les données concernées (coffre fort et/ou documents) par le contenu de l'archive. Mot de passe = celui utilisé à l'export.</p>
-    <form onsubmit={(e) => { e.preventDefault(); tryRestore(); }} class="form">
+    <form onsubmit={(e) => { e.preventDefault(); tryRestore(); }} class="form" autocomplete="off">
+      <input type="text" name="archive-import-username" autocomplete="username" class="sr-only" aria-hidden="true" tabindex="-1" />
       <label for="import-file">Fichier d'archive (.zerok-archive)</label>
       <div class="file-input-wrap">
         <input
@@ -355,6 +377,7 @@
         id="import-pwd"
         type="password"
         placeholder="Mot de passe"
+        autocomplete="current-password"
         minlength={importPwd.minLength}
         maxlength={importPwd.maxLength}
         value={$importPwdStore}
@@ -385,15 +408,15 @@
       <div class="modal-card restore-modal">
         <h3 id="restore-modal-title">Restauration</h3>
         <p class="modal-text">La restauration va régénérer la base avec le contenu de l'archive. Cette opération est <strong>destructive</strong> : les données concernées seront remplacées.</p>
-        <p class="modal-text">Que voulez-vous faire ?</p>
+        <p class="modal-text">Avant de restaurer, vous pouvez télécharger un ZIP avec tous les fichiers : PDF des devis/factures, coffre fort et pièces jointes.</p>
         {#if backupError}<p class="error">{backupError}</p>{/if}
         {#if backupSuccess}<p class="success">{backupSuccess}</p>{/if}
         <div class="modal-actions">
+          <button type="button" class="btn-secondary" disabled={backupLoading} onclick={doSaveToDiskFromModal}>
+            {backupLoading ? 'Téléchargement…' : 'Sauvegarder l\'état actuel sur le disque'}
+          </button>
           <button type="button" class="btn-primary" onclick={confirmRestore}>
             Régénérer la BDD avec l'archive
-          </button>
-          <button type="button" class="btn-secondary" disabled={backupLoading} onclick={doPreRestoreBackup}>
-            {backupLoading ? 'Téléchargement…' : 'Sauvegarder l\'état actuel sur le disque'}
           </button>
           <button type="button" class="btn-ghost" onclick={closeRestoreModal}>
             Annuler
@@ -429,9 +452,13 @@
   .block h3 { margin: 0 0 0.75rem 0; font-size: 1.1rem; color: var(--color-primary); }
   .label-like { margin: 0.5rem 0 0.25rem 0; font-size: 0.9rem; font-weight: 500; }
   .checkbox-group { margin-bottom: 0.75rem; }
+  .checkbox-group.export-options .checkbox-label span { display: inline; }
+  .radio-group.export-achats-option { margin-top: 0.5rem; margin-bottom: 0.75rem; padding-left: 0.25rem; }
+  .radio-group.export-achats-option.disabled { opacity: 0.7; }
   .checkbox-label { display: flex; align-items: center; gap: 0.5rem; margin: 0.35rem 0; font-size: 0.9rem; cursor: pointer; }
   .checkbox-label input[type="checkbox"] { flex-shrink: 0; }
   .form label { display: block; margin: 0.5rem 0 0.25rem 0; font-size: 0.9rem; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
   .form input[type="password"] { display: block; width: 100%; margin-bottom: 0.5rem; padding: 0.5rem; border: 1px solid var(--color-border-strong); border-radius: 6px; box-sizing: border-box; }
   .file-input-wrap { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
   .file-input-hidden { position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none; }
@@ -451,5 +478,4 @@
   .restore-modal .btn-primary { background: var(--color-primary); color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 500; }
   .restore-modal .btn-secondary { background: var(--color-bg-muted); color: var(--color-text); border: 1px solid var(--color-border); padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
   .restore-modal .btn-ghost { background: transparent; color: var(--color-text-muted); border: none; padding: 0.5rem 1rem; cursor: pointer; }
-  .restore-modal input[type="password"] { margin-bottom: 0.5rem; }
 </style>

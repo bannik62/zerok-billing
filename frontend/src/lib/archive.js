@@ -17,6 +17,7 @@ const ARCHIVE_VERSION = 1;
  * @returns {Promise<Object>} - { v, salt, iv, payload } prêt à être JSON.stringify + téléchargé
  */
 export async function createArchive(bundle, password) {
+  console.log('[zerok archive] createArchive — clés du bundle:', Object.keys(bundle), '| coffreFortDocuments:', Array.isArray(bundle.coffreFortDocuments) ? bundle.coffreFortDocuments.length : 'absent');
   const salt = generateSalt(16);
   const key = await deriveKey(password, salt);
   const { payload, iv } = await encrypt(bundle, key);
@@ -37,25 +38,66 @@ export async function createArchive(bundle, password) {
  * { devis, factures, achats, clients, societe, coffreFortDocuments, layoutProfiles, includesAchats }
  * (`includesAchats` indique si la clé achats était présente dans l'archive source)
  */
+/** Retire le BOM UTF-8 si présent (fichier ré-enregistré par un éditeur). */
+function stripBom(s) {
+  if (typeof s !== 'string') return s;
+  return s.charCodeAt(0) === 0xfeff ? s.slice(1) : s;
+}
+
 export async function openArchive(fileContent, password) {
-  const raw = JSON.parse(fileContent);
+  const content = stripBom(typeof fileContent === 'string' ? fileContent : String(fileContent));
+  const pwd = (password != null && typeof password === 'string' ? password : '').trim();
+
+  let raw;
+  try {
+    raw = JSON.parse(content);
+  } catch (_) {
+    throw new Error('Fichier invalide : JSON corrompu ou encodage incorrect (enregistrez le fichier en UTF-8 sans BOM).');
+  }
+
   if (raw.v !== ARCHIVE_VERSION) throw new Error('Format d\'archive non supporté');
-  const salt = saltFromBase64(raw.salt);
-  const key = await deriveKey(password, salt);
-  const bundle = await decrypt({ payload: raw.payload, iv: raw.iv }, key);
+  if (!raw.salt || !raw.iv || !raw.payload) throw new Error('Fichier d\'archive incomplet (salt, iv ou payload manquant).');
+
+  let salt;
+  try {
+    salt = saltFromBase64(raw.salt);
+  } catch (_) {
+    throw new Error('Archive corrompue (salt invalide).');
+  }
+
+  const key = await deriveKey(pwd, salt);
+  let bundle;
+  try {
+    bundle = await decrypt({ payload: raw.payload, iv: raw.iv }, key);
+  } catch (e) {
+    if (e && (e.name === 'OperationError' || e.name === 'DOMException')) {
+      throw new Error('Mot de passe incorrect ou archive corrompue.');
+    }
+    throw e;
+  }
+
   if (!bundle || typeof bundle !== 'object') {
     throw new Error('Archive invalide ou mot de passe incorrect');
   }
+  console.log('[zerok archive] openArchive déchiffré — clés:', Object.keys(bundle), '| coffreFortDocuments:', Array.isArray(bundle.coffreFortDocuments) ? bundle.coffreFortDocuments.length : 'absent');
+  // Présence réelle des sections dans l'archive (clés présentes au chiffrement), pas les tableaux par défaut
   const hasCoffre =
-    Array.isArray(bundle.clients) ||
-    (bundle.societe != null && typeof bundle.societe === 'object');
-  const hasDocuments = Array.isArray(bundle.devis) || Array.isArray(bundle.factures);
+    Object.prototype.hasOwnProperty.call(bundle, 'clients') ||
+    Object.prototype.hasOwnProperty.call(bundle, 'societe');
+  const hasDocumentsSection =
+    Object.prototype.hasOwnProperty.call(bundle, 'devis') ||
+    Object.prototype.hasOwnProperty.call(bundle, 'factures');
   const includesAchats = Object.prototype.hasOwnProperty.call(bundle, 'achats');
+  const hasCoffreFortSection = Object.prototype.hasOwnProperty.call(bundle, 'coffreFortDocuments');
+  const hasLinkedDocumentsSection = Object.prototype.hasOwnProperty.call(bundle, 'linkedDocuments');
+
   const hasAchats = Array.isArray(bundle.achats);
-  const hasCoffreFortFiles = Array.isArray(bundle.coffreFortDocuments) && bundle.coffreFortDocuments.length > 0;
-  if (!hasCoffre && !hasDocuments && !hasAchats && !hasCoffreFortFiles) {
+  const hasLinkedDocuments = Array.isArray(bundle.linkedDocuments) && bundle.linkedDocuments.length > 0;
+  if (!hasCoffre && !hasDocumentsSection && !hasAchats && !hasCoffreFortSection && !hasLinkedDocumentsSection) {
     throw new Error('Archive invalide ou mot de passe incorrect');
   }
+
+  console.log('[zerok archive] openArchive flags — hasCoffreFortSection:', hasCoffreFortSection, '| includesDocumentsSection:', hasDocumentsSection, '| includesAchats:', includesAchats);
   return {
     devis: Array.isArray(bundle.devis) ? bundle.devis : [],
     factures: Array.isArray(bundle.factures) ? bundle.factures : [],
@@ -64,6 +106,10 @@ export async function openArchive(fileContent, password) {
     clients: Array.isArray(bundle.clients) ? bundle.clients : [],
     societe: bundle.societe != null && typeof bundle.societe === 'object' ? bundle.societe : null,
     coffreFortDocuments: Array.isArray(bundle.coffreFortDocuments) ? bundle.coffreFortDocuments : [],
-    layoutProfiles: Array.isArray(bundle.layoutProfiles) ? bundle.layoutProfiles : []
+    linkedDocuments: Array.isArray(bundle.linkedDocuments) ? bundle.linkedDocuments : [],
+    layoutProfiles: Array.isArray(bundle.layoutProfiles) ? bundle.layoutProfiles : [],
+    // Indique quelles sections étaient présentes dans l'archive (pour la restauration ciblée)
+    includesDocumentsSection: hasDocumentsSection,
+    includesCoffreFortSection: hasCoffreFortSection
   };
 }

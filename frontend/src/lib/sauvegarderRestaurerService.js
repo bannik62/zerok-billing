@@ -2,11 +2,10 @@
  * Service sauvegarde/restauration : logique métier d'export, import et backup PDF avant restauration.
  */
 
-import { getAllClients, getSociete, getAllDocuments } from '$lib/db.js';
-import { getAllDevis, getAllFactures, getAllAchats } from '$lib/dbEncrypted.js';
+import { getAllClients, getSociete, getAllDocuments, getDocument } from '$lib/db.js';
+import { getAllDevis, getAllFactures, getAllAchats, decryptDocumentBlob, hasEncryptionKey } from '$lib/dbEncrypted.js';
 import { createArchive, openArchive } from '$lib/archive.js';
 import { applyRestore } from '$lib/restore.js';
-import { scheduleBackupUpload } from '$lib/backupSync.js';
 import { buildPdfDocumentHtml } from '$lib/pdfDocumentHtml.js';
 import { downloadBlob } from '$lib/coffreFortExport.js';
 import html2pdf from 'html2pdf.js';
@@ -35,32 +34,68 @@ export function safePdfFilename(prefix, numero, id) {
  * @returns {Promise<{ success: string } | { error: string }>}
  */
 export async function exportArchive({ uid, exportCoffre, exportDocuments, exportAchats, password }) {
-  if (!exportCoffre && !exportDocuments) {
+  const includeCoffre = Boolean(exportCoffre);
+  const includeDocuments = Boolean(exportDocuments);
+  const pwd = (password != null && typeof password === 'string' ? password : '').trim();
+  if (!pwd || pwd.length < 6) {
+    return { error: 'Le mot de passe doit faire au moins 6 caractères.' };
+  }
+  console.log('[zerok export] exportArchive reçu — includeCoffre:', includeCoffre, '| includeDocuments:', includeDocuments, '| exportAchats:', exportAchats);
+
+  if (!includeCoffre && !includeDocuments) {
     return { error: 'Cochez au moins une option : Coffre fort ou Documents.' };
   }
+
   const bundle = {};
-  if (exportCoffre) {
-    const [clients, societe, coffreFortDocuments] = await Promise.all([
-      getAllClients(uid),
-      getSociete(uid),
-      getAllDocuments(uid)
-    ]);
-    bundle.clients = clients;
-    bundle.societe = { id: 'societe', ...societe };
-    bundle.coffreFortDocuments = coffreFortDocuments;
-  }
-  if (exportDocuments) {
+  // Documents = devis, factures, pièces jointes (linkedDocuments), achats.
+  if (includeDocuments) {
+    const allDocuments = await getAllDocuments(uid);
     const [devis, factures] = await Promise.all([
       getAllDevis(uid),
       getAllFactures(uid)
     ]);
-    bundle.devis = devis;
-    bundle.factures = factures;
+    const linkedToInvoices = Array.isArray(allDocuments)
+      ? allDocuments.filter((d) => d && d.linkedInvoiceId)
+      : [];
+    bundle.devis = Array.isArray(devis) ? devis : [];
+    bundle.factures = Array.isArray(factures) ? factures : [];
+    bundle.linkedDocuments = linkedToInvoices;
     if (exportAchats) {
-      bundle.achats = await getAllAchats(uid);
+      const achats = await getAllAchats(uid);
+      bundle.achats = Array.isArray(achats) ? achats : [];
     }
   }
-  const archive = await createArchive(bundle, password);
+
+  // Coffre fort = fichiers sans linkedInvoiceId. Toujours recalculé en dernier si coché pour ne jamais être écrasé.
+  if (includeCoffre) {
+    const docs = await getAllDocuments(uid);
+    const allDocs = Array.isArray(docs) ? docs : [];
+    const coffreOnly = allDocs.filter((d) => !d || !d.linkedInvoiceId).map((d) => ({ ...d }));
+    bundle.coffreFortDocuments = coffreOnly;
+    console.log('[zerok export] Section coffre fort — coffreFortDocuments.length:', bundle.coffreFortDocuments.length);
+  }
+
+  // Ne garder que ce qui correspond aux cases cochées.
+  if (!includeDocuments) {
+    delete bundle.devis;
+    delete bundle.factures;
+    delete bundle.linkedDocuments;
+    delete bundle.achats;
+  }
+  if (!includeCoffre) {
+    delete bundle.coffreFortDocuments;
+  }
+
+  // Dernière passe : si Coffre fort était demandé, on réinjecte coffreFortDocuments (au cas où).
+  if (includeCoffre) {
+    const docs = await getAllDocuments(uid);
+    const all = Array.isArray(docs) ? docs : [];
+    bundle.coffreFortDocuments = all.filter((d) => !d || !d.linkedInvoiceId).map((d) => ({ ...d }));
+    console.log('[zerok export] Dernière passe coffre fort — coffreFortDocuments.length:', bundle.coffreFortDocuments.length);
+  }
+
+  console.log('[zerok export] Bundle avant createArchive — clés:', Object.keys(bundle), '| coffreFortDocuments.length:', bundle.coffreFortDocuments?.length ?? 0);
+  const archive = await createArchive(bundle, pwd);
   const blob = new Blob([JSON.stringify(archive)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   try {
@@ -72,11 +107,166 @@ export async function exportArchive({ uid, exportCoffre, exportDocuments, export
     URL.revokeObjectURL(url);
   }
   const parts = [];
-  if (exportCoffre) parts.push('coffre fort');
-  if (exportDocuments) {
+  if (includeCoffre) parts.push('coffre fort');
+  if (includeDocuments) {
     parts.push(exportAchats ? 'documents + achats' : 'documents (sans achats)');
   }
   return { success: `Archive téléchargée (${parts.join(', ')}). Pour l'ouvrir ailleurs, utilisez « Restaurer » et le même mot de passe.` };
+}
+
+/**
+ * Télécharge l'état actuel en fichier JSON déchiffré (lisible). Pas de mot de passe.
+ * @param {Object} options
+ * @param {string|null} options.uid - Id utilisateur
+ * @returns {Promise<{ success: string } | { error: string }>}
+ */
+export async function exportArchiveDecrypted({ uid }) {
+  const bundle = {};
+  const allDocuments = await getAllDocuments(uid);
+  const [devis, factures, achats] = await Promise.all([
+    getAllDevis(uid),
+    getAllFactures(uid),
+    getAllAchats(uid)
+  ]);
+  const linkedToInvoices = Array.isArray(allDocuments)
+    ? allDocuments.filter((d) => d && d.linkedInvoiceId)
+    : [];
+  bundle.devis = Array.isArray(devis) ? devis : [];
+  bundle.factures = Array.isArray(factures) ? factures : [];
+  bundle.linkedDocuments = linkedToInvoices;
+  bundle.achats = Array.isArray(achats) ? achats : [];
+  const coffreOnly = (Array.isArray(allDocuments) ? allDocuments : []).filter((d) => !d || !d.linkedInvoiceId).map((d) => ({ ...d }));
+  bundle.coffreFortDocuments = coffreOnly;
+
+  const json = JSON.stringify(bundle, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  try {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `zerok-export-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+  return { success: 'Fichier déchiffré téléchargé (coffre fort + documents + achats). Conservez-le en lieu sûr.' };
+}
+
+/**
+ * Télécharge un ZIP avec les vrais fichiers : PDF devis/factures + fichiers du coffre fort + pièces jointes (déchiffrés).
+ * @param {Object} options
+ * @param {string|null} options.uid - Id utilisateur
+ * @returns {Promise<{ success: string } | { error: string }>}
+ */
+export async function exportZipWithFiles({ uid }) {
+  if (!hasEncryptionKey()) {
+    return { error: 'Déverrouillez d\'abord avec votre mot de passe.' };
+  }
+  const [devis, factures, clients, societe, allDocuments] = await Promise.all([
+    getAllDevis(uid),
+    getAllFactures(uid),
+    getAllClients(uid),
+    getSociete(uid),
+    getAllDocuments(uid)
+  ]);
+  const clientsMap = {};
+  for (const c of clients) {
+    if (c && c.id != null) clientsMap[c.id] = c;
+  }
+  const zip = new JSZip();
+  const usedPdfNames = new Set();
+
+  const addPdfToZip = async (document, docType) => {
+    const clientId = document?.entete?.clientId ?? document?.clientId;
+    const client = clientId ? clientsMap[clientId] : null;
+    const numero = document?.entete?.numero ?? '';
+    const prefix = docType === 'devis' ? 'Devis' : 'Facture';
+    let filename = safePdfFilename(prefix, numero, document?.id);
+    if (usedPdfNames.has(filename)) {
+      let n = 1;
+      while (usedPdfNames.has(prefix + '-' + n + '.pdf')) n++;
+      filename = prefix + '-' + n + '.pdf';
+    }
+    usedPdfNames.add(filename);
+    const htmlString = buildPdfDocumentHtml(document, client, societe, docType);
+    const blob = await html2pdf()
+      .set({
+        margin: 4,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      })
+      .from(htmlString)
+      .outputPdf('blob');
+    zip.file(filename, blob);
+  };
+
+  for (const doc of devis) {
+    if (doc) await addPdfToZip(doc, 'devis');
+  }
+  for (const doc of factures) {
+    if (doc) await addPdfToZip(doc, 'facture');
+  }
+
+  const coffreDocs = Array.isArray(allDocuments) ? allDocuments.filter((d) => !d || !d.linkedInvoiceId) : [];
+  const usedCoffreNames = new Set();
+  for (const d of coffreDocs) {
+    if (!d?.id) continue;
+    try {
+      const full = await getDocument(d.id, uid);
+      if (!full?.encrypted || !full?.payload || !full?.iv) continue;
+      const blob = await decryptDocumentBlob(full);
+      let name = (full.filename || 'document').replace(/[/\\?*:|"]/g, '-');
+      if (usedCoffreNames.has(name)) {
+        const ext = name.includes('.') ? name.slice(name.lastIndexOf('.')) : '';
+        const base = ext ? name.slice(0, name.lastIndexOf('.')) : name;
+        let n = 1;
+        while (usedCoffreNames.has(base + '_' + n + ext)) n++;
+        name = base + '_' + n + ext;
+      }
+      usedCoffreNames.add(name);
+      zip.file('coffre-fort/' + name, blob);
+    } catch (_) {}
+  }
+
+  const linkedDocs = Array.isArray(allDocuments) ? allDocuments.filter((d) => d && d.linkedInvoiceId) : [];
+  const usedPjNames = new Set();
+  for (const d of linkedDocs) {
+    if (!d?.id) continue;
+    try {
+      const full = await getDocument(d.id, uid);
+      if (!full?.encrypted || !full?.payload || !full?.iv) continue;
+      const blob = await decryptDocumentBlob(full);
+      let name = (full.filename || full.linkedInvoiceId || 'piece').replace(/[/\\?*:|"]/g, '-');
+      if (usedPjNames.has(name)) {
+        const ext = name.includes('.') ? name.slice(name.lastIndexOf('.')) : '';
+        const base = ext ? name.slice(0, name.lastIndexOf('.')) : name;
+        let n = 1;
+        while (usedPjNames.has(base + '_' + n + ext)) n++;
+        name = base + '_' + n + ext;
+      }
+      usedPjNames.add(name);
+      zip.file('pieces-jointes/' + name, blob);
+    } catch (_) {}
+  }
+
+  zip.file(
+    'LISEZMOI.txt',
+    'Ce ZIP contient :\n' +
+      '- Les PDF des devis et factures (à la racine)\n' +
+      '- Le contenu du coffre fort (dossier coffre-fort/)\n' +
+      '- Les pièces jointes des devis/factures (dossier pieces-jointes/)\n'
+  );
+
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  const zipFilename = `zerok-export-fichiers-${new Date().toISOString().slice(0, 10)}.zip`;
+  downloadBlob(zipBlob, zipFilename);
+  const countPdf = (devis?.length || 0) + (factures?.length || 0);
+  const countCoffre = coffreDocs.length;
+  const countPj = linkedDocs.length;
+  return {
+    success: `ZIP téléchargé : ${countPdf} PDF, ${countCoffre} fichier(s) coffre fort, ${countPj} pièce(s) jointe(s).`
+  };
 }
 
 /**
@@ -88,15 +278,23 @@ export async function exportArchive({ uid, exportCoffre, exportDocuments, export
  * @returns {Promise<{ success: string } | { error: string }>}
  */
 export async function importArchive({ file, password, uid }) {
+  console.log('[zerok import] importArchive — fichier:', file?.name, '| taille:', file?.size);
   const content = await file.text();
-  const bundle = await openArchive(content, password);
+  const pwd = (password != null && typeof password === 'string' ? password : '').trim();
+  if (!pwd || pwd.length < 6) {
+    return { error: 'Le mot de passe de l\'archive doit faire au moins 6 caractères.' };
+  }
+  const bundle = await openArchive(content, pwd);
+  console.log('[zerok import] Bundle après openArchive — includesCoffreFortSection:', bundle.includesCoffreFortSection, '| coffreFortDocuments.length:', bundle.coffreFortDocuments?.length ?? 0);
   await applyRestore(uid, bundle);
-  scheduleBackupUpload(uid);
+  // Ne pas appeler scheduleBackupUpload ici : une archive peut être partielle (ex. coffre seul).
+  // Envoyer cet état au serveur écraserait le backup serveur complet. L'utilisateur peut cliquer « Sauvegarder maintenant » s'il souhaite pousser l'état restauré.
   const restored = [];
   if (bundle.clients?.length > 0 || bundle.societe != null) restored.push('coffre fort');
   if (bundle.devis?.length > 0 || bundle.factures?.length > 0 || bundle.achats?.length > 0) restored.push('documents');
-  if (bundle.coffreFortDocuments?.length > 0) restored.push('pièces jointes');
-  return { success: `Restauration terminée (${restored.join(', ')}). Données réimportées et chiffrées avec la clé actuelle.` };
+  if (bundle.coffreFortDocuments?.length > 0) restored.push('fichiers coffre-fort');
+  if (bundle.linkedDocuments?.length > 0) restored.push('pièces jointes devis/factures');
+  return { success: `Restauration terminée (${restored.join(', ')}). Données réimportées et chiffrées avec la clé actuelle. Pour synchroniser avec le serveur, cliquez sur « Sauvegarder maintenant ».` };
 }
 
 /**
@@ -151,13 +349,21 @@ export async function preRestoreBackupPdf({ uid }) {
     if (doc) await addPdfToZip(doc, 'facture');
   }
 
+  zip.file(
+    'LISEZMOI.txt',
+    'Ce ZIP contient UNIQUEMENT les PDF des devis et factures.\n\n' +
+      'Il ne contient PAS les fichiers du coffre fort (lettre de motivation, etc.).\n\n' +
+      'Pour sauvegarder ou restaurer le coffre fort, utilisez plutôt :\n' +
+      '« Créer une archive et l\'exporter » (cochez Coffre fort) puis « Restaurer » dans l\'app avec le fichier .zerok-archive.'
+  );
+
   const zipBlob = await zip.generateAsync({ type: 'blob' });
-  const zipFilename = `zerok-documents-avant-restore-${new Date().toISOString().slice(0, 10)}.zip`;
+  const zipFilename = `zerok-devis-factures-pdf-${new Date().toISOString().slice(0, 10)}.zip`;
   downloadBlob(zipBlob, zipFilename);
   const count = devis.length + factures.length;
   return {
     success: count > 0
-      ? `${count} document(s) PDF téléchargé(s) dans le ZIP. Enregistrez le fichier où vous voulez, puis cliquez sur « Régénérer la BDD » pour lancer la restauration.`
+      ? `${count} PDF devis/factures dans le ZIP. Ce ZIP ne contient pas le coffre fort ; pour celui-ci, utilisez « Créer et télécharger l\'archive » avec Coffre fort coché.`
       : 'Aucun devis ni facture. ZIP vide téléchargé. Vous pouvez quand même lancer la restauration.'
   };
 }

@@ -522,7 +522,8 @@ export async function getDocument(id, userId = null) {
 export async function getAllDocuments(userId = null) {
   const all = await db[STORE_DOCUMENTS].toArray();
   if (userId == null) return all;
-  return all.filter((r) => r.userId == userId);
+  // Inclut les docs de l'utilisateur + les docs sans userId (legacy) pour l'export/restore
+  return all.filter((r) => r.userId == userId || r.userId == null || r.userId === '');
 }
 export async function getDocumentsByClientId(clientId, userId = null) {
   const rows = await db[STORE_DOCUMENTS].where('clientId').equals(clientId).toArray();
