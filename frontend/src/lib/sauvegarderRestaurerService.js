@@ -18,7 +18,7 @@ import JSZip from 'jszip';
  * @param {string} id - id de secours si pas de numéro
  * @returns {string}
  */
-export function safePdfFilename(prefix, numero, id) {
+export function  safePdfFilename(prefix, numero, id) {
   const base = numero && String(numero).trim() ? String(numero).replace(/[/\\?*:|"]/g, '-') : (id || '');
   return (prefix + (base ? `-${base}` : '') + '.pdf').trim() || prefix + '.pdf';
 }
