@@ -225,6 +225,8 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    max-height: 70vh;
+    overflow-y: auto;
   }
   .proofs-section {
     margin: 0;

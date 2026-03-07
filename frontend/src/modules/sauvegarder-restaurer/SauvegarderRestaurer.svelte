@@ -74,13 +74,6 @@
   let importLoading = $state(false);
   let keyLoaded = $state(false);
 
-  /** Inclure coffre fort (clients, société, profils) dans l'export */
-  let exportCoffre = $state(true);
-  /** Inclure documents (devis, factures) dans l'export */
-  let exportDocuments = $state(true);
-  /** Inclure les achats dans l'archive (radio Oui/Non) */
-  let exportAchats = $state(true);
-
   /** Modale au clic sur Restaurer : confirmer régénérer ou sauvegarder l'état en local */
   let restoreModalOpen = $state(false);
   let backupLoading = $state(false);
@@ -189,15 +182,11 @@
     }
     exportLoading = true;
     try {
-      const form = (e?.target?.tagName === 'FORM' ? e.target : document.getElementById('export-form')) ?? null;
-      const exportCoffreVal = form?.elements?.namedItem?.('exportCoffre')?.checked ?? exportCoffre;
-      const exportDocumentsVal = form?.elements?.namedItem?.('exportDocuments')?.checked ?? exportDocuments;
-      console.log('[zerok export] UI au clic (depuis formulaire) — Coffre fort:', exportCoffreVal, '| Documents:', exportDocumentsVal, '| Achats:', exportAchats);
       const result = await exportArchive({
         uid,
-        exportCoffre: exportCoffreVal,
-        exportDocuments: exportDocumentsVal,
-        exportAchats,
+        exportCoffre: true,
+        exportDocuments: true,
+        exportAchats: true,
         password: exportPwd.value
       });
       if (result.error) exportError = result.error;
@@ -255,9 +244,7 @@
 <div class="sauvegarder-restaurer page">
   <h2>Sauvegarder / Restaurer</h2>
   <p class="hint">
-    Créez une archive chiffrée : choisissez d'inclure le coffre fort (clients, société, profils), les documents (devis/factures),
-    puis indiquez si vous voulez aussi inclure les achats.
-    L'extraction nécessite le mot de passe choisi à l'export.
+    Créez une archive chiffrée contenant tout : coffre fort, devis/factures et achats. L'extraction nécessite le mot de passe choisi à l'export.
   </p>
 
   {#if !keyLoaded}
@@ -269,54 +256,6 @@
     <h3>Créer une archive et l'exporter</h3>
     <form id="export-form" onsubmit={(e) => { e.preventDefault(); doExport(e); }} class="form" autocomplete="off">
       <input type="text" name="archive-export-username" autocomplete="username" class="sr-only" aria-hidden="true" tabindex="-1" />
-      <p class="label-like">Choisir ce qui entre dans l'archive (au moins une case)</p>
-      <div class="checkbox-group export-options">
-        <label class="checkbox-label">
-          <input
-            id="export-option-coffre"
-            name="exportCoffre"
-            type="checkbox"
-            checked={exportCoffre}
-            onchange={(e) => (exportCoffre = e.currentTarget.checked)}
-            disabled={exportLoading}
-          />
-          <span><strong>Coffre fort</strong> — fichiers du coffre-fort uniquement</span>
-        </label>
-        <label class="checkbox-label">
-          <input
-            id="export-option-documents"
-            name="exportDocuments"
-            type="checkbox"
-            checked={exportDocuments}
-            onchange={(e) => (exportDocuments = e.currentTarget.checked)}
-            disabled={exportLoading}
-          />
-          <span><strong>Documents</strong> — devis, factures et pièces jointes</span>
-        </label>
-      </div>
-      <div class="radio-group export-achats-option" class:disabled={!exportDocuments}>
-        <p class="label-like">Si « Documents » est coché : inclure aussi les achats ?</p>
-        <label class="checkbox-label">
-          <input
-            type="radio"
-            name="export-achats"
-            checked={exportAchats === true}
-            onchange={() => (exportAchats = true)}
-            disabled={exportLoading || !exportDocuments}
-          />
-          Oui
-        </label>
-        <label class="checkbox-label">
-          <input
-            type="radio"
-            name="export-achats"
-            checked={exportAchats === false}
-            onchange={() => (exportAchats = false)}
-            disabled={exportLoading || !exportDocuments}
-          />
-          Non
-        </label>
-      </div>
       <label for="export-pwd">Mot de passe pour protéger l'archive</label>
       <input
         id="export-pwd"
@@ -453,8 +392,6 @@
   .label-like { margin: 0.5rem 0 0.25rem 0; font-size: 0.9rem; font-weight: 500; }
   .checkbox-group { margin-bottom: 0.75rem; }
   .checkbox-group.export-options .checkbox-label span { display: inline; }
-  .radio-group.export-achats-option { margin-top: 0.5rem; margin-bottom: 0.75rem; padding-left: 0.25rem; }
-  .radio-group.export-achats-option.disabled { opacity: 0.7; }
   .checkbox-label { display: flex; align-items: center; gap: 0.5rem; margin: 0.35rem 0; font-size: 0.9rem; cursor: pointer; }
   .checkbox-label input[type="checkbox"] { flex-shrink: 0; }
   .form label { display: block; margin: 0.5rem 0 0.25rem 0; font-size: 0.9rem; }
