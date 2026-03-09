@@ -1,7 +1,9 @@
 <script>
+  import { onMount } from 'svelte';
   import { createPasswordField } from '$lib/formField.js';
   import { initEncryption, getAllDevis, clearEncryptionKey } from '$lib/dbEncrypted.js';
   import { syncAfterUnlock } from '$lib/backupSync.js';
+  import { apiClient } from '$lib/apiClient.js';
 
   let { user = null, onLogout = () => {} } = $props();
   const passwordField = createPasswordField('', { autocomplete: 'current-password' });
@@ -9,6 +11,19 @@
 
   let error = $state('');
   let loading = $state(false);
+
+  onMount(async () => {
+    try {
+      const res = await apiClient.get('/api/auth/me');
+      if (!res?.data?.valid) {
+        onLogout?.();
+      }
+    } catch (err) {
+      if (err?.response?.status === 401) {
+        onLogout?.();
+      }
+    }
+  });
 
   async function submit(e) {
     e.preventDefault();

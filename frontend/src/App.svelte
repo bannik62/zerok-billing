@@ -35,6 +35,7 @@
         loading = false;
         return;
       }
+      document.addEventListener('visibilitychange', handleVisibilityChange);
     }
     fetchUser();
   }
@@ -50,11 +51,42 @@
         page = 'menu';
       } else {
         user = null;
+        page = 'auth';
+        view = 'login';
+        clearEncryptionKey();
+        clearBackupPassword();
       }
-    } catch {
+    } catch (err) {
+      if (err?.response?.status === 401) {
+        user = null;
+        page = 'auth';
+        view = 'login';
+        clearEncryptionKey();
+        clearBackupPassword();
+      }
       user = null;
     } finally {
       loading = false;
+    }
+  }
+
+  async function ensureSessionStillValid() {
+    if (page !== 'menu') return;
+    try {
+      const res = await apiClient.get('/api/auth/me');
+      if (!res?.data?.valid) {
+        logout();
+      }
+    } catch (err) {
+      if (err?.response?.status === 401) {
+        logout();
+      }
+    }
+  }
+
+  function handleVisibilityChange() {
+    if (document.visibilityState === 'visible') {
+      ensureSessionStillValid();
     }
   }
 
@@ -63,7 +95,13 @@
   async function onLoginSuccess(data) {
     await fetchCsrfToken().catch(() => null);
     user = data;
-    page = 'menu';
+    // Si l'utilisateur n'a pas encore de phrase de récupération, on s'assure qu'elle soit configurée.
+    if (user?.hasRecoveryData === false) {
+      page = 'auth';
+      view = 'setupPhrase';
+    } else {
+      page = 'menu';
+    }
   }
 
   async function onRegisterSuccess(data) {
