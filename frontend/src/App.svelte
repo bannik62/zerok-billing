@@ -16,6 +16,10 @@
   import { fetchCsrfToken } from '$lib/csrf.js';
   import { clearEncryptionKey, encryptionKeyLoadedStore } from '$lib/dbEncrypted.js';
   import { clearBackupPassword, syncResultStore, syncReadyStore } from '$lib/backupSync.js';
+
+  function dismissSyncBanners() {
+    syncResultStore.set(null);
+  }
   import { themeStore, toggleTheme } from '$lib/theme.js';
 
   let user = $state(null);
@@ -160,22 +164,22 @@
       {#if $syncResultStore === 'unchanged'}
         <div class="sync-banner sync-banner-ok" role="status">
           <span>La base locale est à jour avec le serveur témoin.</span>
-          <button type="button" class="sync-banner-dismiss" onclick={() => syncResultStore.set(null)} aria-label="Fermer">Fermer</button>
+          <button type="button" class="sync-banner-dismiss" onclick={dismissSyncBanners} aria-label="Fermer">Fermer</button>
         </div>
       {:else if $syncResultStore === 'restored_empty'}
         <div class="sync-banner sync-banner-restored" role="status">
           <span>La base de données a été récupérée depuis le serveur témoin.</span>
-          <button type="button" class="sync-banner-dismiss" onclick={() => syncResultStore.set(null)} aria-label="Fermer">Fermer</button>
+          <button type="button" class="sync-banner-dismiss" onclick={dismissSyncBanners} aria-label="Fermer">Fermer</button>
         </div>
       {:else if $syncResultStore === 'restored_overwritten'}
         <div class="sync-banner sync-banner-restored" role="status">
           <span>La base locale a été reconstituée depuis le serveur témoin (données différentes).</span>
-          <button type="button" class="sync-banner-dismiss" onclick={() => syncResultStore.set(null)} aria-label="Fermer">Fermer</button>
+          <button type="button" class="sync-banner-dismiss" onclick={dismissSyncBanners} aria-label="Fermer">Fermer</button>
         </div>
       {:else if $syncResultStore === 'backup_error'}
         <div class="sync-banner sync-banner-error" role="alert">
           <span>La restauration locale a réussi, mais la mise à jour du backup serveur a échoué. Vérifiez votre connexion.</span>
-          <button type="button" class="sync-banner-dismiss" onclick={() => syncResultStore.set(null)} aria-label="Fermer">Fermer</button>
+          <button type="button" class="sync-banner-dismiss" onclick={dismissSyncBanners} aria-label="Fermer">Fermer</button>
         </div>
       {/if}
       <SessionTemoin content={Menu} {logout} onUnauthorized={() => { user = null; page = 'auth'; view = 'login'; }} />
