@@ -12,12 +12,14 @@ import {
   getKeyDerivationSalt,
   setKeyDerivationSalt,
   clearKeyDataForUser,
+  getEncryptionKey,
   initEncryption
 } from '$lib/dbEncrypted.js';
 import { createArchive, openArchive } from '$lib/archive.js';
 import { applyRestore } from '$lib/restore.js';
 import { computeStateHash } from '$lib/backupStateHash.js';
 import { getBackup, putBackup } from '$lib/backupApi.js';
+import { deriveKey, saltFromBase64, decryptFile, encryptFile } from '$lib/crypto/index.js';
 
 /**
  * Resultat de la derniere sync apres unlock.
@@ -188,6 +190,36 @@ export async function syncAfterUnlock(uid, password) {
       mergedBundle.includesAchats = restoredBundle.includesAchats ?? mergedBundle.includesAchats ?? true;
       mergedBundle.includesCoffreFortSection = restoredBundle.includesCoffreFortSection ?? true;
       mergedBundle.includesDocumentsSection = restoredBundle.includesDocumentsSection ?? true;
+
+      // Re-chiffrement des fichiers coffre locaux si le sel change (key_B → key_A) : les docs
+      // venant du serveur sont déjà en key_A ; les docs uniquement locaux sont en key_B.
+      const oldKey = getEncryptionKey();
+      const currentSaltBase64 = uid != null ? await getKeyDerivationSalt(uid) : null;
+      const newSaltBase64 = restoredBundle.keyDerivationSalt;
+      if (oldKey && newSaltBase64 && currentSaltBase64 && currentSaltBase64 !== newSaltBase64) {
+        const newSalt = saltFromBase64(newSaltBase64);
+        const newKey = await deriveKey(password, newSalt);
+        const serverDocIds = new Set(
+          (restoredBundle.coffreFortDocuments ?? []).map((d) => (d && d.id != null ? String(d.id) : null)).filter(Boolean)
+        );
+        mergedBundle.coffreFortDocuments = await Promise.all(
+          (mergedBundle.coffreFortDocuments ?? []).map(async (doc) => {
+            if (!doc?.id || serverDocIds.has(String(doc.id))) return doc;
+            if (!doc.encrypted || !doc.payload || !doc.iv) return doc;
+            try {
+              const blob = await decryptFile(
+                { payload: doc.payload, iv: doc.iv, mimeType: doc.mimeType },
+                oldKey
+              );
+              const buffer = await blob.arrayBuffer();
+              const reenc = await encryptFile(buffer, newKey);
+              return { ...doc, payload: reenc.payload, iv: reenc.iv };
+            } catch {
+              return doc;
+            }
+          })
+        );
+      }
 
       if (uid != null && restoredBundle.keyDerivationSalt) {
         await clearKeyDataForUser(uid);

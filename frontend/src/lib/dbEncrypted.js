@@ -79,6 +79,11 @@ export function hasEncryptionKey() {
   return _encryptionKey != null;
 }
 
+/** Retourne la clé en mémoire (pour migration re-chiffrement coffre en sync). Ne pas exposer hors du module sauf usage contrôlé. */
+export function getEncryptionKey() {
+  return _encryptionKey;
+}
+
 const PASSWORD_CHECK_PAYLOAD = { check: 'zerok-ok' };
 
 /**
