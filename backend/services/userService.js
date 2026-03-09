@@ -109,3 +109,11 @@ export async function setEmailVerified(userId) {
     data: { emailVerified: true, emailVerificationCode: null, emailVerificationCodeExpiresAt: null }
   });
 }
+
+/**
+ * Supprime définitivement un utilisateur et toutes ses données liées (cascade Prisma).
+ * @param {string} userId
+ */
+export async function deleteUserById(userId) {
+  await prisma.user.delete({ where: { id: userId } });
+}

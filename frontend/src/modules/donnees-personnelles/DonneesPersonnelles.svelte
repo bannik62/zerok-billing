@@ -1,5 +1,6 @@
 <script>
-  import { getSociete, saveSociete } from '$lib/db.js';
+import { getSociete, saveSociete } from '$lib/db.js';
+import { apiClient } from '$lib/apiClient.js';
   import {
     createTextField,
     createUrlField,
@@ -29,6 +30,9 @@
   let editing = $state(false);
   let saving = $state(false);
   let message = $state({ type: '', text: '' });
+  let deleteAccountModalOpen = $state(false);
+  let deleteAccountConfirmText = $state('');
+  let deleteAccountLoading = $state(false);
 
   const logoField = createUrlField();
   const nomField = createTextField({ maxLength: 255 });
@@ -73,6 +77,38 @@
 
   function cancelEdit() {
     editing = false;
+  }
+
+  function openDeleteAccountModal() {
+    deleteAccountConfirmText = '';
+    deleteAccountModalOpen = true;
+    message = { type: '', text: '' };
+  }
+
+  function closeDeleteAccountModal() {
+    if (deleteAccountLoading) return;
+    deleteAccountModalOpen = false;
+  }
+
+  async function confirmDeleteAccount(e) {
+    e?.preventDefault?.();
+    if (deleteAccountLoading) return;
+    const txt = (deleteAccountConfirmText || '').trim().toUpperCase();
+    if (txt !== 'SUPPRIMER') {
+      message = { type: 'error', text: 'Pour confirmer, tapez exactement SUPPRIMER.' };
+      return;
+    }
+    deleteAccountLoading = true;
+    try {
+      await apiClient.delete('/auth/account');
+      message = {
+        type: 'success',
+        text: 'Compte supprimé côté serveur. Vos données locales restent présentes sur cet appareil.'
+      };
+      deleteAccountModalOpen = false;
+    } finally {
+      deleteAccountLoading = false;
+    }
   }
 
   async function saveEdit(e) {
@@ -165,6 +201,17 @@
   </section>
 </div>
 
+<section class="donnees-danger">
+  <h3 class="danger-title">Zone sensible</h3>
+  <p class="danger-text">
+    Supprimer votre compte sur le serveur effacera vos sauvegardes distantes, preuves et données associées côté backend.
+    Vos données locales (IndexedDB, coffre-fort, fichiers exportés) ne seront pas supprimées.
+  </p>
+  <button type="button" class="btn-delete-account" onclick={openDeleteAccountModal}>
+    Supprimer mon compte du serveur
+  </button>
+</section>
+
 {#if editing}
   <div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-societe-title">
     <div class="modal">
@@ -205,6 +252,41 @@
         <div class="modal-actions">
           <button type="button" class="btn-cancel" onclick={cancelEdit}>Annuler</button>
           <button type="submit" class="btn-submit" disabled={saving}>{saving ? 'Enregistrement…' : 'Enregistrer'}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{/if}
+
+{#if deleteAccountModalOpen}
+  <div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-delete-account-title">
+    <div class="modal">
+      <h3 id="modal-delete-account-title" class="modal-title">Supprimer mon compte du serveur</h3>
+      <p class="danger-text">
+        Cette action est <strong>définitive</strong>. Elle supprimera votre compte et vos données côté serveur.
+        Vos données locales sur cet appareil resteront présentes.
+      </p>
+      <p class="danger-text">
+        Pour confirmer, tapez <strong>SUPPRIMER</strong> dans le champ ci-dessous, puis validez.
+      </p>
+      <form onsubmit={confirmDeleteAccount} class="societe-form">
+        <div class="form-row">
+          <label for="delete-account-confirm">Confirmer</label>
+          <input
+            id="delete-account-confirm"
+            type="text"
+            value={deleteAccountConfirmText}
+            oninput={(e) => (deleteAccountConfirmText = e.currentTarget.value)}
+            placeholder="SUPPRIMER"
+          />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-cancel" onclick={closeDeleteAccountModal} disabled={deleteAccountLoading}>
+            Annuler
+          </button>
+          <button type="submit" class="btn-submit btn-submit-danger" disabled={deleteAccountLoading}>
+            {deleteAccountLoading ? 'Suppression…' : 'Supprimer définitivement'}
+          </button>
         </div>
       </form>
     </div>
@@ -304,6 +386,38 @@
     border-radius: 8px;
     font-size: 0.85rem;
     color: var(--color-text-muted);
+  }
+
+  .donnees-danger {
+    margin-top: 1.25rem;
+    border: 2px solid var(--color-error);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    background: var(--color-error-bg);
+  }
+  .danger-title {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--color-error);
+  }
+  .danger-text {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.85rem;
+    color: var(--color-text);
+  }
+  .btn-delete-account {
+    padding: 0.45rem 0.9rem;
+    border-radius: 6px;
+    border: 1px solid var(--color-error);
+    background: #ffffff;
+    color: var(--color-error);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-delete-account:hover {
+    background: #ffecec;
   }
 
   @media (max-width: 520px) {
@@ -413,5 +527,11 @@
   .btn-submit:disabled {
     opacity: 0.7;
     cursor: not-allowed;
+  }
+  .btn-submit-danger {
+    background: var(--color-error);
+  }
+  .btn-submit-danger:hover:not(:disabled) {
+    background: #b91c1c;
   }
 </style>

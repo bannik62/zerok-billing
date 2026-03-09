@@ -47,4 +47,15 @@
   .liste-search-input::placeholder {
     color: var(--color-text-muted);
   }
+
+  @media (max-width: 520px) {
+    .liste-search-wrap {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .liste-search-input {
+      max-width: 100%;
+      width: 100%;
+    }
+  }
 </style>

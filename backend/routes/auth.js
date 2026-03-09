@@ -9,7 +9,8 @@ import {
   updatePasswordByEmail,
   setEmailVerificationCode,
   verifyEmailCode,
-  setEmailVerified
+  setEmailVerified,
+  deleteUserById
 } from '../services/userService.js';
 import { sendMail } from '../services/emailService.js';
 import { log } from '../lib/logger.js';
@@ -140,6 +141,22 @@ authRouter.post('/logout', (req, res, next) => {
     res.clearCookie('zerok.sid');
     res.json({ ok: true });
   });
+});
+
+// Suppression définitive du compte utilisateur connecté (et des données liées côté serveur).
+authRouter.delete('/account', requireAuth, async (req, res, next) => {
+  try {
+    const userId = req.session.userId;
+    if (!userId) return res.status(401).json({ error: 'Non authentifié' });
+    await deleteUserById(userId);
+    req.session.destroy((err) => {
+      if (err) return next(err);
+      res.clearCookie('zerok.sid');
+      res.json({ ok: true });
+    });
+  } catch (e) {
+    next(e);
+  }
 });
 
 // Route sécurisée : nécessite une session valide (middleware requireAuth)
