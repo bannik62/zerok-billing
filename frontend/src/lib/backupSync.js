@@ -35,6 +35,9 @@ let _backupPassword = null;
 let _uploadTimeout = null;
 const UPLOAD_DEBOUNCE_MS = 2000;
 
+/** Active les logs de diagnostic sync A/B (voir docs/ANALYSE_SYNC_COFFRE_MULTIPOSTE.md §7). */
+const DEBUG_SYNC_AB = true;
+
 export function setBackupPassword(password) {
   _backupPassword = password == null || password === '' ? null : String(password);
 }
@@ -93,6 +96,16 @@ export async function buildBundle(uid) {
   if (hasCoffre && !salt) {
     console.warn('[zerok backup] buildBundle: coffre non vide mais pas de keyDerivationSalt — le multiposte coffre ne pourra pas déchiffrer sur l\'autre poste.');
   }
+  if (DEBUG_SYNC_AB) {
+    console.log('[zerok sync debug A] buildBundle:', {
+      uid,
+      uidType: typeof uid,
+      getKeyDerivationSaltResult: keyDerivationSalt ?? null,
+      keyDerivationSaltInReturn: salt,
+      hasCoffreDocs: hasCoffre,
+      coffreCount: (coffreFortDocuments?.length ?? 0)
+    });
+  }
   return {
     clients: clients ?? [],
     societe: societe ? { id: 'societe', ...societe } : null,
@@ -145,6 +158,13 @@ export async function syncAfterUnlock(uid, password) {
       if (result.status === 404) return { restored: false };
       if (result.status === 200 && result.payload) {
         const restoredBundle = await openArchive(result.payload, password);
+        if (DEBUG_SYNC_AB) {
+          console.log('[zerok sync debug B] after openArchive (isEmpty):', {
+            keyDerivationSalt: restoredBundle.keyDerivationSalt ?? null,
+            keyDerivationSaltType: typeof restoredBundle.keyDerivationSalt,
+            keyDerivationSaltLength: restoredBundle.keyDerivationSalt?.length
+          });
+        }
         // Option C : si le bundle vient d'un autre poste, il contient un sel
         // different. On remet a zero les donnees de cle, on ecrit le sel du bundle,
         // puis on derive la cle AVANT de re-importer les donnees.
@@ -153,6 +173,14 @@ export async function syncAfterUnlock(uid, password) {
           await setKeyDerivationSalt(restoredBundle.keyDerivationSalt, uid);
         }
         await initEncryption(password, uid);
+        if (DEBUG_SYNC_AB) {
+          const saltReadBack = await getKeyDerivationSalt(uid);
+          console.log('[zerok sync debug B] after initEncryption (isEmpty):', {
+            saltFromBundle: restoredBundle.keyDerivationSalt ?? null,
+            saltReadBackFromMeta: saltReadBack ?? null,
+            match: saltReadBack === restoredBundle.keyDerivationSalt
+          });
+        }
         await applyRestore(uid, restoredBundle);
         try {
           await _putCurrentState(uid, password);
@@ -184,12 +212,13 @@ export async function syncAfterUnlock(uid, password) {
       // Hash différent : on fusionne local + serveur (mergeBundles) pour ne pas perdre les données
       // créées sur ce poste et pas encore uploadées. Serveur gagne en cas de doublon d’id.
       const restoredBundle = await openArchive(result.payload, password);
-      const mergedBundle = mergeBundles(bundle, restoredBundle);
-      mergedBundle.keyDerivationSalt = restoredBundle.keyDerivationSalt;
-      mergedBundle.includesAchats = restoredBundle.includesAchats ?? mergedBundle.includesAchats ?? true;
-      mergedBundle.includesCoffreFortSection = restoredBundle.includesCoffreFortSection ?? true;
-      mergedBundle.includesDocumentsSection = restoredBundle.includesDocumentsSection ?? true;
-      mergedBundle.coffreFortDocuments = restoredBundle.coffreFortDocuments ?? [];
+      if (DEBUG_SYNC_AB) {
+        console.log('[zerok sync debug B] after openArchive (hash différent):', {
+          keyDerivationSalt: restoredBundle.keyDerivationSalt ?? null,
+          keyDerivationSaltType: typeof restoredBundle.keyDerivationSalt,
+          keyDerivationSaltLength: restoredBundle.keyDerivationSalt?.length
+        });
+      }
 
       if (uid != null && restoredBundle.keyDerivationSalt) {
         await clearKeyDataForUser(uid);
@@ -204,7 +233,15 @@ export async function syncAfterUnlock(uid, password) {
         });
       }
       await initEncryption(password, uid);
-      await applyRestore(uid, mergedBundle);
+      if (DEBUG_SYNC_AB) {
+        const saltReadBack = await getKeyDerivationSalt(uid);
+        console.log('[zerok sync debug B] after initEncryption (hash différent):', {
+          saltFromBundle: restoredBundle.keyDerivationSalt ?? null,
+          saltReadBackFromMeta: saltReadBack ?? null,
+          match: saltReadBack === restoredBundle.keyDerivationSalt
+        });
+      }
+      await applyRestore(uid, restoredBundle);
       try {
         await _putCurrentState(uid, password);
         syncResultStore.set('restored_overwritten');

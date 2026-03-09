@@ -72,11 +72,13 @@ export function openDB() {
  * Pour multi-utilisateurs on utilise key = `keyDerivationSalt-${userId}`.
  */
 function getSaltMetaKey(userId) {
-  return userId != null && userId !== '' ? `keyDerivationSalt-${userId}` : META_KEY_SALT;
+  if (userId == null || userId === '') return META_KEY_SALT;
+  return `keyDerivationSalt-${String(userId)}`;
 }
 
 function getKeyCheckMetaKey(userId) {
-  return userId != null && userId !== '' ? `keyCheck-${userId}` : 'keyCheck';
+  if (userId == null || userId === '') return 'keyCheck';
+  return `keyCheck-${String(userId)}`;
 }
 
 /**

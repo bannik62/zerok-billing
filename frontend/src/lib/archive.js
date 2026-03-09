@@ -104,8 +104,9 @@ export async function openArchive(fileContent, password) {
     coffreFortDocuments: Array.isArray(bundle.coffreFortDocuments) ? bundle.coffreFortDocuments : [],
     linkedDocuments: Array.isArray(bundle.linkedDocuments) ? bundle.linkedDocuments : [],
     layoutProfiles: Array.isArray(bundle.layoutProfiles) ? bundle.layoutProfiles : [],
-    // Indique quelles sections étaient présentes dans l'archive (pour la restauration ciblée)
     includesDocumentsSection: hasDocumentsSection,
-    includesCoffreFortSection: hasCoffreFortSection
+    includesCoffreFortSection: hasCoffreFortSection,
+    // Coffre-fort multiposte : sel de dérivation (même clé sur tous les postes)
+    keyDerivationSalt: typeof bundle.keyDerivationSalt === 'string' ? bundle.keyDerivationSalt : null
   };
 }
