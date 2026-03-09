@@ -194,8 +194,8 @@
 
 <style>
   .proofs-panel {
-    flex: 0 0 280px;
-    min-width: 240px;
+    flex: 0 0 320px;
+    min-width: 260px;
     border: 2px solid var(--color-frame-proof);
     border-radius: 8px;
     padding: 1rem;
@@ -301,5 +301,21 @@
   .proof-delete-btn:disabled {
     opacity: 0.7;
     cursor: not-allowed;
+  }
+
+  @media (max-width: 1100px) {
+    .proofs-panel {
+      flex: 1 1 100%;
+      min-width: 0;
+      width: 100%;
+      max-width: 720px;
+      margin-left: auto;
+      margin-right: auto;
+      box-sizing: border-box;
+    }
+    .proof-label {
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
   }
 </style>

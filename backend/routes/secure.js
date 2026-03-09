@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { upsertProof, findProofsByUserAndInvoiceIds, findAllProofsByUserId, deleteProofByUserIdAndInvoiceId } from '../services/proofService.js';
+import { upsertProof, findProofsByUserAndInvoiceIds, findAllProofsByUserId, deleteProofByUserIdAndInvoiceId, replaceProofsByUserId } from '../services/proofService.js';
 import { upsertDocumentProof, findAllDocumentProofsByUserId, deleteDocumentProof, deleteDocumentProofsNotInList } from '../services/documentProofService.js';
 import {
   validateProofBody,
   validateProofsVerifyBody,
+  validateProofsSyncBody,
   validateDocumentProofBody,
   validateDocumentIdParam,
   validateInvoiceIdParam,
@@ -58,6 +59,26 @@ secureRouter.get('/proofs', async (req, res, next) => {
 
     const proofs = await findAllProofsByUserId(userId);
     return res.json({ proofs });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * POST /api/proofs/sync — Remplace toutes les preuves de l'utilisateur par la liste fournie (après restauration zerok).
+ * Body : { proofs: [ { invoiceId: string, invoiceHash: string }, ... ] }
+ */
+secureRouter.post('/proofs/sync', async (req, res, next) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Non authentifié' });
+
+    const { value, error } = validateProofsSyncBody(req.body);
+    if (error) return res.status(400).json({ error });
+    const { proofs } = value;
+
+    const count = await replaceProofsByUserId(userId, proofs);
+    return res.json({ ok: true, count });
   } catch (e) {
     next(e);
   }

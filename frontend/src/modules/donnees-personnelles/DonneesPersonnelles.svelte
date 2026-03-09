@@ -306,6 +306,29 @@
     color: var(--color-text-muted);
   }
 
+  @media (max-width: 520px) {
+    .donnees-module {
+      padding: 0.75rem;
+    }
+    .mentions-list {
+      grid-template-columns: 1fr;
+      gap: 0.15rem 0;
+    }
+    .mentions-list dt {
+      font-weight: 600;
+    }
+    .mentions-list dd {
+      margin-bottom: 0.4rem;
+      word-wrap: break-word;
+      overflow-wrap: anywhere;
+    }
+    .logo-img,
+    .logo-placeholder {
+      max-width: 100%;
+      width: 100%;
+    }
+  }
+
   /* Modal */
   .modal-backdrop {
     position: fixed;

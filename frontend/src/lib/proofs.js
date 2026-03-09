@@ -5,6 +5,7 @@
 
 import { hashDocument, hashAchat } from '$lib/crypto/index.js';
 import { apiClient } from '$lib/apiClient.js';
+import { getAllDevis, getAllFactures, getAllAchats } from '$lib/dbEncrypted.js';
 
 /**
  * Calcule le hash du document et envoie la preuve au serveur (POST /api/proofs).
@@ -58,6 +59,44 @@ export async function deleteProof(invoiceId) {
   if (!invoiceId) return false;
   const res = await apiClient.delete(`/api/proofs/${encodeURIComponent(invoiceId)}`);
   return res.data?.deleted === true;
+}
+
+/**
+ * Synchronise les preuves serveur avec l'état local (devis, factures, achats).
+ * À appeler après une restauration zerok pour supprimer les orphelins et aligner les hash.
+ * @param {string|null} uid - Id utilisateur
+ * @returns {Promise<{ ok: boolean, count: number }>}
+ */
+export async function syncProofsAfterRestore(uid) {
+  const [devis, factures, achats] = await Promise.all([
+    getAllDevis(uid),
+    getAllFactures(uid),
+    getAllAchats(uid)
+  ]);
+  const proofs = [];
+  for (const d of devis || []) {
+    if (!d?.id) continue;
+    try {
+      const invoiceHash = await hashDocument(d, 'devis');
+      proofs.push({ invoiceId: d.id, invoiceHash });
+    } catch (_) {}
+  }
+  for (const f of factures || []) {
+    if (!f?.id) continue;
+    try {
+      const invoiceHash = await hashDocument(f, 'facture');
+      proofs.push({ invoiceId: f.id, invoiceHash });
+    } catch (_) {}
+  }
+  for (const a of achats || []) {
+    if (!a?.id) continue;
+    try {
+      const invoiceHash = await hashAchat(a);
+      proofs.push({ invoiceId: String(a.id), invoiceHash });
+    } catch (_) {}
+  }
+  const res = await apiClient.post('/api/proofs/sync', { proofs });
+  return { ok: res.data?.ok === true, count: res.data?.count ?? 0 };
 }
 
 /**

@@ -85,6 +85,11 @@
   let backupServerError = $state('');
   let backupServerSuccess = $state('');
 
+  /** Protection du stockage local (navigator.storage.persist) */
+  let storagePersistLoading = $state(false);
+  let storagePersistMessage = $state('');
+  let storagePersistMessageType = $state(''); // 'success' | 'error'
+
   $effect(() => {
     keyLoaded = hasEncryptionKey();
   });
@@ -161,6 +166,45 @@
       backupServerError = e?.message || 'Erreur lors de la sauvegarde serveur.';
     } finally {
       backupServerLoading = false;
+    }
+  }
+
+  async function ensurePersistentStorage() {
+    storagePersistMessage = '';
+    storagePersistMessageType = '';
+    if (typeof navigator === 'undefined' || !navigator.storage || typeof navigator.storage.persist !== 'function') {
+      storagePersistMessage =
+        'Votre navigateur ne supporte pas la protection persistante du stockage. Utilisez les sauvegardes (.zerok, ZIP, sync serveur).';
+      storagePersistMessageType = 'error';
+      return;
+    }
+    storagePersistLoading = true;
+    try {
+      const alreadyPersisted =
+        typeof navigator.storage.persisted === 'function' ? await navigator.storage.persisted() : false;
+      if (alreadyPersisted) {
+        storagePersistMessage =
+          'Le stockage local est déjà protégé : le navigateur ne supprimera pas automatiquement vos données (hors effacement manuel dans les réglages).';
+        storagePersistMessageType = 'success';
+        return;
+      }
+      const granted = await navigator.storage.persist();
+      if (granted) {
+        storagePersistMessage =
+          'Protection activée : vos données locales ne seront plus supprimées automatiquement par le navigateur (hors effacement manuel dans les réglages).';
+        storagePersistMessageType = 'success';
+      } else {
+        storagePersistMessage =
+          'Le navigateur n’a pas accepté la protection persistante. Vos données locales peuvent encore être supprimées automatiquement. Pensez à utiliser les sauvegardes (.zerok, ZIP, sync serveur).';
+        storagePersistMessageType = 'error';
+      }
+    } catch (e) {
+      storagePersistMessage =
+        'Impossible de demander la protection persistante du stockage. Utilisez les sauvegardes (.zerok, ZIP, sync serveur).';
+      storagePersistMessageType = 'error';
+      console.warn('ensurePersistentStorage error', e);
+    } finally {
+      storagePersistLoading = false;
     }
   }
 
@@ -334,12 +378,32 @@
 
   <section class="block server-backup-block" style="margin-top: 1.5rem;">
     <h3>Sauvegarde sur le serveur</h3>
-    <p class="hint-small">Une copie chiffrée de vos données est envoyée après chaque modification. Vous pouvez forcer une sauvegarde maintenant.</p>
-    {#if backupServerError}<p class="error">{backupServerError}</p>{/if}
-    {#if backupServerSuccess}<p class="success">{backupServerSuccess}</p>{/if}
-    <button type="button" class="form-button" disabled={backupServerLoading || !keyLoaded || !uid} onclick={doSaveToServer}>
-      {backupServerLoading ? 'Envoi…' : 'Sauvegarder maintenant'}
-    </button>
+    <div class="form">
+      <p class="hint-small">Une copie chiffrée de vos données est envoyée après chaque modification. Vous pouvez forcer une sauvegarde maintenant.</p>
+      {#if backupServerError}<p class="error">{backupServerError}</p>{/if}
+      {#if backupServerSuccess}<p class="success">{backupServerSuccess}</p>{/if}
+      <button type="button" class="form-button" disabled={backupServerLoading || !keyLoaded || !uid} onclick={doSaveToServer}>
+        {backupServerLoading ? 'Envoi…' : 'Sauvegarder maintenant'}
+      </button>
+      <div class="storage-persist-block">
+        <p class="label-like">Protection du stockage local (option avancée)</p>
+        <p class="hint-small">
+          Demande au navigateur de ne pas effacer automatiquement vos données locales (IndexedDB).
+          Cela n'empêche pas un effacement manuel dans les réglages du navigateur.
+        </p>
+        {#if storagePersistMessage}
+          <p class={storagePersistMessageType === 'success' ? 'success' : 'error'}>{storagePersistMessage}</p>
+        {/if}
+        <button
+          type="button"
+          class="form-button storage-persist-button"
+          disabled={storagePersistLoading}
+          onclick={ensurePersistentStorage}
+        >
+          {storagePersistLoading ? 'Vérification…' : 'Protéger le stockage local'}
+        </button>
+      </div>
+    </div>
   </section>
 
   {#if restoreModalOpen}
@@ -415,4 +479,10 @@
   .restore-modal .btn-primary { background: var(--color-primary); color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 500; }
   .restore-modal .btn-secondary { background: var(--color-bg-muted); color: var(--color-text); border: 1px solid var(--color-border); padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
   .restore-modal .btn-ghost { background: transparent; color: var(--color-text-muted); border: none; padding: 0.5rem 1rem; cursor: pointer; }
+  .storage-persist-block {
+    margin-top: 0.9rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-border);
+  }
+  .storage-persist-button { margin-top: 0.35rem; }
 </style>

@@ -7,6 +7,7 @@ import {
   HASH_HEX_LENGTH,
   SIGNATURE_MAX,
   VERIFY_BATCH_MAX,
+  PROOFS_SYNC_MAX,
   EMAIL_MAX_LENGTH,
   NUMERO_LABEL_MAX,
   PAYMENT_SECRET_KEY_MAX,
@@ -46,6 +47,27 @@ const proofsVerifySchema = Joi.object({
     'array.min': 'checks requis (tableau non vide)',
     'array.max': `Maximum ${VERIFY_BATCH_MAX} vérifications par requête`
   })
+}).options({ stripUnknown: true });
+
+const proofsSyncItemSchema = Joi.object({
+  invoiceId: Joi.string().trim().max(INVOICE_ID_MAX).required().messages({
+    'string.empty': 'invoiceId requis',
+    'string.max': 'invoiceId invalide'
+  }),
+  invoiceHash: hashHexSchema.messages({
+    'string.empty': 'invoiceHash requis',
+    'string.pattern.base': 'invoiceHash doit être un SHA-256 hex (64 caractères)'
+  })
+}).options({ stripUnknown: true });
+
+const proofsSyncSchema = Joi.object({
+  proofs: Joi.array()
+    .items(proofsSyncItemSchema)
+    .max(PROOFS_SYNC_MAX)
+    .required()
+    .messages({
+      'array.max': `Maximum ${PROOFS_SYNC_MAX} preuves par sync`
+    })
 }).options({ stripUnknown: true });
 
 const documentProofSchema = Joi.object({
@@ -192,6 +214,16 @@ export function validateDocumentIdParam(documentId) {
   const err = toError(result);
   if (err) return { value: null, error: err };
   return { value: result.value.trim(), error: null };
+}
+
+/**
+ * POST /api/proofs/sync — body
+ */
+export function validateProofsSyncBody(body) {
+  const result = proofsSyncSchema.validate(body || {}, { abortEarly: false });
+  const err = toError(result);
+  if (err) return { value: null, error: err };
+  return { value: result.value, error: null };
 }
 
 /**

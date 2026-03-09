@@ -45,3 +45,25 @@ export async function deleteProofByUserIdAndInvoiceId(userId, invoiceId) {
   });
   return result.count > 0;
 }
+
+/**
+ * Remplace toutes les preuves de l'utilisateur par la liste fournie (sync après restauration zerok).
+ * @param {string} userId
+ * @param {{ invoiceId: string, invoiceHash: string }[]} proofs
+ * @returns {Promise<number>} nombre de preuves enregistrées
+ */
+export async function replaceProofsByUserId(userId, proofs) {
+  await prisma.proof.deleteMany({ where: { userId } });
+  if (!proofs || proofs.length === 0) return 0;
+  const now = new Date();
+  await prisma.proof.createMany({
+    data: proofs.map((p) => ({
+      userId,
+      invoiceId: p.invoiceId,
+      invoiceHash: p.invoiceHash,
+      signature: p.invoiceHash,
+      signedAt: now
+    }))
+  });
+  return proofs.length;
+}

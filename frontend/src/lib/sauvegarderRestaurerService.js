@@ -6,6 +6,7 @@ import { getAllClients, getSociete, getAllDocuments, getDocument } from '$lib/db
 import { getAllDevis, getAllFactures, getAllAchats, decryptDocumentBlob, hasEncryptionKey } from '$lib/dbEncrypted.js';
 import { createArchive, openArchive } from '$lib/archive.js';
 import { applyRestore } from '$lib/restore.js';
+import { syncProofsAfterRestore } from '$lib/proofs.js';
 import { buildPdfDocumentHtml } from '$lib/pdfDocumentHtml.js';
 import { downloadBlob } from '$lib/coffreFortExport.js';
 import html2pdf from 'html2pdf.js';
@@ -287,6 +288,14 @@ export async function importArchive({ file, password, uid }) {
   const bundle = await openArchive(content, pwd);
   console.log('[zerok import] Bundle après openArchive — includesCoffreFortSection:', bundle.includesCoffreFortSection, '| coffreFortDocuments.length:', bundle.coffreFortDocuments?.length ?? 0);
   await applyRestore(uid, bundle);
+  let syncMessage = '';
+  try {
+    const { count } = await syncProofsAfterRestore(uid);
+    syncMessage = count > 0 ? ` Preuves d'intégrité synchronisées (${count}).` : ' Preuves d\'intégrité synchronisées.';
+  } catch (e) {
+    console.warn('[zerok import] syncProofsAfterRestore failed:', e);
+    syncMessage = ' Les preuves d\'intégrité n\'ont pas pu être synchronisées (réessayez plus tard ou depuis la liste des documents).';
+  }
   // Ne pas appeler scheduleBackupUpload ici : une archive peut être partielle (ex. coffre seul).
   // Envoyer cet état au serveur écraserait le backup serveur complet. L'utilisateur peut cliquer « Sauvegarder maintenant » s'il souhaite pousser l'état restauré.
   const restored = [];
@@ -294,7 +303,7 @@ export async function importArchive({ file, password, uid }) {
   if (bundle.devis?.length > 0 || bundle.factures?.length > 0 || bundle.achats?.length > 0) restored.push('documents');
   if (bundle.coffreFortDocuments?.length > 0) restored.push('fichiers coffre-fort');
   if (bundle.linkedDocuments?.length > 0) restored.push('pièces jointes devis/factures');
-  return { success: `Restauration terminée (${restored.join(', ')}). Données réimportées et chiffrées avec la clé actuelle. Pour synchroniser avec le serveur, cliquez sur « Sauvegarder maintenant ».` };
+  return { success: `Restauration terminée (${restored.join(', ')}). Données réimportées et chiffrées avec la clé actuelle.${syncMessage} Pour synchroniser le backup avec le serveur, cliquez sur « Sauvegarder maintenant ».` };
 }
 
 /**

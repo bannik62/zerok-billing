@@ -471,4 +471,22 @@
     opacity: 0.7;
     cursor: not-allowed;
   }
+
+  @media (max-width: 520px) {
+    .form-row-inline {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.35rem;
+    }
+    .form-row-inline label {
+      margin-bottom: 0;
+    }
+    .form-row-inline select {
+      width: 100%;
+    }
+    .form-row-inline .input-num {
+      width: 8rem;
+      max-width: 100%;
+    }
+  }
 </style>

@@ -20,6 +20,7 @@ export const MIMETYPE_MAX = 100;
 export const HASH_HEX_LENGTH = 64;
 export const SIGNATURE_MAX = 512;
 export const VERIFY_BATCH_MAX = 200;
+export const PROOFS_SYNC_MAX = 500;
 
 // ——— Rate limit auth ———
 export const AUTH_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
