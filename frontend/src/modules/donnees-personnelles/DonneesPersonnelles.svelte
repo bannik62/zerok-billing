@@ -163,6 +163,11 @@ import { apiClient } from '$lib/apiClient.js';
     <p class="form-message" class:success={message.type === 'success'} class:error={message.type === 'error'}>{message.text}</p>
   {/if}
 
+  <section class="donnees-section donnees-section-account">
+    <h3 class="section-label">Compte</h3>
+    <p class="section-value">Adresse e-mail : {user?.email || '—'}</p>
+  </section>
+
   <section class="donnees-section donnees-section-logo">
     <h3 class="section-label">Logo</h3>
     {#if societe.logo}
