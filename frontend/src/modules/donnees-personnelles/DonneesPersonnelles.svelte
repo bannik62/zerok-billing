@@ -100,12 +100,26 @@ import { apiClient } from '$lib/apiClient.js';
     }
     deleteAccountLoading = true;
     try {
-      await apiClient.delete('/auth/account');
-      message = {
-        type: 'success',
-        text: 'Compte supprimé côté serveur. Vos données locales restent présentes sur cet appareil.'
-      };
-      deleteAccountModalOpen = false;
+      const res = await apiClient.delete('/auth/account');
+      if (res?.data?.ok) {
+        message = {
+          type: 'success',
+          text: 'Compte supprimé côté serveur. Vos données locales restent présentes sur cet appareil.'
+        };
+        deleteAccountModalOpen = false;
+        // Redirection vers la page de connexion après un court délai.
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 800);
+      } else {
+        message = {
+          type: 'error',
+          text: 'La suppression du compte a échoué côté serveur.'
+        };
+      }
+    } catch (err) {
+      const apiError = err?.response?.data?.error || err?.message || 'Erreur lors de la suppression du compte.';
+      message = { type: 'error', text: apiError };
     } finally {
       deleteAccountLoading = false;
     }
