@@ -1,6 +1,7 @@
 <script>
-import { getSociete, saveSociete } from '$lib/db.js';
-import { apiClient } from '$lib/apiClient.js';
+  import { getSociete, saveSociete, clearLocalDataForUser } from '$lib/db.js';
+  import { clearEncryptionKey } from '$lib/dbEncrypted.js';
+  import { apiClient } from '$lib/apiClient.js';
   import {
     createTextField,
     createUrlField,
@@ -104,9 +105,27 @@ import { apiClient } from '$lib/apiClient.js';
       const res = await apiClient.delete('/api/auth/account');
       console.log('[donnees-personnelles] DELETE /api/auth/account — response', res?.status, res?.data);
       if (res?.data?.ok) {
+        // Efface aussi les données locales (IndexedDB) pour ce compte.
+        try {
+          if (user?.id) {
+            await clearLocalDataForUser(user.id, {
+              coffre: true,
+              documents: true,
+              achats: true,
+              coffreFortFiles: true
+            });
+          }
+        } catch (clearErr) {
+          console.error('[donnees-personnelles] clearLocalDataForUser error', clearErr);
+        }
+        try {
+          clearEncryptionKey();
+        } catch (clearKeyErr) {
+          console.error('[donnees-personnelles] clearEncryptionKey error', clearKeyErr);
+        }
         message = {
           type: 'success',
-          text: 'Compte supprimé côté serveur. Vos données locales restent présentes sur cet appareil.'
+          text: 'Compte supprimé côté serveur et données locales effacées pour ce compte. Pensez à conserver vos archives (.zerok, ZIP) si besoin.'
         };
         deleteAccountModalOpen = false;
         // Redirection vers la page de connexion après un court délai.
