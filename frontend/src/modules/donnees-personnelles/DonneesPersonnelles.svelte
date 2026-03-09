@@ -100,7 +100,9 @@ import { apiClient } from '$lib/apiClient.js';
     }
     deleteAccountLoading = true;
     try {
+      console.log('[donnees-personnelles] DELETE /auth/account — start');
       const res = await apiClient.delete('/auth/account');
+      console.log('[donnees-personnelles] DELETE /auth/account — response', res?.status, res?.data);
       if (res?.data?.ok) {
         message = {
           type: 'success',
@@ -109,6 +111,7 @@ import { apiClient } from '$lib/apiClient.js';
         deleteAccountModalOpen = false;
         // Redirection vers la page de connexion après un court délai.
         setTimeout(() => {
+          console.log('[donnees-personnelles] redirect after account delete → /login');
           window.location.href = '/login';
         }, 800);
       } else {
@@ -118,6 +121,7 @@ import { apiClient } from '$lib/apiClient.js';
         };
       }
     } catch (err) {
+      console.error('[donnees-personnelles] DELETE /auth/account — error', err);
       const apiError = err?.response?.data?.error || err?.message || 'Erreur lors de la suppression du compte.';
       message = { type: 'error', text: apiError };
     } finally {

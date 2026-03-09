@@ -148,13 +148,20 @@ authRouter.delete('/account', requireAuth, async (req, res, next) => {
   try {
     const userId = req.session.userId;
     if (!userId) return res.status(401).json({ error: 'Non authentifié' });
+    log('[auth] DELETE /auth/account — demande suppression pour userId=', userId);
     await deleteUserById(userId);
+    log('[auth] DELETE /auth/account — utilisateur supprimé en BDD, destruction session…');
     req.session.destroy((err) => {
-      if (err) return next(err);
+      if (err) {
+        log('[auth] DELETE /auth/account — erreur destroy session:', err?.message);
+        return next(err);
+      }
       res.clearCookie('zerok.sid');
+      log('[auth] DELETE /auth/account — succès, réponse ok: true');
       res.json({ ok: true });
     });
   } catch (e) {
+    log('[auth] DELETE /auth/account — erreur:', e?.message);
     next(e);
   }
 });
