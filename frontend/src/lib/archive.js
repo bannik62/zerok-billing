@@ -17,7 +17,6 @@ const ARCHIVE_VERSION = 1;
  * @returns {Promise<Object>} - { v, salt, iv, payload } prêt à être JSON.stringify + téléchargé
  */
 export async function createArchive(bundle, password) {
-  console.log('[zerok archive] createArchive — clés du bundle:', Object.keys(bundle), '| coffreFortDocuments:', Array.isArray(bundle.coffreFortDocuments) ? bundle.coffreFortDocuments.length : 'absent');
   const salt = generateSalt(16);
   const key = await deriveKey(password, salt);
   const { payload, iv } = await encrypt(bundle, key);
@@ -79,7 +78,6 @@ export async function openArchive(fileContent, password) {
   if (!bundle || typeof bundle !== 'object') {
     throw new Error('Archive invalide ou mot de passe incorrect');
   }
-  console.log('[zerok archive] openArchive déchiffré — clés:', Object.keys(bundle), '| coffreFortDocuments:', Array.isArray(bundle.coffreFortDocuments) ? bundle.coffreFortDocuments.length : 'absent');
   // Présence réelle des sections dans l'archive (clés présentes au chiffrement), pas les tableaux par défaut
   const hasCoffre =
     Object.prototype.hasOwnProperty.call(bundle, 'clients') ||
@@ -92,12 +90,10 @@ export async function openArchive(fileContent, password) {
   const hasLinkedDocumentsSection = Object.prototype.hasOwnProperty.call(bundle, 'linkedDocuments');
 
   const hasAchats = Array.isArray(bundle.achats);
-  const hasLinkedDocuments = Array.isArray(bundle.linkedDocuments) && bundle.linkedDocuments.length > 0;
   if (!hasCoffre && !hasDocumentsSection && !hasAchats && !hasCoffreFortSection && !hasLinkedDocumentsSection) {
     throw new Error('Archive invalide ou mot de passe incorrect');
   }
 
-  console.log('[zerok archive] openArchive flags — hasCoffreFortSection:', hasCoffreFortSection, '| includesDocumentsSection:', hasDocumentsSection, '| includesAchats:', includesAchats);
   return {
     devis: Array.isArray(bundle.devis) ? bundle.devis : [],
     factures: Array.isArray(bundle.factures) ? bundle.factures : [],

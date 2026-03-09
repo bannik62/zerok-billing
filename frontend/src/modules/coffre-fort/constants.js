@@ -20,7 +20,8 @@ export const METADATA_CATEGORIES = [
   { value: 'autre', label: 'Autre' }
 ];
 
-export const MAX_FILE_SIZE_MB = 20;
+/** Limite par fichier (coffre-fort). Une seule source de vérité : utilisé par l’UI et par dbEncrypted.addDocument. */
+export const MAX_FILE_SIZE_MB = 5;
 export const ACCEPT_TYPES = '.pdf,.jpg,.jpeg,.png,.doc,.docx';
 
 export const PREVIEW_MIME_PREFIXES = ['image/', 'application/pdf'];

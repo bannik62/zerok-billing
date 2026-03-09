@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { createPasswordField } from '$lib/formField.js';
-  import { initEncryption, getAllDevis, clearEncryptionKey } from '$lib/dbEncrypted.js';
+  import { initEncryption, clearEncryptionKey } from '$lib/dbEncrypted.js';
   import { syncAfterUnlock } from '$lib/backupSync.js';
   import { apiClient } from '$lib/apiClient.js';
 
@@ -37,7 +37,6 @@
     try {
       const password = passwordField.value;
       await initEncryption(password, user?.id ?? null);
-      await getAllDevis(user?.id ?? null);
       if (user?.id) {
         await syncAfterUnlock(user.id, password).catch(() => {});
       }

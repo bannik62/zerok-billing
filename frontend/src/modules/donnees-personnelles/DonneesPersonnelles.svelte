@@ -1,21 +1,25 @@
 <script>
   import { getSociete, saveSociete, clearLocalDataForUser } from '$lib/db.js';
-  import { clearEncryptionKey } from '$lib/dbEncrypted.js';
+  import { clearEncryptionKey, initEncryption } from '$lib/dbEncrypted.js';
   import { apiClient } from '$lib/apiClient.js';
   import {
     createTextField,
     createUrlField,
     createSiretField,
     createTvaIntraField,
-    createCapitalField
+    createCapitalField,
+    createPasswordField
   } from '$lib/formField.js';
   import { scheduleBackupUpload } from '$lib/backupSync.js';
+  import { fetchWordlist, generateRecoveryPhrase } from '$lib/recoveryPhrase.js';
+  import { deriveKey, generateSalt, saltToBase64, encrypt } from '$lib/crypto/index.js';
 
   /**
    * Module Données personnelles – affichage + modification (IndexedDB).
    * Champs encapsulés (FormField) pour trim + maxLength.
+   * onPhraseSaved: callback optionnel appelé après enregistrement réussi de la phrase de récupération (rafraîchir user).
    */
-  let { user = null } = $props();
+  let { user = null, onPhraseSaved = null } = $props();
   const uid = $derived(user?.id ?? null);
 
   let societe = $state({
@@ -34,6 +38,18 @@
   let deleteAccountModalOpen = $state(false);
   let deleteAccountConfirmText = $state('');
   let deleteAccountLoading = $state(false);
+
+  /** Phrase de récupération (module Données personnelles) */
+  let phraseModalOpen = $state(false);
+  let recoveryPhrase = $state('');
+  let phraseSaved = $state(false);
+  let phraseSubmitLoading = $state(false);
+  let phraseWordlistLoading = $state(false);
+  let phraseError = $state('');
+  let phraseCopied = $state(false);
+  let phraseIsReplacing = $state(false);
+  const phrasePasswordField = createPasswordField('', { autocomplete: 'current-password' });
+  const phrasePasswordStore = phrasePasswordField.store;
 
   const logoField = createUrlField();
   const nomField = createTextField({ maxLength: 255 });
@@ -148,6 +164,72 @@
     }
   }
 
+  function closePhraseModal() {
+    if (phraseSubmitLoading) return;
+    phraseModalOpen = false;
+    recoveryPhrase = '';
+    phraseSaved = false;
+    phraseError = '';
+    phraseCopied = false;
+    phrasePasswordField.value = '';
+  }
+
+  async function openPhraseModal(replacing = false) {
+    phraseIsReplacing = replacing;
+    phraseModalOpen = true;
+    phraseError = '';
+    phraseSaved = false;
+    recoveryPhrase = '';
+    phraseWordlistLoading = true;
+    try {
+      const wordlist = await fetchWordlist();
+      recoveryPhrase = generateRecoveryPhrase(wordlist);
+    } catch (e) {
+      phraseError = 'Impossible de charger la liste de mots.';
+    } finally {
+      phraseWordlistLoading = false;
+    }
+  }
+
+  async function copyPhrase() {
+    try {
+      await navigator.clipboard.writeText(recoveryPhrase);
+      phraseCopied = true;
+      setTimeout(() => (phraseCopied = false), 2000);
+    } catch {
+      phraseError = 'Copie impossible';
+    }
+  }
+
+  async function confirmPhraseSave(e) {
+    e?.preventDefault?.();
+    if (!phraseSaved || !user?.id || !recoveryPhrase) return;
+    const pwd = phrasePasswordField.value;
+    if (phrasePasswordField.getError() || !pwd) {
+      phraseError = 'Entrez votre mot de passe.';
+      return;
+    }
+    phraseError = '';
+    phraseSubmitLoading = true;
+    try {
+      await initEncryption(pwd, user.id, null);
+      const recoverySalt = generateSalt(16);
+      const keyRecovery = await deriveKey('', recoverySalt, recoveryPhrase);
+      const keyCheckRecovery = await encrypt({ check: 'zerok-ok' }, keyRecovery);
+      await apiClient.post('/api/auth/recovery-data', {
+        salt: saltToBase64(recoverySalt),
+        keyCheck: keyCheckRecovery
+      });
+      message = { type: 'success', text: phraseIsReplacing ? 'Nouvelle phrase de récupération enregistrée. L’ancienne ne fonctionne plus.' : 'Phrase de récupération enregistrée. Conservez-la en lieu sûr.' };
+      closePhraseModal();
+      onPhraseSaved?.();
+    } catch (err) {
+      phraseError = err?.response?.data?.error || err?.message || 'Erreur lors de l’enregistrement.';
+    } finally {
+      phraseSubmitLoading = false;
+    }
+  }
+
   async function saveEdit(e) {
     e.preventDefault();
     const errors = [
@@ -203,6 +285,23 @@
   <section class="donnees-section donnees-section-account">
     <h3 class="section-label">Compte</h3>
     <p class="section-value">Adresse e-mail : {user?.email || '—'}</p>
+  </section>
+
+  <section class="donnees-section donnees-section-recovery">
+    <h3 class="section-label">Phrase de récupération</h3>
+    {#if user?.hasRecoveryData}
+      <p class="section-value">Une phrase de récupération est déjà enregistrée pour ce compte.</p>
+      <p class="section-hint">En cas d’oubli du mot de passe, utilisez-la sur la page « Mot de passe oublié ». Vous pouvez la remplacer par une nouvelle (l’ancienne ne permettra plus de récupérer le compte).</p>
+      <button type="button" class="btn-phrase btn-phrase-secondary" onclick={() => openPhraseModal(true)}>
+        Remplacer par une nouvelle phrase
+      </button>
+    {:else}
+      <p class="section-value">Vous n’avez pas encore enregistré de phrase de récupération.</p>
+      <p class="section-hint">Sans elle, en cas d’oubli du mot de passe vos données chiffrées ne pourront pas être récupérées.</p>
+      <button type="button" class="btn-phrase" onclick={() => openPhraseModal(false)}>
+        Générer et enregistrer une phrase
+      </button>
+    {/if}
   </section>
 
   <section class="donnees-section donnees-section-logo">
@@ -335,6 +434,53 @@
   </div>
 {/if}
 
+{#if phraseModalOpen}
+  <div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-phrase-title">
+    <div class="modal">
+      <h3 id="modal-phrase-title" class="modal-title">
+        {phraseIsReplacing ? 'Remplacer la phrase de récupération' : 'Sauvegarder une phrase de récupération'}
+      </h3>
+      <p class="phrase-modal-explain">
+        Si vous oubliez votre mot de passe, cette phrase vous permettra de récupérer l’accès à votre compte sans perdre vos données.
+        Copiez-la et conservez-la dans un endroit sûr. Ne la partagez avec personne.
+      </p>
+      {#if phraseIsReplacing}
+        <p class="phrase-modal-warn">L’ancienne phrase ne permettra plus de récupérer le compte.</p>
+      {/if}
+      {#if phraseWordlistLoading}
+        <p class="muted">Génération de la phrase…</p>
+      {:else}
+        <div class="phrase-box">
+          <code class="phrase">{recoveryPhrase}</code>
+          <button type="button" class="btn-copy" onclick={copyPhrase}>{phraseCopied ? 'Copié !' : 'Copier la phrase'}</button>
+        </div>
+        <label class="checkbox-wrap">
+          <input type="checkbox" bind:checked={phraseSaved} />
+          <span>J’ai copié et sauvegardé ma phrase dans un endroit sûr.</span>
+        </label>
+        <label for="phrase-modal-password" class="password-label">Mot de passe (pour enregistrer la phrase)</label>
+        <input
+          id="phrase-modal-password"
+          type="password"
+          placeholder="Votre mot de passe"
+          disabled={phraseSubmitLoading}
+          minlength={phrasePasswordField.minLength}
+          maxlength={phrasePasswordField.maxLength}
+          value={$phrasePasswordStore}
+          oninput={(e) => (phrasePasswordField.value = e.currentTarget.value)}
+        />
+        {#if phraseError}<p class="phrase-error">{phraseError}</p>{/if}
+        <div class="modal-actions">
+          <button type="button" class="btn-cancel" onclick={closePhraseModal} disabled={phraseSubmitLoading}>Annuler</button>
+          <button type="button" class="btn-submit" disabled={!phraseSaved || phraseSubmitLoading} onclick={confirmPhraseSave}>
+            {phraseSubmitLoading ? 'Enregistrement…' : 'Enregistrer la phrase'}
+          </button>
+        </div>
+      {/if}
+    </div>
+  </div>
+{/if}
+
 <style>
   .donnees-module {
     display: flex;
@@ -394,6 +540,33 @@
     margin: 0;
     font-size: 1rem;
     color: var(--color-text);
+  }
+  .section-hint {
+    margin: 0.35rem 0 0 0;
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    line-height: 1.35;
+  }
+  .btn-phrase {
+    margin-top: 0.5rem;
+    padding: 0.45rem 0.9rem;
+    border-radius: 6px;
+    border: 1px solid var(--color-primary);
+    background: var(--color-primary);
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-phrase:hover {
+    opacity: 0.95;
+  }
+  .btn-phrase-secondary {
+    background: var(--color-bg-elevated);
+    color: var(--color-primary);
+  }
+  .btn-phrase-secondary:hover {
+    background: var(--color-bg-muted);
   }
   .mentions-list {
     margin: 0;
@@ -460,6 +633,64 @@
   }
   .btn-delete-account:hover {
     background: #ffecec;
+  }
+
+  .phrase-modal-explain,
+  .phrase-modal-warn {
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+    margin: 0 0 0.75rem;
+    line-height: 1.4;
+  }
+  .phrase-modal-warn {
+    color: var(--color-error, #c00);
+  }
+  .phrase-box {
+    margin: 1rem 0;
+    padding: 1rem;
+    background: var(--color-bg-muted);
+    border-radius: 6px;
+    border: 1px solid var(--color-border);
+  }
+  .phrase-box .phrase {
+    display: block;
+    font-family: ui-monospace, monospace;
+    font-size: 0.95rem;
+    word-break: break-word;
+    margin-bottom: 0.75rem;
+  }
+  .phrase-box .btn-copy {
+    padding: 0.35rem 0.75rem;
+    border-radius: 4px;
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-bg-elevated);
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .checkbox-wrap {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    margin: 1rem 0;
+    cursor: pointer;
+  }
+  .checkbox-wrap input {
+    margin-top: 0.2rem;
+  }
+  .password-label {
+    display: block;
+    font-size: 0.9rem;
+    margin: 1rem 0 0.25rem;
+  }
+  .phrase-error {
+    color: var(--color-error);
+    font-size: 0.9rem;
+    margin: 0.5rem 0 0;
+  }
+  .muted {
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
   }
 
   @media (max-width: 520px) {

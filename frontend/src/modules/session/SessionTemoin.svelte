@@ -10,6 +10,7 @@
 
   let sessionValid = $state(null);
   let user = $state(null);
+  let mounted = false;
 
   async function verify(isMounted, signal) {
     sessionValid = null;
@@ -28,11 +29,14 @@
     }
   }
 
+  function refetchUser() {
+    if (mounted) verify(() => mounted, new AbortController().signal);
+  }
+
   onMount(() => {
-    let mounted = true;
-    const isMounted = () => mounted;
+    mounted = true;
     const controller = new AbortController();
-    verify(isMounted, controller.signal);
+    verify(() => mounted, controller.signal);
     return () => {
       mounted = false;
       controller.abort();
@@ -49,7 +53,7 @@
   {#if sessionValid === null}
     <p class="temoin-loading">Vérification de la session…</p>
   {:else if sessionValid === true && AuthorizedContent}
-    <AuthorizedContent {user} {logout} />
+    <AuthorizedContent {user} {logout} refetchUser={refetchUser} />
   {:else if sessionValid === false}
     <div class="temoin-unauthorized">
       <h1>Non autorisé</h1>

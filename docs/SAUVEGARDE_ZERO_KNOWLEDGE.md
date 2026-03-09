@@ -162,8 +162,12 @@ PC 2 (nouveau / IndexedDB vide)
 
 ### Prérequis multiposte
 
-- **Même mot de passe** sur tous les postes (la clé de chiffrement est dérivée du mot de passe + un salt local). Si le salt est différent entre les postes, le déchiffrement du blob archive fonctionne quand même car la clé d'archivage est dérivée directement du mot de passe (indépendamment du salt IndexedDB local).
-- Le sel local (`keyDerivationSalt`) est **propre à chaque poste** — c'est correct. C'est le **mot de passe** qui est le secret partagé entre postes, pas le sel.
+- **Même mot de passe** sur tous les postes (la clé de chiffrement est dérivée du mot de passe + un sel lié au compte).
+- Lors de la première restauration d'un backup serveur sur un nouveau poste, le bundle contient désormais le `keyDerivationSalt` d'origine :
+  - ce sel est écrit dans l'IndexedDB locale,
+  - la clé est re-dérivée à partir du mot de passe + ce sel,
+  - tous les postes partagent alors **le même sel et la même clé de chiffrement locale** pour ce compte.
+- Le sel voyage uniquement **dans l'archive chiffrée** (blob backup) et n'est jamais envoyé en clair hors de ce contexte.
 
 ### Sync bidirectionnelle
 
@@ -172,13 +176,16 @@ PC 2 (nouveau / IndexedDB vide)
 
 La synchronisation se fait **à chaque déverrouillage**. Ce n'est pas du temps réel (pas de WebSocket), mais suffit pour un usage nomade classique (PC bureau vs PC portable, par exemple).
 
-### Conflits et merge : pourquoi le modèle tient la route
+### Conflits et stratégie « serveur fait foi »
 
-- **Un compte = un utilisateur = une adresse mail.** Le scénario de conflit sur le **même id** (deux postes modifiant le même devis/facture en même temps) est quasi inexistant. Le seul cas serait quelqu'un qui ouvre l'app sur son PC et son téléphone en même temps et modifie le même document simultanément — tellement rare que « serveur gagne » est largement suffisant.
-- **Le merge par id** sert au cas classique : « J'ai créé un devis sur mon PC du bureau, et un autre sur mon portable, sans avoir rechargé entre les deux » → au prochain déverrouillage, les deux nouveaux ids sont fusionnés proprement. C'est le vrai use case multiposte.
-- **Pas de mode offline prévu** : l'accès à l'interface nécessite une session (backend). Pas de travail sans connexion, donc pas de conflits longs « offline ».
+- **Un compte = un utilisateur = une adresse mail.** Le scénario de conflit sur le **même id** (deux postes modifiant simultanément le même devis/facture) reste très rare.
+- Le modèle multiposte repose sur une règle simple : **au déverrouillage, le serveur fait foi** :
+  - si le hash local == hash serveur → rien à faire ;
+  - si le hash local != hash serveur → on télécharge le blob et on restaure l'état serveur sur le poste courant.
+- Il n'y a plus de logique de merge par id côté backup serveur : la résolution de conflit reste « dernier déverrouillage gagne » pour un même id, ce qui est acceptable dans le modèle d'usage (pas de multitâche concurrent sur le même document).
+- **Pas de mode offline prévu** : l'accès à l'interface nécessite une session backend. Pas de travail durable sans connexion, donc pas de conflits longs « offline ».
 
-**En résumé** : le modèle actuel (merge + serveur gagne en conflit sur même id) est solide pour cet usage.
+**En résumé** : pour le backup serveur, le modèle actuel est « serveur fait foi » avec état canonique unique par utilisateur, et restauration automatique à chaque déverrouillage.
 
 ---
 

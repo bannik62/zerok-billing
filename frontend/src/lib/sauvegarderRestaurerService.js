@@ -41,23 +41,21 @@ export async function exportArchive({ uid, exportCoffre, exportDocuments, export
   if (!pwd || pwd.length < 6) {
     return { error: 'Le mot de passe doit faire au moins 6 caractères.' };
   }
-  console.log('[zerok export] exportArchive reçu — includeCoffre:', includeCoffre, '| includeDocuments:', includeDocuments, '| exportAchats:', exportAchats);
-
   if (!includeCoffre && !includeDocuments) {
     return { error: 'Cochez au moins une option : Coffre fort ou Documents.' };
   }
 
   const bundle = {};
-  // Documents = devis, factures, pièces jointes (linkedDocuments), achats.
+  const needDocuments = includeCoffre || includeDocuments;
+  const allDocuments = needDocuments ? await getAllDocuments(uid) : [];
+  const allDocs = Array.isArray(allDocuments) ? allDocuments : [];
+
   if (includeDocuments) {
-    const allDocuments = await getAllDocuments(uid);
     const [devis, factures] = await Promise.all([
       getAllDevis(uid),
       getAllFactures(uid)
     ]);
-    const linkedToInvoices = Array.isArray(allDocuments)
-      ? allDocuments.filter((d) => d && d.linkedInvoiceId)
-      : [];
+    const linkedToInvoices = allDocs.filter((d) => d && d.linkedInvoiceId);
     bundle.devis = Array.isArray(devis) ? devis : [];
     bundle.factures = Array.isArray(factures) ? factures : [];
     bundle.linkedDocuments = linkedToInvoices;
@@ -67,16 +65,10 @@ export async function exportArchive({ uid, exportCoffre, exportDocuments, export
     }
   }
 
-  // Coffre fort = fichiers sans linkedInvoiceId. Toujours recalculé en dernier si coché pour ne jamais être écrasé.
   if (includeCoffre) {
-    const docs = await getAllDocuments(uid);
-    const allDocs = Array.isArray(docs) ? docs : [];
-    const coffreOnly = allDocs.filter((d) => !d || !d.linkedInvoiceId).map((d) => ({ ...d }));
-    bundle.coffreFortDocuments = coffreOnly;
-    console.log('[zerok export] Section coffre fort — coffreFortDocuments.length:', bundle.coffreFortDocuments.length);
+    bundle.coffreFortDocuments = allDocs.filter((d) => !d || !d.linkedInvoiceId).map((d) => ({ ...d }));
   }
 
-  // Ne garder que ce qui correspond aux cases cochées.
   if (!includeDocuments) {
     delete bundle.devis;
     delete bundle.factures;
@@ -87,15 +79,6 @@ export async function exportArchive({ uid, exportCoffre, exportDocuments, export
     delete bundle.coffreFortDocuments;
   }
 
-  // Dernière passe : si Coffre fort était demandé, on réinjecte coffreFortDocuments (au cas où).
-  if (includeCoffre) {
-    const docs = await getAllDocuments(uid);
-    const all = Array.isArray(docs) ? docs : [];
-    bundle.coffreFortDocuments = all.filter((d) => !d || !d.linkedInvoiceId).map((d) => ({ ...d }));
-    console.log('[zerok export] Dernière passe coffre fort — coffreFortDocuments.length:', bundle.coffreFortDocuments.length);
-  }
-
-  console.log('[zerok export] Bundle avant createArchive — clés:', Object.keys(bundle), '| coffreFortDocuments.length:', bundle.coffreFortDocuments?.length ?? 0);
   const archive = await createArchive(bundle, pwd);
   const blob = new Blob([JSON.stringify(archive)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -279,14 +262,12 @@ export async function exportZipWithFiles({ uid }) {
  * @returns {Promise<{ success: string } | { error: string }>}
  */
 export async function importArchive({ file, password, uid }) {
-  console.log('[zerok import] importArchive — fichier:', file?.name, '| taille:', file?.size);
   const content = await file.text();
   const pwd = (password != null && typeof password === 'string' ? password : '').trim();
   if (!pwd || pwd.length < 6) {
     return { error: 'Le mot de passe de l\'archive doit faire au moins 6 caractères.' };
   }
   const bundle = await openArchive(content, pwd);
-  console.log('[zerok import] Bundle après openArchive — includesCoffreFortSection:', bundle.includesCoffreFortSection, '| coffreFortDocuments.length:', bundle.coffreFortDocuments?.length ?? 0);
   await applyRestore(uid, bundle);
   let syncMessage = '';
   try {

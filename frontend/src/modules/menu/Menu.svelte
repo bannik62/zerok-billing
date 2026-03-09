@@ -21,7 +21,7 @@
    * Module Menu principal. Reçoit user du SessionTemoin.
    * display_info affiche le module correspondant au bouton cliqué.
    */
-  let { user, logout } = $props();
+  let { user, logout, refetchUser } = $props();
 
   /** Une fois par utilisateur : attribuer les données sans userId au compte connecté. */
   $effect(() => {
@@ -98,7 +98,7 @@
 
     <div id="display_info" class="display_info" role="region" aria-label="Contenu du module">
       {#if displayModule === 'donnees-personnelles'}
-        <DonneesPersonnelles {user} />
+        <DonneesPersonnelles {user} onPhraseSaved={refetchUser} />
       {:else if displayModule === 'ajouter-client'}
         <AjouterClient {user} onOpenFacture={openFactureForClient} onOpenDevis={openDevisForClient} />
       {:else if displayModule === 'creer-devis'}

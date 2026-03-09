@@ -4,8 +4,16 @@
  */
 
 import { writable } from 'svelte/store';
-import { getAllClients, getSociete, getAllDocuments } from '$lib/db.js';
-import { getAllDevis, getAllFactures, getAllAchats } from '$lib/dbEncrypted.js';
+import { getAllClients, getSociete, getAllDocuments, clearLocalDataForUser } from '$lib/db.js';
+import {
+  getAllDevis,
+  getAllFactures,
+  getAllAchats,
+  getKeyDerivationSalt,
+  setKeyDerivationSalt,
+  clearKeyDataForUser,
+  initEncryption
+} from '$lib/dbEncrypted.js';
 import { createArchive, openArchive } from '$lib/archive.js';
 import { applyRestore } from '$lib/restore.js';
 import { computeStateHash } from '$lib/backupStateHash.js';
@@ -70,14 +78,16 @@ function mergeBundles(local, server) {
  * Pour l'export manuel (.zerok-archive), voir exportArchive dans sauvegarderRestaurerService.js qui respecte les options Coffre fort / Documents.
  */
 export async function buildBundle(uid) {
-  const [clients, societe, devis, factures, achats, coffreFortDocuments] = await Promise.all([
-    getAllClients(uid),
-    getSociete(uid),
-    getAllDevis(uid),
-    getAllFactures(uid),
-    getAllAchats(uid),
-    getAllDocuments(uid)
-  ]);
+  const [clients, societe, devis, factures, achats, coffreFortDocuments, keyDerivationSalt] =
+    await Promise.all([
+      getAllClients(uid),
+      getSociete(uid),
+      getAllDevis(uid),
+      getAllFactures(uid),
+      getAllAchats(uid),
+      getAllDocuments(uid),
+      getKeyDerivationSalt(uid)
+    ]);
   return {
     clients: clients ?? [],
     societe: societe ? { id: 'societe', ...societe } : null,
@@ -87,7 +97,12 @@ export async function buildBundle(uid) {
     coffreFortDocuments: coffreFortDocuments ?? [],
     includesAchats: true,
     includesCoffreFortSection: true,
-    includesDocumentsSection: true
+    includesDocumentsSection: true,
+    // Option C (coffre-fort multiposte) : propage le sel de derivation pour que
+    // tous les postes derivent la meme cle de chiffrement. Le sel voyage uniquement
+    // dans l'archive chiffrée (createArchive/openArchive) et n'entre pas dans le
+    // hash fonctionnel de contenu (backupStateHash).
+    keyDerivationSalt: keyDerivationSalt || null
   };
 }
 
@@ -129,6 +144,14 @@ export async function syncAfterUnlock(uid, password) {
       if (result.status === 404) return { restored: false };
       if (result.status === 200 && result.payload) {
         const restoredBundle = await openArchive(result.payload, password);
+        // Option C : si le bundle vient d'un autre poste, il contient un sel
+        // different. On remet a zero les donnees de cle, on ecrit le sel du bundle,
+        // puis on derive la cle AVANT de re-importer les donnees.
+        if (uid != null && restoredBundle.keyDerivationSalt) {
+          await clearKeyDataForUser(uid);
+          await setKeyDerivationSalt(restoredBundle.keyDerivationSalt, uid);
+        }
+        await initEncryption(password, uid);
         await applyRestore(uid, restoredBundle);
         try {
           await _putCurrentState(uid, password);
@@ -157,9 +180,29 @@ export async function syncAfterUnlock(uid, password) {
       return { restored: false };
     }
     if (result.status === 200 && result.payload) {
-      // Hash différent : serveur fait foi — on applique le blob tel quel (suppressions sur un poste propagées à l'autre).
+      // Hash différent : on fusionne local + serveur (mergeBundles) pour ne pas perdre les données
+      // créées sur ce poste et pas encore uploadées. Serveur gagne en cas de doublon d’id.
       const restoredBundle = await openArchive(result.payload, password);
-      await applyRestore(uid, restoredBundle);
+      const mergedBundle = mergeBundles(bundle, restoredBundle);
+      mergedBundle.keyDerivationSalt = restoredBundle.keyDerivationSalt;
+      mergedBundle.includesAchats = restoredBundle.includesAchats ?? mergedBundle.includesAchats ?? true;
+      mergedBundle.includesCoffreFortSection = restoredBundle.includesCoffreFortSection ?? true;
+      mergedBundle.includesDocumentsSection = restoredBundle.includesDocumentsSection ?? true;
+
+      if (uid != null && restoredBundle.keyDerivationSalt) {
+        await clearKeyDataForUser(uid);
+        await setKeyDerivationSalt(restoredBundle.keyDerivationSalt, uid);
+      }
+      if (uid != null) {
+        await clearLocalDataForUser(uid, {
+          coffre: true,
+          documents: true,
+          achats: true,
+          coffreFortFiles: true
+        });
+      }
+      await initEncryption(password, uid);
+      await applyRestore(uid, mergedBundle);
       try {
         await _putCurrentState(uid, password);
         syncResultStore.set('restored_overwritten');

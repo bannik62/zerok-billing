@@ -4,7 +4,7 @@
  */
 
 import { openDB, clearLocalDataForUser, putDocumentRaw } from '$lib/db.js';
-import { addDevis, addFacture, addAchat } from '$lib/dbEncrypted.js';
+import { addDevis, addFacture, addAchat, setKeyDerivationSalt } from '$lib/dbEncrypted.js';
 
 /**
  * Applique un bundle restaure en base locale.
@@ -18,8 +18,6 @@ export async function applyRestore(uid, bundle) {
   const hasDocuments = bundle.includesDocumentsSection === true;
   const hasAchats = bundle.includesAchats === true;
   const hasCoffreFortFiles = bundle.includesCoffreFortSection === true;
-  const coffreDocsCount = Array.isArray(bundle.coffreFortDocuments) ? bundle.coffreFortDocuments.length : 0;
-  console.log('[zerok restore] applyRestore — hasCoffreFortFiles:', hasCoffreFortFiles, '| coffreFortDocuments à réinsérer:', coffreDocsCount);
   await clearLocalDataForUser(uid, {
     coffre: hasCoffre,
     documents: hasDocuments,
@@ -61,5 +59,12 @@ export async function applyRestore(uid, bundle) {
         await putDocumentRaw(toPut);
       }
     }
+  }
+
+  // Option C (coffre-fort multiposte) : si le bundle contient un sel de derivation,
+  // on le persiste pour cet utilisateur. La clé sera ensuite re-dérivée via
+  // initEncryption (appelée après applyRestore dans backupSync).
+  if (uid != null && bundle.keyDerivationSalt) {
+    await setKeyDerivationSalt(bundle.keyDerivationSalt, uid);
   }
 }
