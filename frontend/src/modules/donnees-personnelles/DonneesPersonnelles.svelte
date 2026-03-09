@@ -100,9 +100,9 @@ import { apiClient } from '$lib/apiClient.js';
     }
     deleteAccountLoading = true;
     try {
-      console.log('[donnees-personnelles] DELETE /auth/account — start');
-      const res = await apiClient.delete('/auth/account');
-      console.log('[donnees-personnelles] DELETE /auth/account — response', res?.status, res?.data);
+      console.log('[donnees-personnelles] DELETE /api/auth/account — start');
+      const res = await apiClient.delete('/api/auth/account');
+      console.log('[donnees-personnelles] DELETE /api/auth/account — response', res?.status, res?.data);
       if (res?.data?.ok) {
         message = {
           type: 'success',
