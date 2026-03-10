@@ -287,10 +287,9 @@ async function _putCurrentState(uid, password) {
   const currentHash = await computeStateHash(currentBundle);
   const archive = await createArchive(currentBundle, password);
   await putBackup(JSON.stringify(archive), currentHash);
-  // On sait maintenant que le serveur a ce stateHash : on l'enregistre pour que
-  // le polling de /api/backup/version ne considère pas cette mise à jour comme
-  // venant d'un autre poste.
-  setKnownServerStateHash(currentHash);
+  if (typeof window !== 'undefined' && window.sessionStorage) {
+    window.sessionStorage.setItem('zerok-self-backup-update-once', '1');
+  }
 }
 
 /**
@@ -308,7 +307,9 @@ export function scheduleBackupUpload(uid) {
       const stateHash = await computeStateHash(bundle);
       const archive = await createArchive(bundle, _backupPassword);
       await putBackup(JSON.stringify(archive), stateHash);
-      setKnownServerStateHash(stateHash);
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        window.sessionStorage.setItem('zerok-self-backup-update-once', '1');
+      }
     } catch (_) {
       // echec silencieux (reseau, etc.)
     }
@@ -324,5 +325,7 @@ export async function uploadBackupNow(uid) {
   const stateHash = await computeStateHash(bundle);
   const archive = await createArchive(bundle, _backupPassword);
   await putBackup(JSON.stringify(archive), stateHash);
-  setKnownServerStateHash(stateHash);
+  if (typeof window !== 'undefined' && window.sessionStorage) {
+    window.sessionStorage.setItem('zerok-self-backup-update-once', '1');
+  }
 }

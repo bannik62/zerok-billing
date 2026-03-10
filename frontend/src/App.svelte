@@ -16,7 +16,7 @@
   import { fetchCsrfToken } from '$lib/csrf.js';
   import { clearEncryptionKey, encryptionKeyLoadedStore } from '$lib/dbEncrypted.js';
   import { clearBackupPassword, syncResultStore, syncReadyStore } from '$lib/backupSync.js';
-  import { serverUpdateAvailableStore, startBackupVersionPolling, stopBackupVersionPolling } from '$lib/backupVersion.js';
+  import { serverUpdateAvailableStore } from '$lib/backupVersion.js';
   import { startEventsStream, stopEventsStream } from '$lib/eventsClient.js';
 
   function dismissSyncBanners() {
@@ -55,7 +55,6 @@
         await fetchCsrfToken().catch(() => null);
         user = data.user;
         page = 'menu';
-        startBackupVersionPolling();
         startEventsStream();
       } else {
         user = null;
@@ -109,7 +108,6 @@
       view = 'setupPhrase';
     } else {
       page = 'menu';
-      startBackupVersionPolling();
       startEventsStream();
     }
   }
@@ -122,7 +120,6 @@
       view = 'verifyEmail';
     } else {
       page = 'menu';
-      startBackupVersionPolling();
       startEventsStream();
     }
   }
@@ -134,7 +131,6 @@
         view = 'setupPhrase';
       } else {
         page = 'menu';
-        startBackupVersionPolling();
         startEventsStream();
       }
     }
@@ -144,7 +140,6 @@
     fetchUser().then(() => {
       if (user?.hasRecoveryData !== false) {
         page = 'menu';
-        startBackupVersionPolling();
         startEventsStream();
       }
     });
@@ -154,7 +149,7 @@
     apiClient.post('/api/auth/logout').catch(() => {});
     clearEncryptionKey();
     clearBackupPassword();
-    stopBackupVersionPolling();
+    stopEventsStream();
     stopEventsStream();
     user = null;
     page = 'auth';

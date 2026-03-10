@@ -26,15 +26,8 @@ const POLL_INTERVAL_MS = 60000;
  * Cela évite qu'un poste voie sa propre mise à jour comme venant d'un autre poste.
  * @param {string | null | undefined} stateHash
  */
-export function setKnownServerStateHash(stateHash) {
-  const normalized = stateHash && typeof stateHash === 'string' ? stateHash : null;
-  backupVersionStore.update((prev) => ({
-    stateHash: normalized,
-    updatedAt: prev?.updatedAt ?? null
-  }));
-  if (normalized == null) {
-    serverUpdateAvailableStore.set(false);
-  }
+export function setKnownServerStateHash(_stateHash) {
+  // Conservé pour compatibilité éventuelle, mais inutilisé depuis le passage à SSE-only.
 }
 
 /**
@@ -43,51 +36,13 @@ export function setKnownServerStateHash(stateHash) {
  * Idempotent : si déjà démarré, ne crée pas de second interval.
  */
 export function startBackupVersionPolling() {
-  if (typeof window === 'undefined') return;
-  if (_pollIntervalId != null) return;
-
-  const tick = async () => {
-    try {
-      const result = await getBackupVersion();
-      if (result.status !== 200 || !result.stateHash) {
-        return;
-      }
-      backupVersionStore.update((prev) => {
-        const prevHash = prev?.stateHash ?? null;
-        const nextHash = result.stateHash ?? null;
-        const nextUpdatedAt = result.updatedAt ?? null;
-
-        // Première valeur connue : on initialise sans afficher de bannière.
-        if (!prevHash && nextHash) {
-          return { stateHash: nextHash, updatedAt: nextUpdatedAt };
-        }
-
-        // Changement de hash : une nouvelle version serveur est disponible.
-        if (prevHash && nextHash && prevHash !== nextHash) {
-          serverUpdateAvailableStore.set(true);
-          return { stateHash: nextHash, updatedAt: nextUpdatedAt };
-        }
-
-        return { stateHash: nextHash, updatedAt: nextUpdatedAt };
-      });
-    } catch {
-      // Erreurs réseau silencieuses : le prochain tick réessaiera.
-    }
-  };
-
-  // Premier tick immédiat, puis intervalle régulier.
-  void tick();
-  _pollIntervalId = window.setInterval(tick, POLL_INTERVAL_MS);
+  // Polling désactivé : notifications temps réel via SSE (eventsClient).
 }
 
 /**
  * Stoppe le polling de version (à appeler au logout ou quand on quitte le menu).
  */
 export function stopBackupVersionPolling() {
-  if (typeof window === 'undefined') return;
-  if (_pollIntervalId != null) {
-    window.clearInterval(_pollIntervalId);
-    _pollIntervalId = null;
-  }
+  // Polling désactivé.
 }
 

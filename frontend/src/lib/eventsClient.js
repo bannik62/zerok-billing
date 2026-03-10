@@ -9,9 +9,16 @@ export function startEventsStream() {
   const es = new EventSource('/api/events');
   _eventSource = es;
 
-  es.addEventListener('backupUpdated', () => {
-    serverUpdateAvailableStore.set(true);
-  });
+es.addEventListener('backupUpdated', () => {
+  if (typeof window !== 'undefined' && window.sessionStorage) {
+    const flag = window.sessionStorage.getItem('zerok-self-backup-update-once');
+    if (flag === '1') {
+      window.sessionStorage.removeItem('zerok-self-backup-update-once');
+      return;
+    }
+  }
+  serverUpdateAvailableStore.set(true);
+});
 
   es.onerror = () => {
     // En cas d'erreur, on ferme et on laissera un prochain appel redémarrer.
