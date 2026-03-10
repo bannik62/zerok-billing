@@ -8,9 +8,10 @@ import { writable } from 'svelte/store';
 const STORAGE_KEY = 'zerok-theme';
 
 function getStored() {
-  if (typeof localStorage === 'undefined') return 'light';
+  if (typeof localStorage === 'undefined') return 'dark';
   const v = localStorage.getItem(STORAGE_KEY);
-  return v === 'dark' ? 'dark' : 'light';
+  if (v === 'dark' || v === 'light') return v;
+  return 'dark';
 }
 
 function applyTheme(value) {

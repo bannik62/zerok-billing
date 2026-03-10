@@ -39,6 +39,8 @@
   let selectedClient = $state(null);
   /** Devis sélectionné pour créer une facture (depuis la liste documents) */
   let selectedDevisForFacture = $state(null);
+  /** Ouverture du menu paramètres (engrenage) */
+  let settingsOpen = $state(false);
   function showDonneesPersonnelles() { displayModule = 'donnees-personnelles'; selectedClient = null; selectedDevisForFacture = null; }
   function showAjouterClient() { displayModule = 'ajouter-client'; selectedClient = null; selectedDevisForFacture = null; }
   function showCreerDevis() { displayModule = 'creer-devis'; selectedClient = null; selectedDevisForFacture = null; }
@@ -73,27 +75,73 @@
   <header class="menu-header">
     <h1><button type="button" class="h1-link" onclick={showAccueil} aria-label="Retour à l'accueil">Accueil</button></h1>
     <p class="welcome">Bienvenue, <strong>{user.prenom} {user.nom}</strong>.</p>
-    <button type="button" class="btn-theme" onclick={toggleTheme} aria-label={$themeStore === 'dark' ? 'Passer en mode jour' : 'Passer en mode nuit'}>
-      {$themeStore === 'dark' ? 'Jour ☀' : 'Nuit ☽'}
-    </button>
-    <button type="button" class="btn-logout" onclick={logout}>Déconnexion</button>
+    <div class="menu-header-actions">
+      <div class="settings-wrapper">
+        <button
+          type="button"
+          class="btn-settings"
+          onclick={() => { settingsOpen = !settingsOpen; }}
+          aria-haspopup="true"
+          aria-expanded={settingsOpen}
+          aria-label="Ouvrir les paramètres"
+        >
+          ⚙
+        </button>
+        {#if settingsOpen}
+          <div class="settings-menu" role="menu">
+            <button
+              type="button"
+              class="settings-item"
+              role="menuitem"
+              onclick={() => {
+                showDonneesPersonnelles();
+                settingsOpen = false;
+              }}
+            >
+              Profil / Données personnelles
+            </button>
+            <button
+              type="button"
+              class="settings-item"
+              role="menuitem"
+              onclick={() => {
+                toggleTheme();
+                settingsOpen = false;
+              }}
+            >
+              {$themeStore === 'dark' ? 'Passer en mode jour' : 'Passer en mode nuit'}
+            </button>
+            <button
+              type="button"
+              class="settings-item"
+              role="menuitem"
+              onclick={() => {
+                showPaiement();
+                settingsOpen = false;
+              }}
+            >
+              Paiement / Stripe
+            </button>
+          </div>
+        {/if}
+      </div>
+      <button type="button" class="btn-logout" onclick={logout}>Déconnexion</button>
+    </div>
   </header>
 
   <div class="menu-body">
     <!-- Onglets style classeur (scroll horizontal sur petit écran) -->
     <div class="menu-tabs-wrapper" role="presentation">
       <div class="menu-tabs" role="tablist" aria-label="Modules">
-        <button type="button" role="tab" class="tab" class:active={displayModule === 'donnees-personnelles'} aria-selected={displayModule === 'donnees-personnelles'} aria-label="Données personnelles" onclick={showDonneesPersonnelles}>Données personnelles</button>
         <button type="button" role="tab" class="tab" class:active={displayModule === 'ajouter-client'} aria-selected={displayModule === 'ajouter-client'} aria-label="Ajouter client" onclick={showAjouterClient}>Ajouter client</button>
         <button type="button" role="tab" class="tab" class:active={displayModule === 'creer-devis'} aria-selected={displayModule === 'creer-devis'} aria-label="Créer devis" onclick={showCreerDevis}>Créer devis</button>
         <button type="button" role="tab" class="tab" class:active={displayModule === 'facture'} aria-selected={displayModule === 'facture'} aria-label="Facture" onclick={showFacture}>Facture</button>
         <button type="button" role="tab" class="tab" class:active={displayModule === 'liste-documents'} aria-selected={displayModule === 'liste-documents'} aria-label="Liste Devis/Facture" onclick={showListeDocuments}>Liste Devis/Facture</button>
-        <button type="button" role="tab" class="tab" class:active={displayModule === 'coffre-fort'} aria-selected={displayModule === 'coffre-fort'} aria-label="Coffre fort" onclick={showCoffreFort}>Coffre fort</button>
         <button type="button" role="tab" class="tab" class:active={displayModule === 'achats'} aria-selected={displayModule === 'achats'} aria-label="Achats" onclick={showAchats}>Achats</button>
         <button type="button" role="tab" class="tab" class:active={displayModule === 'comptabilite'} aria-selected={displayModule === 'comptabilite'} aria-label="Comptabilité" onclick={showComptabilite}>Comptabilité</button>
+        <button type="button" role="tab" class="tab" class:active={displayModule === 'coffre-fort'} aria-selected={displayModule === 'coffre-fort'} aria-label="Coffre fort" onclick={showCoffreFort}>Coffre fort</button>
         <button type="button" role="tab" class="tab" class:active={displayModule === 'explorer-base'} aria-selected={displayModule === 'explorer-base'} aria-label="Explorer la base" onclick={showExplorerBase}>Explorer la base</button>
         <button type="button" role="tab" class="tab" class:active={displayModule === 'sauvegarder-restaurer'} aria-selected={displayModule === 'sauvegarder-restaurer'} aria-label="Sauvegarder ou restaurer" onclick={showSauvegarderRestaurer}>Sauvegarder / Restaurer</button>
-        <button type="button" role="tab" class="tab" class:active={displayModule === 'paiement'} aria-selected={displayModule === 'paiement'} aria-label="Paiement" onclick={showPaiement}>Paiement</button>
       </div>
     </div>
 
@@ -220,6 +268,13 @@
     text-decoration: underline;
   }
   .welcome { margin: 0; font-size: clamp(0.875rem, 2.2vw, 0.95rem); color: var(--color-text); }
+  .menu-header-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    position: relative;
+  }
   .btn-theme {
     padding: 0.35rem 0.75rem;
     border-radius: 6px;
@@ -230,6 +285,51 @@
     cursor: pointer;
   }
   .btn-theme:hover {
+    background: var(--color-bg-muted);
+  }
+  .settings-wrapper {
+    position: relative;
+  }
+  .btn-settings {
+    padding: 0.35rem 0.55rem;
+    border-radius: 50%;
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-settings:hover {
+    background: var(--color-bg-muted);
+    color: var(--color-text);
+  }
+  .settings-menu {
+    position: absolute;
+    top: 110%;
+    right: 0;
+    min-width: 190px;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-strong);
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    padding: 0.25rem 0;
+    z-index: 20;
+  }
+  .settings-item {
+    width: 100%;
+    padding: 0.45rem 0.9rem;
+    background: none;
+    border: none;
+    text-align: left;
+    font-size: 0.9rem;
+    color: var(--color-text);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .settings-item:hover {
     background: var(--color-bg-muted);
   }
   .menu-body {
@@ -366,7 +466,6 @@
     color: white;
     cursor: pointer;
     font-size: clamp(0.8rem, 2vw, 0.9rem);
-    margin-left: auto;
   }
 
   @media (min-width: 768px) {
