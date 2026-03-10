@@ -18,6 +18,7 @@ import { createArchive, openArchive } from '$lib/archive.js';
 import { applyRestore } from '$lib/restore.js';
 import { computeStateHash } from '$lib/backupStateHash.js';
 import { getBackup, putBackup } from '$lib/backupApi.js';
+import { setKnownServerStateHash } from '$lib/backupVersion.js';
 
 /**
  * Resultat de la derniere sync apres unlock.
@@ -266,6 +267,10 @@ async function _putCurrentState(uid, password) {
   const currentHash = await computeStateHash(currentBundle);
   const archive = await createArchive(currentBundle, password);
   await putBackup(JSON.stringify(archive), currentHash);
+  // On sait maintenant que le serveur a ce stateHash : on l'enregistre pour que
+  // le polling de /api/backup/version ne considère pas cette mise à jour comme
+  // venant d'un autre poste.
+  setKnownServerStateHash(currentHash);
 }
 
 /**
@@ -283,6 +288,7 @@ export function scheduleBackupUpload(uid) {
       const stateHash = await computeStateHash(bundle);
       const archive = await createArchive(bundle, _backupPassword);
       await putBackup(JSON.stringify(archive), stateHash);
+      setKnownServerStateHash(stateHash);
     } catch (_) {
       // echec silencieux (reseau, etc.)
     }
@@ -298,4 +304,5 @@ export async function uploadBackupNow(uid) {
   const stateHash = await computeStateHash(bundle);
   const archive = await createArchive(bundle, _backupPassword);
   await putBackup(JSON.stringify(archive), stateHash);
+  setKnownServerStateHash(stateHash);
 }

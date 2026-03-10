@@ -346,6 +346,25 @@ secureRouter.get('/invoices/payment-status', async (req, res, next) => {
 });
 
 /**
+ * GET /api/backup/version — Version légère de la sauvegarde (hash + timestamp) pour détecter
+ * les mises à jour entre postes sans rapatrier le blob chiffré.
+ */
+secureRouter.get('/backup/version', async (req, res, next) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Non authentifié' });
+    const backup = await prisma.userBackup.findUnique({ where: { userId } });
+    if (!backup) return res.status(404).json({ error: 'Aucune sauvegarde' });
+    return res.json({
+      stateHash: backup.stateHash,
+      updatedAt: backup.updatedAt.toISOString()
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
  * GET /api/backup — Récupère la sauvegarde (blob chiffré). Query hash= optionnel : si fourni et égal au stateHash stocké, renvoie { unchanged: true } sans blob.
  */
 secureRouter.get('/backup', async (req, res, next) => {

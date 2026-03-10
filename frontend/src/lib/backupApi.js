@@ -1,5 +1,5 @@
 /**
- * Client API pour la sauvegarde serveur (GET/PUT backup).
+ * Client API pour la sauvegarde serveur (GET/PUT backup + version légère).
  * Métier uniquement : pas d'UI.
  */
 
@@ -38,4 +38,24 @@ export async function getBackup(stateHash = null) {
  */
 export async function putBackup(payload, stateHash) {
   await apiClient.put('/api/backup', { payload, stateHash });
+}
+
+/**
+ * GET /api/backup/version — Récupère uniquement la version de la sauvegarde (hash + timestamp).
+ * Permet de détecter qu'un autre poste a mis à jour le backup sans télécharger le blob chiffré.
+ * @returns {Promise<{ status: 200 | 404, stateHash?: string, updatedAt?: string }>}
+ */
+export async function getBackupVersion() {
+  try {
+    const res = await apiClient.get('/api/backup/version');
+    const data = res.data ?? {};
+    return {
+      status: 200,
+      stateHash: typeof data.stateHash === 'string' ? data.stateHash : undefined,
+      updatedAt: typeof data.updatedAt === 'string' ? data.updatedAt : undefined
+    };
+  } catch (err) {
+    if (err.response?.status === 404) return { status: 404 };
+    throw err;
+  }
 }

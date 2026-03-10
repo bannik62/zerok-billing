@@ -16,6 +16,7 @@
   import { fetchCsrfToken } from '$lib/csrf.js';
   import { clearEncryptionKey, encryptionKeyLoadedStore } from '$lib/dbEncrypted.js';
   import { clearBackupPassword, syncResultStore, syncReadyStore } from '$lib/backupSync.js';
+  import { serverUpdateAvailableStore, startBackupVersionPolling, stopBackupVersionPolling } from '$lib/backupVersion.js';
 
   function dismissSyncBanners() {
     syncResultStore.set(null);
@@ -105,6 +106,7 @@
       view = 'setupPhrase';
     } else {
       page = 'menu';
+      startBackupVersionPolling();
     }
   }
 
@@ -116,6 +118,7 @@
       view = 'verifyEmail';
     } else {
       page = 'menu';
+      startBackupVersionPolling();
     }
   }
 
@@ -126,13 +129,17 @@
         view = 'setupPhrase';
       } else {
         page = 'menu';
+        startBackupVersionPolling();
       }
     }
   }
 
   function onSetupPhraseDone() {
     fetchUser().then(() => {
-      if (user?.hasRecoveryData !== false) page = 'menu';
+      if (user?.hasRecoveryData !== false) {
+        page = 'menu';
+        startBackupVersionPolling();
+      }
     });
   }
 
@@ -140,6 +147,7 @@
     apiClient.post('/api/auth/logout').catch(() => {});
     clearEncryptionKey();
     clearBackupPassword();
+    stopBackupVersionPolling();
     user = null;
     page = 'auth';
     view = 'login';
@@ -161,6 +169,26 @@
     {#if $encryptionKeyLoadedStore && !$syncReadyStore}
       <p class="loading">Synchronisation avec le serveur témoin…</p>
     {:else if $encryptionKeyLoadedStore}
+      {#if $serverUpdateAvailableStore}
+        <div class="sync-banner sync-banner-update" role="status">
+          <span>Des données ont été mises à jour sur le serveur témoin (autre poste). Recharger pour synchroniser.</span>
+          <button
+            type="button"
+            class="sync-banner-dismiss"
+            onclick={() => { serverUpdateAvailableStore.set(false); }}
+            aria-label="Ignorer pour l’instant"
+          >
+            Plus tard
+          </button>
+          <button
+            type="button"
+            class="sync-banner-refresh"
+            onclick={() => { window.location.reload(); }}
+          >
+            Recharger maintenant
+          </button>
+        </div>
+      {/if}
       {#if $syncResultStore === 'unchanged'}
         <div class="sync-banner sync-banner-ok" role="status">
           <span>La base locale est à jour avec le serveur témoin.</span>
@@ -309,6 +337,11 @@
     font-size: 0.9rem;
     flex-wrap: wrap;
   }
+  .sync-banner-update {
+    background: #e0f2fe;
+    color: #0f172a;
+    border-bottom: 1px solid #38bdf8;
+  }
   .sync-banner-ok {
     background: var(--color-bg-muted);
     color: var(--color-text);
@@ -334,6 +367,16 @@
     border-radius: 6px;
     cursor: pointer;
     font-size: 0.85rem;
+  }
+  .sync-banner-refresh {
+    flex-shrink: 0;
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    border: 1px solid #0369a1;
+    background: #0ea5e9;
+    color: white;
   }
   .sync-banner-ok .sync-banner-dismiss {
     background: var(--color-bg-elevated);
