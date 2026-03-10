@@ -10,6 +10,7 @@
   import ExplorerBase from '../explorer-base/ExplorerBase.svelte';
   import SauvegarderRestaurer from '../sauvegarder-restaurer/SauvegarderRestaurer.svelte';
   import Paiement from '../paiement/Paiement.svelte';
+  import { slide } from 'svelte/transition';
   import {
     migrateLegacyDataToUser,
     isLegacyMigratedForUser,
@@ -98,29 +99,51 @@
 
     <div id="display_info" class="display_info" role="region" aria-label="Contenu du module">
       {#if displayModule === 'donnees-personnelles'}
-        <DonneesPersonnelles {user} onPhraseSaved={refetchUser} />
+        <div transition:slide={{ duration: 200 }}>
+          <DonneesPersonnelles {user} onPhraseSaved={refetchUser} />
+        </div>
       {:else if displayModule === 'ajouter-client'}
-        <AjouterClient {user} onOpenFacture={openFactureForClient} onOpenDevis={openDevisForClient} />
+        <div transition:slide={{ duration: 200 }}>
+          <AjouterClient {user} onOpenFacture={openFactureForClient} onOpenDevis={openDevisForClient} />
+        </div>
       {:else if displayModule === 'creer-devis'}
-        <CreerDevis {user} client={selectedClient} onSavedAndGoToList={showListeDocuments} />
+        <div transition:slide={{ duration: 200 }}>
+          <CreerDevis {user} client={selectedClient} onSavedAndGoToList={showListeDocuments} />
+        </div>
       {:else if displayModule === 'facture'}
-        <Facture {user} client={selectedClient} devis={selectedDevisForFacture} onSavedAndGoToList={showListeDocuments} />
+        <div transition:slide={{ duration: 200 }}>
+          <Facture {user} client={selectedClient} devis={selectedDevisForFacture} onSavedAndGoToList={showListeDocuments} />
+        </div>
       {:else if displayModule === 'liste-documents'}
-        <ListeDocuments {user} onOpenFactureFromDevis={openFactureFromDevis} />
+        <div transition:slide={{ duration: 200 }}>
+          <ListeDocuments {user} onOpenFactureFromDevis={openFactureFromDevis} />
+        </div>
       {:else if displayModule === 'coffre-fort'}
-        <CoffreFort {user} />
+        <div transition:slide={{ duration: 200 }}>
+          <CoffreFort {user} />
+        </div>
       {:else if displayModule === 'achats'}
-        <Achats {user} />
+        <div transition:slide={{ duration: 200 }}>
+          <Achats {user} />
+        </div>
       {:else if displayModule === 'comptabilite'}
-        <Comptabilite {user} />
+        <div transition:slide={{ duration: 200 }}>
+          <Comptabilite {user} />
+        </div>
       {:else if displayModule === 'explorer-base'}
-        <ExplorerBase {user} />
+        <div transition:slide={{ duration: 200 }}>
+          <ExplorerBase {user} />
+        </div>
       {:else if displayModule === 'sauvegarder-restaurer'}
-        <SauvegarderRestaurer {user} />
+        <div transition:slide={{ duration: 200 }}>
+          <SauvegarderRestaurer {user} />
+        </div>
       {:else if displayModule === 'paiement'}
-        <Paiement {user} />
+        <div transition:slide={{ duration: 200 }}>
+          <Paiement {user} />
+        </div>
       {:else}
-        <div class="welcome-presentation">
+        <div class="welcome-presentation" transition:slide={{ duration: 200 }}>
           <h2 class="welcome-presentation-title">Zero-Knowledge Facturation</h2>
           <p class="welcome-presentation-intro">
             Application de facturation <strong>local-first</strong> : vos devis, factures et documents restent chez vous.

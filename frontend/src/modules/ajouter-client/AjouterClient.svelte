@@ -10,6 +10,7 @@
     NOM_PRENOM_PATTERN_MESSAGE
   } from '$lib/formField.js';
   import { scheduleBackupUpload } from '$lib/backupSync.js';
+  import Modal from '$lib/Modal.svelte';
 
   /**
    * Module Ajouter client – formulaire, liste, modifier/supprimer, ouvrir Facture/Devis.
@@ -34,16 +35,6 @@
   const villeField = createTextField({ maxLength: 100, required: true });
   const siretField = createSiretField({ required: true });
 
-  const editRaisonSocialeField = createTextField({ maxLength: 255, required: true, minLength: 2 });
-  const editNomField = createTextField({ maxLength: 100, required: true, minLength: 2, pattern: NOM_PRENOM_PATTERN, patternMessage: NOM_PRENOM_PATTERN_MESSAGE });
-  const editPrenomField = createTextField({ maxLength: 100, required: true, minLength: 2, pattern: NOM_PRENOM_PATTERN, patternMessage: NOM_PRENOM_PATTERN_MESSAGE });
-  const editEmailField = createEmailField();
-  const editTelephoneField = createTelField({ required: true });
-  const editAdresseField = createTextField({ maxLength: 255, required: true });
-  const editCodePostalField = createCodePostalField({ required: true });
-  const editVilleField = createTextField({ maxLength: 100, required: true });
-  const editSiretField = createSiretField({ required: true });
-
   const raisonSocialeStore = raisonSocialeField.store;
   const nomStore = nomField.store;
   const prenomStore = prenomField.store;
@@ -53,16 +44,6 @@
   const codePostalStore = codePostalField.store;
   const villeStore = villeField.store;
   const siretStore = siretField.store;
-  const editRaisonSocialeStore = editRaisonSocialeField.store;
-  const editNomStore = editNomField.store;
-  const editPrenomStore = editPrenomField.store;
-  const editEmailStore = editEmailField.store;
-  const editTelephoneStore = editTelephoneField.store;
-  const editAdresseStore = editAdresseField.store;
-  const editCodePostalStore = editCodePostalField.store;
-  const editVilleStore = editVilleField.store;
-  const editSiretStore = editSiretField.store;
-
   async function loadClients() {
     try {
       clients = await getAllClients(uid);
@@ -129,15 +110,15 @@
 
   function openEdit(client) {
     editingClientId = client.id;
-    editRaisonSocialeField.value = client.raisonSociale ?? '';
-    editNomField.value = client.nom ?? '';
-    editPrenomField.value = client.prenom ?? '';
-    editEmailField.value = client.email ?? '';
-    editTelephoneField.value = client.telephone ?? '';
-    editAdresseField.value = client.adresse ?? '';
-    editCodePostalField.value = client.codePostal ?? '';
-    editVilleField.value = client.ville ?? '';
-    editSiretField.value = client.siret ?? '';
+    raisonSocialeField.value = client.raisonSociale ?? '';
+    nomField.value = client.nom ?? '';
+    prenomField.value = client.prenom ?? '';
+    emailField.value = client.email ?? '';
+    telephoneField.value = client.telephone ?? '';
+    adresseField.value = client.adresse ?? '';
+    codePostalField.value = client.codePostal ?? '';
+    villeField.value = client.ville ?? '';
+    siretField.value = client.siret ?? '';
   }
 
   function cancelEdit() {
@@ -148,15 +129,15 @@
     e.preventDefault();
     if (editingClientId == null) return;
     const errors = [
-      editRaisonSocialeField.getError(),
-      editNomField.getError(),
-      editPrenomField.getError(),
-      editEmailField.getError(),
-      editTelephoneField.getError(),
-      editAdresseField.getError(),
-      editCodePostalField.getError(),
-      editVilleField.getError(),
-      editSiretField.getError()
+      raisonSocialeField.getError(),
+      nomField.getError(),
+      prenomField.getError(),
+      emailField.getError(),
+      telephoneField.getError(),
+      adresseField.getError(),
+      codePostalField.getError(),
+      villeField.getError(),
+      siretField.getError()
     ].filter(Boolean);
     if (errors.length > 0) {
       message = { type: 'error', text: errors[0] };
@@ -167,15 +148,15 @@
       await updateClient(
         {
           id: editingClientId,
-          raisonSociale: editRaisonSocialeField.value,
-          nom: editNomField.value,
-          prenom: editPrenomField.value,
-          email: editEmailField.value,
-          telephone: editTelephoneField.value,
-          adresse: editAdresseField.value,
-          codePostal: editCodePostalField.value,
-          ville: editVilleField.value,
-          siret: editSiretField.value
+          raisonSociale: raisonSocialeField.value,
+          nom: nomField.value,
+          prenom: prenomField.value,
+          email: emailField.value,
+          telephone: telephoneField.value,
+          adresse: adresseField.value,
+          codePostal: codePostalField.value,
+          ville: villeField.value,
+          siret: siretField.value
         },
         uid
       );
@@ -245,10 +226,10 @@
           <input id="ville" type="text" value={$villeStore} oninput={(e) => villeField.value = e.target.value} />
         </div>
       </div>
-        <div class="form-row">
-          <label for="siret">SIRET</label>
-          <input id="siret" type="text" inputmode="numeric" value={$siretStore} oninput={(e) => siretField.value = e.target.value} placeholder="14 chiffres" />
-        </div>
+      <div class="form-row">
+        <label for="siret">SIRET</label>
+        <input id="siret" type="text" inputmode="numeric" value={$siretStore} oninput={(e) => siretField.value = e.target.value} placeholder="14 chiffres" />
+      </div>
       <div class="form-actions">
         <button type="submit" class="btn-submit" disabled={loading}>
           {loading ? 'Enregistrement…' : 'Enregistrer le client'}
@@ -287,59 +268,55 @@
   </section>
 </div>
 
-{#if editingClientId != null}
-  <div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-edit-title">
-    <div class="modal">
-      <h3 id="modal-edit-title" class="modal-title">Modifier le client</h3>
-      <form class="client-form modal-form" onsubmit={saveEdit}>
-        <div class="form-row">
-          <label for="edit-raison-sociale">Raison sociale</label>
-          <input id="edit-raison-sociale" type="text" value={$editRaisonSocialeStore} oninput={(e) => editRaisonSocialeField.value = e.target.value} placeholder="Société ou particulier" />
-        </div>
-        <div class="form-row-group">
-          <div class="form-row">
-            <label for="edit-nom">Nom</label>
-            <input id="edit-nom" type="text" value={$editNomStore} oninput={(e) => editNomField.value = e.target.value} />
-          </div>
-          <div class="form-row">
-            <label for="edit-prenom">Prénom</label>
-            <input id="edit-prenom" type="text" value={$editPrenomStore} oninput={(e) => editPrenomField.value = e.target.value} />
-          </div>
-        </div>
-        <div class="form-row">
-          <label for="edit-email">Email</label>
-          <input id="edit-email" type="email" value={$editEmailStore} oninput={(e) => editEmailField.value = e.target.value} />
-        </div>
-        <div class="form-row">
-          <label for="edit-telephone">Téléphone</label>
-          <input id="edit-telephone" type="tel" value={$editTelephoneStore} oninput={(e) => editTelephoneField.value = e.target.value} />
-        </div>
-        <div class="form-row">
-          <label for="edit-adresse">Adresse</label>
-          <input id="edit-adresse" type="text" value={$editAdresseStore} oninput={(e) => editAdresseField.value = e.target.value} placeholder="Numéro et rue" />
-        </div>
-        <div class="form-row-group">
-          <div class="form-row">
-            <label for="edit-code-postal">Code postal</label>
-            <input id="edit-code-postal" type="text" inputmode="numeric" value={$editCodePostalStore} oninput={(e) => editCodePostalField.value = e.target.value} placeholder="5 chiffres" />
-          </div>
-          <div class="form-row">
-            <label for="edit-ville">Ville</label>
-            <input id="edit-ville" type="text" value={$editVilleStore} oninput={(e) => editVilleField.value = e.target.value} />
-          </div>
-        </div>
-        <div class="form-row">
-          <label for="edit-siret">SIRET</label>
-          <input id="edit-siret" type="text" inputmode="numeric" value={$editSiretStore} oninput={(e) => editSiretField.value = e.target.value} placeholder="14 chiffres" />
-        </div>
-        <div class="modal-actions">
-          <button type="button" class="btn-cancel" onclick={cancelEdit}>Annuler</button>
-          <button type="submit" class="btn-submit" disabled={savingEdit}>{savingEdit ? 'Enregistrement…' : 'Enregistrer'}</button>
-        </div>
-      </form>
+<Modal open={editingClientId != null} labelledBy="modal-edit-title">
+  <h3 id="modal-edit-title" class="modal-title">Modifier le client</h3>
+  <form class="client-form modal-form" onsubmit={saveEdit}>
+    <div class="form-row">
+      <label for="edit-raison-sociale">Raison sociale</label>
+      <input id="edit-raison-sociale" type="text" value={$raisonSocialeStore} oninput={(e) => raisonSocialeField.value = e.target.value} placeholder="Société ou particulier" />
     </div>
-  </div>
-{/if}
+    <div class="form-row-group">
+      <div class="form-row">
+        <label for="edit-nom">Nom</label>
+        <input id="edit-nom" type="text" value={$nomStore} oninput={(e) => nomField.value = e.target.value} />
+      </div>
+      <div class="form-row">
+        <label for="edit-prenom">Prénom</label>
+        <input id="edit-prenom" type="text" value={$prenomStore} oninput={(e) => prenomField.value = e.target.value} />
+      </div>
+    </div>
+    <div class="form-row">
+      <label for="edit-email">Email</label>
+      <input id="edit-email" type="email" value={$emailStore} oninput={(e) => emailField.value = e.target.value} />
+    </div>
+    <div class="form-row">
+      <label for="edit-telephone">Téléphone</label>
+      <input id="edit-telephone" type="tel" value={$telephoneStore} oninput={(e) => telephoneField.value = e.target.value} />
+    </div>
+    <div class="form-row">
+      <label for="edit-adresse">Adresse</label>
+      <input id="edit-adresse" type="text" value={$adresseStore} oninput={(e) => adresseField.value = e.target.value} placeholder="Numéro et rue" />
+    </div>
+    <div class="form-row-group">
+      <div class="form-row">
+        <label for="edit-code-postal">Code postal</label>
+        <input id="edit-code-postal" type="text" inputmode="numeric" value={$codePostalStore} oninput={(e) => codePostalField.value = e.target.value} placeholder="5 chiffres" />
+      </div>
+      <div class="form-row">
+        <label for="edit-ville">Ville</label>
+        <input id="edit-ville" type="text" value={$villeStore} oninput={(e) => villeField.value = e.target.value} />
+      </div>
+    </div>
+    <div class="form-row">
+      <label for="edit-siret">SIRET</label>
+      <input id="edit-siret" type="text" inputmode="numeric" value={$siretStore} oninput={(e) => siretField.value = e.target.value} placeholder="14 chiffres" />
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-cancel" onclick={cancelEdit}>Annuler</button>
+      <button type="submit" class="btn-submit" disabled={savingEdit}>{savingEdit ? 'Enregistrement…' : 'Enregistrer'}</button>
+    </div>
+  </form>
+</Modal>
 
 <style>
   .clients-module {
@@ -498,48 +475,4 @@
   .btn-devis:hover { background: #f0fdfa; }
   .btn-supprimer { color: var(--color-error); border-color: #fecaca; }
   .btn-supprimer:hover { background: #fef2f2; }
-
-  /* Modal */
-  .modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(15, 23, 42, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: var(--z-modal);
-    padding: 1rem;
-  }
-  .modal {
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
-    max-width: 28rem;
-    width: 100%;
-    max-height: 90vh;
-    overflow: auto;
-    padding: 1.25rem;
-  }
-  .modal-title {
-    margin: 0 0 1rem 0;
-    font-size: 1.1rem;
-    color: #0f172a;
-  }
-  .modal-form .form-row { margin-bottom: 0; }
-  .modal-actions {
-    display: flex;
-    gap: 0.75rem;
-    margin-top: 1rem;
-  }
-  .btn-cancel {
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    border: 1px solid var(--color-border);
-    background: #fff;
-    font-size: 0.9rem;
-    cursor: pointer;
-  }
-  .btn-cancel:hover {
-    background: var(--color-bg-muted);
-  }
 </style>

@@ -1,7 +1,10 @@
 <script>
   import { getSociete, saveSociete, clearLocalDataForUser } from '$lib/db.js';
-  import { clearEncryptionKey, initEncryption } from '$lib/dbEncrypted.js';
+  import { clearEncryptionKey } from '$lib/dbEncrypted.js';
   import { apiClient } from '$lib/apiClient.js';
+  import Modal from '$lib/Modal.svelte';
+  import DeleteAccountModal from './DeleteAccountModal.svelte';
+  import RecoveryPhraseModal from './RecoveryPhraseModal.svelte';
   import {
     createTextField,
     createUrlField,
@@ -11,8 +14,6 @@
     createPasswordField
   } from '$lib/formField.js';
   import { scheduleBackupUpload } from '$lib/backupSync.js';
-  import { fetchWordlist, generateRecoveryPhrase } from '$lib/recoveryPhrase.js';
-  import { deriveKey, generateSalt, saltToBase64, encrypt } from '$lib/crypto/index.js';
 
   /**
    * Module Données personnelles – affichage + modification (IndexedDB).
@@ -41,15 +42,7 @@
 
   /** Phrase de récupération (module Données personnelles) */
   let phraseModalOpen = $state(false);
-  let recoveryPhrase = $state('');
-  let phraseSaved = $state(false);
-  let phraseSubmitLoading = $state(false);
-  let phraseWordlistLoading = $state(false);
-  let phraseError = $state('');
-  let phraseCopied = $state(false);
   let phraseIsReplacing = $state(false);
-  const phrasePasswordField = createPasswordField('', { autocomplete: 'current-password' });
-  const phrasePasswordStore = phrasePasswordField.store;
 
   const logoField = createUrlField();
   const nomField = createTextField({ maxLength: 255 });
@@ -164,70 +157,23 @@
     }
   }
 
-  function closePhraseModal() {
-    if (phraseSubmitLoading) return;
-    phraseModalOpen = false;
-    recoveryPhrase = '';
-    phraseSaved = false;
-    phraseError = '';
-    phraseCopied = false;
-    phrasePasswordField.value = '';
-  }
-
   async function openPhraseModal(replacing = false) {
     phraseIsReplacing = replacing;
     phraseModalOpen = true;
-    phraseError = '';
-    phraseSaved = false;
-    recoveryPhrase = '';
-    phraseWordlistLoading = true;
-    try {
-      const wordlist = await fetchWordlist();
-      recoveryPhrase = generateRecoveryPhrase(wordlist);
-    } catch (e) {
-      phraseError = 'Impossible de charger la liste de mots.';
-    } finally {
-      phraseWordlistLoading = false;
-    }
   }
 
-  async function copyPhrase() {
-    try {
-      await navigator.clipboard.writeText(recoveryPhrase);
-      phraseCopied = true;
-      setTimeout(() => (phraseCopied = false), 2000);
-    } catch {
-      phraseError = 'Copie impossible';
-    }
+  function closePhraseModal() {
+    phraseModalOpen = false;
   }
 
-  async function confirmPhraseSave(e) {
-    e?.preventDefault?.();
-    if (!phraseSaved || !user?.id || !recoveryPhrase) return;
-    const pwd = phrasePasswordField.value;
-    if (phrasePasswordField.getError() || !pwd) {
-      phraseError = 'Entrez votre mot de passe.';
-      return;
-    }
-    phraseError = '';
-    phraseSubmitLoading = true;
-    try {
-      await initEncryption(pwd, user.id, null);
-      const recoverySalt = generateSalt(16);
-      const keyRecovery = await deriveKey('', recoverySalt, recoveryPhrase);
-      const keyCheckRecovery = await encrypt({ check: 'zerok-ok' }, keyRecovery);
-      await apiClient.post('/api/auth/recovery-data', {
-        salt: saltToBase64(recoverySalt),
-        keyCheck: keyCheckRecovery
-      });
-      message = { type: 'success', text: phraseIsReplacing ? 'Nouvelle phrase de récupération enregistrée. L’ancienne ne fonctionne plus.' : 'Phrase de récupération enregistrée. Conservez-la en lieu sûr.' };
-      closePhraseModal();
-      onPhraseSaved?.();
-    } catch (err) {
-      phraseError = err?.response?.data?.error || err?.message || 'Erreur lors de l’enregistrement.';
-    } finally {
-      phraseSubmitLoading = false;
-    }
+  function handlePhraseSaved() {
+    message = {
+      type: 'success',
+      text: phraseIsReplacing
+        ? 'Nouvelle phrase de récupération enregistrée. L’ancienne ne fonctionne plus.'
+        : 'Phrase de récupération enregistrée. Conservez-la en lieu sûr.'
+    };
+    onPhraseSaved?.();
   }
 
   async function saveEdit(e) {
@@ -354,132 +300,65 @@
 </section>
 
 {#if editing}
-  <div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-societe-title">
-    <div class="modal">
-      <h3 id="modal-societe-title" class="modal-title">Modifier les données personnelles</h3>
-      <form class="societe-form" onsubmit={saveEdit}>
-        <div class="form-row">
-          <label for="edit-logo">URL du logo</label>
-          <input id="edit-logo" type="url" value={$logoStore} oninput={(e) => logoField.value = e.target.value} placeholder="https://…" />
-        </div>
-        <div class="form-row">
-          <label for="edit-nom">Nom de société</label>
-          <input id="edit-nom" type="text" value={$nomStore} oninput={(e) => nomField.value = e.target.value} />
-        </div>
-        <div class="form-row">
-          <label for="edit-forme">Forme juridique</label>
-          <input id="edit-forme" type="text" value={$formeJuridiqueStore} oninput={(e) => formeJuridiqueField.value = e.target.value} placeholder="SARL, SAS, auto-entrepreneur…" />
-        </div>
-        <div class="form-row">
-          <label for="edit-siret">SIRET</label>
-          <input id="edit-siret" type="text" inputmode="numeric" value={$siretStore} oninput={(e) => siretField.value = e.target.value} placeholder="14 chiffres" />
-        </div>
-        <div class="form-row">
-          <label for="edit-rcs">RCS</label>
-          <input id="edit-rcs" type="text" value={$rcsStore} oninput={(e) => rcsField.value = e.target.value} placeholder="Ville + n°" />
-        </div>
-        <div class="form-row">
-          <label for="edit-capital">Capital social</label>
-          <input id="edit-capital" type="text" inputmode="decimal" value={$capitalStore} oninput={(e) => capitalField.value = e.target.value} placeholder="ex. 1 000 €" />
-        </div>
-        <div class="form-row">
-          <label for="edit-siege">Siège social</label>
-          <input id="edit-siege" type="text" value={$siegeSocialStore} oninput={(e) => siegeSocialField.value = e.target.value} placeholder="Adresse complète" />
-        </div>
-        <div class="form-row">
-          <label for="edit-tva">N° TVA intracommunautaire</label>
-          <input id="edit-tva" type="text" inputmode="numeric" value={$tvaIntraStore} oninput={(e) => tvaIntraField.value = e.target.value} placeholder="FR12345678901" />
-        </div>
-        <div class="modal-actions">
-          <button type="button" class="btn-cancel" onclick={cancelEdit}>Annuler</button>
-          <button type="submit" class="btn-submit" disabled={saving}>{saving ? 'Enregistrement…' : 'Enregistrer'}</button>
-        </div>
-      </form>
-    </div>
-  </div>
+  <Modal open={editing} labelledBy="modal-societe-title">
+    <h3 id="modal-societe-title" class="modal-title">Modifier les données personnelles</h3>
+    <form class="societe-form" onsubmit={saveEdit}>
+      <div class="form-row">
+        <label for="edit-logo">URL du logo</label>
+        <input id="edit-logo" type="url" value={$logoStore} oninput={(e) => logoField.value = e.target.value} placeholder="https://…" />
+      </div>
+      <div class="form-row">
+        <label for="edit-nom">Nom de société</label>
+        <input id="edit-nom" type="text" value={$nomStore} oninput={(e) => nomField.value = e.target.value} />
+      </div>
+      <div class="form-row">
+        <label for="edit-forme">Forme juridique</label>
+        <input id="edit-forme" type="text" value={$formeJuridiqueStore} oninput={(e) => formeJuridiqueField.value = e.target.value} placeholder="SARL, SAS, auto-entrepreneur…" />
+      </div>
+      <div class="form-row">
+        <label for="edit-siret">SIRET</label>
+        <input id="edit-siret" type="text" inputmode="numeric" value={$siretStore} oninput={(e) => siretField.value = e.target.value} placeholder="14 chiffres" />
+      </div>
+      <div class="form-row">
+        <label for="edit-rcs">RCS</label>
+        <input id="edit-rcs" type="text" value={$rcsStore} oninput={(e) => rcsField.value = e.target.value} placeholder="Ville + n°" />
+      </div>
+      <div class="form-row">
+        <label for="edit-capital">Capital social</label>
+        <input id="edit-capital" type="text" inputmode="decimal" value={$capitalStore} oninput={(e) => capitalField.value = e.target.value} placeholder="ex. 1 000 €" />
+      </div>
+      <div class="form-row">
+        <label for="edit-siege">Siège social</label>
+        <input id="edit-siege" type="text" value={$siegeSocialStore} oninput={(e) => siegeSocialField.value = e.target.value} placeholder="Adresse complète" />
+      </div>
+      <div class="form-row">
+        <label for="edit-tva">N° TVA intracommunautaire</label>
+        <input id="edit-tva" type="text" inputmode="numeric" value={$tvaIntraStore} oninput={(e) => tvaIntraField.value = e.target.value} placeholder="FR12345678901" />
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel" onclick={cancelEdit}>Annuler</button>
+        <button type="submit" class="btn-submit" disabled={saving}>{saving ? 'Enregistrement…' : 'Enregistrer'}</button>
+      </div>
+    </form>
+  </Modal>
 {/if}
 
-{#if deleteAccountModalOpen}
-  <div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-delete-account-title">
-    <div class="modal">
-      <h3 id="modal-delete-account-title" class="modal-title">Supprimer mon compte du serveur</h3>
-      <p class="danger-text">
-        Cette action est <strong>définitive</strong>. Elle supprimera votre compte et vos données côté serveur.
-        Vos données locales sur cet appareil resteront présentes.
-      </p>
-      <p class="danger-text">
-        Pour confirmer, tapez <strong>SUPPRIMER</strong> dans le champ ci-dessous, puis validez.
-      </p>
-      <form onsubmit={confirmDeleteAccount} class="societe-form">
-        <div class="form-row">
-          <label for="delete-account-confirm">Confirmer</label>
-          <input
-            id="delete-account-confirm"
-            type="text"
-            value={deleteAccountConfirmText}
-            oninput={(e) => (deleteAccountConfirmText = e.currentTarget.value)}
-            placeholder="SUPPRIMER"
-          />
-        </div>
-        <div class="modal-actions">
-          <button type="button" class="btn-cancel" onclick={closeDeleteAccountModal} disabled={deleteAccountLoading}>
-            Annuler
-          </button>
-          <button type="submit" class="btn-submit btn-submit-danger" disabled={deleteAccountLoading}>
-            {deleteAccountLoading ? 'Suppression…' : 'Supprimer définitivement'}
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-{/if}
+<DeleteAccountModal
+  open={deleteAccountModalOpen}
+  confirmText={deleteAccountConfirmText}
+  loading={deleteAccountLoading}
+  onConfirm={confirmDeleteAccount}
+  onClose={closeDeleteAccountModal}
+  onInputConfirm={(value) => (deleteAccountConfirmText = value)}
+/>
 
-{#if phraseModalOpen}
-  <div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-phrase-title">
-    <div class="modal">
-      <h3 id="modal-phrase-title" class="modal-title">
-        {phraseIsReplacing ? 'Remplacer la phrase de récupération' : 'Sauvegarder une phrase de récupération'}
-      </h3>
-      <p class="phrase-modal-explain">
-        Si vous oubliez votre mot de passe, cette phrase vous permettra de récupérer l’accès à votre compte sans perdre vos données.
-        Copiez-la et conservez-la dans un endroit sûr. Ne la partagez avec personne.
-      </p>
-      {#if phraseIsReplacing}
-        <p class="phrase-modal-warn">L’ancienne phrase ne permettra plus de récupérer le compte.</p>
-      {/if}
-      {#if phraseWordlistLoading}
-        <p class="muted">Génération de la phrase…</p>
-      {:else}
-        <div class="phrase-box">
-          <code class="phrase">{recoveryPhrase}</code>
-          <button type="button" class="btn-copy" onclick={copyPhrase}>{phraseCopied ? 'Copié !' : 'Copier la phrase'}</button>
-        </div>
-        <label class="checkbox-wrap">
-          <input type="checkbox" bind:checked={phraseSaved} />
-          <span>J’ai copié et sauvegardé ma phrase dans un endroit sûr.</span>
-        </label>
-        <label for="phrase-modal-password" class="password-label">Mot de passe (pour enregistrer la phrase)</label>
-        <input
-          id="phrase-modal-password"
-          type="password"
-          placeholder="Votre mot de passe"
-          disabled={phraseSubmitLoading}
-          minlength={phrasePasswordField.minLength}
-          maxlength={phrasePasswordField.maxLength}
-          value={$phrasePasswordStore}
-          oninput={(e) => (phrasePasswordField.value = e.currentTarget.value)}
-        />
-        {#if phraseError}<p class="phrase-error">{phraseError}</p>{/if}
-        <div class="modal-actions">
-          <button type="button" class="btn-cancel" onclick={closePhraseModal} disabled={phraseSubmitLoading}>Annuler</button>
-          <button type="button" class="btn-submit" disabled={!phraseSaved || phraseSubmitLoading} onclick={confirmPhraseSave}>
-            {phraseSubmitLoading ? 'Enregistrement…' : 'Enregistrer la phrase'}
-          </button>
-        </div>
-      {/if}
-    </div>
-  </div>
-{/if}
+<RecoveryPhraseModal
+  open={phraseModalOpen}
+  user={user}
+  isReplacing={phraseIsReplacing}
+  onClose={closePhraseModal}
+  onPhraseSaved={handlePhraseSaved}
+/>
 
 <style>
   .donnees-module {
@@ -633,64 +512,6 @@
   }
   .btn-delete-account:hover {
     background: #ffecec;
-  }
-
-  .phrase-modal-explain,
-  .phrase-modal-warn {
-    font-size: 0.9rem;
-    color: var(--color-text-muted);
-    margin: 0 0 0.75rem;
-    line-height: 1.4;
-  }
-  .phrase-modal-warn {
-    color: var(--color-error, #c00);
-  }
-  .phrase-box {
-    margin: 1rem 0;
-    padding: 1rem;
-    background: var(--color-bg-muted);
-    border-radius: 6px;
-    border: 1px solid var(--color-border);
-  }
-  .phrase-box .phrase {
-    display: block;
-    font-family: ui-monospace, monospace;
-    font-size: 0.95rem;
-    word-break: break-word;
-    margin-bottom: 0.75rem;
-  }
-  .phrase-box .btn-copy {
-    padding: 0.35rem 0.75rem;
-    border-radius: 4px;
-    border: 1px solid var(--color-border-strong);
-    background: var(--color-bg-elevated);
-    font-size: 0.9rem;
-    cursor: pointer;
-  }
-  .checkbox-wrap {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.5rem;
-    font-size: 0.9rem;
-    margin: 1rem 0;
-    cursor: pointer;
-  }
-  .checkbox-wrap input {
-    margin-top: 0.2rem;
-  }
-  .password-label {
-    display: block;
-    font-size: 0.9rem;
-    margin: 1rem 0 0.25rem;
-  }
-  .phrase-error {
-    color: var(--color-error);
-    font-size: 0.9rem;
-    margin: 0.5rem 0 0;
-  }
-  .muted {
-    font-size: 0.9rem;
-    color: var(--color-text-muted);
   }
 
   @media (max-width: 520px) {
