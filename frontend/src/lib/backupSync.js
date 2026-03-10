@@ -184,7 +184,17 @@ export async function syncAfterUnlock(uid, password) {
         }
         await applyRestore(uid, restoredBundle);
         try {
-          await _putCurrentState(uid, password);
+          let skipPut = false;
+          if (typeof window !== 'undefined' && window.sessionStorage) {
+            const flag = window.sessionStorage.getItem('zerok-skip-put-after-restore-once');
+            if (flag === '1') {
+              skipPut = true;
+              window.sessionStorage.removeItem('zerok-skip-put-after-restore-once');
+            }
+          }
+          if (!skipPut) {
+            await _putCurrentState(uid, password);
+          }
           syncResultStore.set('restored_empty');
         } catch (err) {
           console.error('[zerok-billing] Échec mise à jour backup serveur après restauration:', err);
@@ -244,7 +254,17 @@ export async function syncAfterUnlock(uid, password) {
       }
       await applyRestore(uid, restoredBundle);
       try {
-        await _putCurrentState(uid, password);
+        let skipPut = false;
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+          const flag = window.sessionStorage.getItem('zerok-skip-put-after-restore-once');
+          if (flag === '1') {
+            skipPut = true;
+            window.sessionStorage.removeItem('zerok-skip-put-after-restore-once');
+          }
+        }
+        if (!skipPut) {
+          await _putCurrentState(uid, password);
+        }
         syncResultStore.set('restored_overwritten');
       } catch (err) {
         console.error('[zerok-billing] Échec mise à jour backup serveur après restauration:', err);

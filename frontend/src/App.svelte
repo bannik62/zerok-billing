@@ -184,7 +184,12 @@
           <button
             type="button"
             class="sync-banner-refresh"
-            onclick={() => { window.location.reload(); }}
+            onclick={() => {
+              if (typeof window !== 'undefined' && window.sessionStorage) {
+                window.sessionStorage.setItem('zerok-skip-put-after-restore-once', '1');
+              }
+              window.location.reload();
+            }}
           >
             Recharger maintenant
           </button>
