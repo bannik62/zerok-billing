@@ -18,6 +18,7 @@
   import { clearBackupPassword, syncResultStore, syncReadyStore } from '$lib/backupSync.js';
   import { serverUpdateAvailableStore } from '$lib/backupVersion.js';
   import { startEventsStream, stopEventsStream } from '$lib/eventsClient.js';
+  import { startInactivityTimer, stopInactivityTimer } from '$lib/inactivityTimer.js';
 
   function dismissSyncBanners() {
     syncResultStore.set(null);
@@ -150,11 +151,26 @@
     clearEncryptionKey();
     clearBackupPassword();
     stopEventsStream();
-    stopEventsStream();
+    stopInactivityTimer();
     user = null;
     page = 'auth';
     view = 'login';
   }
+
+  // Timeout d'inactivité : après une certaine durée sans interaction,
+  // on oublie la clé locale pour repasser par Unlock.
+  function handleInactivityTimeout() {
+    clearEncryptionKey();
+    clearBackupPassword();
+  }
+
+  $effect(() => {
+    if (page === 'menu' && $encryptionKeyLoadedStore) {
+      startInactivityTimer(handleInactivityTimeout);
+    } else {
+      stopInactivityTimer();
+    }
+  });
 </script>
 
 <nav class="temoin-bar" aria-label="État de l’application">

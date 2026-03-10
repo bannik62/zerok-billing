@@ -36,8 +36,8 @@ let _backupPassword = null;
 let _uploadTimeout = null;
 const UPLOAD_DEBOUNCE_MS = 2000;
 
-/** Active les logs de diagnostic sync A/B (voir docs/ANALYSE_SYNC_COFFRE_MULTIPOSTE.md §7). */
-const DEBUG_SYNC_AB = true;
+/** Active les logs de diagnostic sync A/B (voir docs/ANALYSE_SYNC_COFFRE_MULTIPOSTE.md §7). À laisser à false en production. */
+const DEBUG_SYNC_AB = false;
 
 export function setBackupPassword(password) {
   _backupPassword = password == null || password === '' ? null : String(password);
@@ -54,6 +54,12 @@ export function clearBackupPassword() {
 /**
  * Fusionne deux bundles par id : union des entrées, serveur gagne en cas de doublon.
  * Permet l'agrégation multiposte (ajouter les éléments manquants sans perdre le local).
+ *
+ * IMPORTANT : stratégie expérimentale actuellement **non utilisée**. La logique
+ * de sync effective est "serveur fait foi" (overwrite complet depuis le backup),
+ * voir la branche "hash différent" plus bas. Gardée ici uniquement comme
+ * référence si un jour on veut réintroduire une vraie fusion multiposte.
+ *
  * @param {Object} local - bundle local (buildBundle)
  * @param {Object} server - bundle serveur (openArchive)
  * @returns {Object} bundle fusionné
