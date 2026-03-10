@@ -81,6 +81,14 @@
   {:else}
     <p class="explain">Saisissez l'email de votre compte, la phrase de récupération (12 mots enregistrée à l'inscription), puis choisissez un nouveau mot de passe.</p>
     <p class="hint">Les 12 mots doivent être saisis dans l'ordre, séparés par un espace. Accents et majuscules ne comptent pas.</p>
+    <div class="warning-backup">
+      <h3>Impact sur les sauvegardes serveur</h3>
+      <p>
+        Après ce changement de mot de passe, <strong>l’ancienne sauvegarde serveur associée à votre compte sera supprimée</strong>.
+        <br />
+        <strong>Un nouveau backup sera créé automatiquement lors de vos prochaines connexions</strong>, au fur et à mesure de votre utilisation.
+      </p>
+    </div>
     <form onsubmit={submit}>
       <input
         type="email"
@@ -125,6 +133,20 @@
   }
   .card h2 { margin: 0 0 1rem; font-size: 1.1rem; }
   .explain, .hint { font-size: 0.9rem; color: var(--color-text-muted); margin: 0 0 0.75rem; line-height: 1.4; }
+  .warning-backup {
+    margin: 0.75rem 0 1rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid #f97316;
+    background: #fff7ed;
+    font-size: 0.85rem;
+    color: #7c2d12;
+  }
+  .warning-backup h3 {
+    margin: 0 0 0.25rem;
+    font-size: 0.9rem;
+    color: #9a3412;
+  }
   .success { color: var(--color-primary); font-weight: 500; margin-bottom: 1rem; }
   input, textarea {
     display: block;

@@ -263,6 +263,17 @@ authRouter.post('/reset-password', recoveryRateLimiter, async (req, res, next) =
     }
     const passwordHash = await argon2.hash(newPassword);
     await updatePasswordByEmail(email, passwordHash);
+    // Reset mot de passe : l'ancien backup chiffré avec l'ancienne clé ne sera plus lisible.
+    // On supprime donc la sauvegarde serveur pour que le prochain PUT crée un backup propre
+    // avec le nouveau mot de passe.
+    try {
+      await prisma.userBackup.delete({ where: { userId: user.id } });
+    } catch (err) {
+      // Si aucun backup n'existe encore pour cet utilisateur, on ignore l'erreur.
+      if (err?.code !== 'P2025') {
+        throw err;
+      }
+    }
     res.json({ ok: true });
   } catch (e) {
     next(e);
