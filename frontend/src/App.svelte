@@ -54,6 +54,7 @@
         await fetchCsrfToken().catch(() => null);
         user = data.user;
         page = 'menu';
+        startBackupVersionPolling();
       } else {
         user = null;
         page = 'auth';
