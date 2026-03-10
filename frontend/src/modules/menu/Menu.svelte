@@ -105,22 +105,22 @@
               class="settings-item"
               role="menuitem"
               onclick={() => {
-                toggleTheme();
+                showPaiement();
                 settingsOpen = false;
               }}
             >
-              {$themeStore === 'dark' ? 'Passer en mode jour' : 'Passer en mode nuit'}
+              Token service
             </button>
             <button
               type="button"
               class="settings-item"
               role="menuitem"
               onclick={() => {
-                showPaiement();
+                toggleTheme();
                 settingsOpen = false;
               }}
             >
-              Paiement / Stripe
+              {$themeStore === 'dark' ? 'Passer en mode jour' : 'Passer en mode nuit'}
             </button>
           </div>
         {/if}
@@ -291,16 +291,16 @@
     position: relative;
   }
   .btn-settings {
-    padding: 0.35rem 0.55rem;
-    border-radius: 50%;
+    width: 2.2rem;
+    height: 2.2rem;
+    padding: 0;
+    border-radius: 6px;
     border: 1px solid var(--color-border-strong);
     background: var(--color-bg-elevated);
     color: var(--color-text-muted);
-    font-size: 0.9rem;
+    font-size: 1.3rem; /* l’icône occupe ~80% du bouton */
+    font-weight: 700;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
   .btn-settings:hover {
     background: var(--color-bg-muted);
