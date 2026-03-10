@@ -364,6 +364,8 @@ secureRouter.get('/backup/version', async (req, res, next) => {
   }
 });
 
+import { notifyBackupUpdated } from './events.js';
+
 /**
  * GET /api/backup — Récupère la sauvegarde (blob chiffré). Query hash= optionnel : si fourni et égal au stateHash stocké, renvoie { unchanged: true } sans blob.
  */
@@ -400,6 +402,7 @@ secureRouter.put('/backup', async (req, res, next) => {
       create: { userId, payload, stateHash: stateHash.trim() },
       update: { payload, stateHash: stateHash.trim() }
     });
+    notifyBackupUpdated(userId);
     return res.json({ ok: true });
   } catch (e) {
     next(e);

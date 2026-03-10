@@ -20,6 +20,7 @@ import { secureRouter } from './routes/secure.js';
 import { publicRouter } from './routes/public.js';
 import { healthRouter } from './routes/health.js';
 import { webhooksRouter } from './routes/webhooks.js';
+import { eventsRouter } from './routes/events.js';
 
 export const app = express();
 
@@ -47,6 +48,9 @@ app.use('/api/auth', authRouter);
 app.use('/api/recovery', recoveryRouter);
 
 app.use(healthRouter);
+
+// SSE events (auth requis)
+app.use('/api', requireAuth, eventsRouter);
 
 app.use('/api', requireAuth, secureRouter);
 

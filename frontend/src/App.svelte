@@ -17,6 +17,7 @@
   import { clearEncryptionKey, encryptionKeyLoadedStore } from '$lib/dbEncrypted.js';
   import { clearBackupPassword, syncResultStore, syncReadyStore } from '$lib/backupSync.js';
   import { serverUpdateAvailableStore, startBackupVersionPolling, stopBackupVersionPolling } from '$lib/backupVersion.js';
+  import { startEventsStream, stopEventsStream } from '$lib/eventsClient.js';
 
   function dismissSyncBanners() {
     syncResultStore.set(null);
@@ -55,6 +56,7 @@
         user = data.user;
         page = 'menu';
         startBackupVersionPolling();
+        startEventsStream();
       } else {
         user = null;
         page = 'auth';
@@ -108,6 +110,7 @@
     } else {
       page = 'menu';
       startBackupVersionPolling();
+      startEventsStream();
     }
   }
 
@@ -120,6 +123,7 @@
     } else {
       page = 'menu';
       startBackupVersionPolling();
+      startEventsStream();
     }
   }
 
@@ -131,6 +135,7 @@
       } else {
         page = 'menu';
         startBackupVersionPolling();
+        startEventsStream();
       }
     }
   }
@@ -140,6 +145,7 @@
       if (user?.hasRecoveryData !== false) {
         page = 'menu';
         startBackupVersionPolling();
+        startEventsStream();
       }
     });
   }
@@ -149,6 +155,7 @@
     clearEncryptionKey();
     clearBackupPassword();
     stopBackupVersionPolling();
+    stopEventsStream();
     user = null;
     page = 'auth';
     view = 'login';
