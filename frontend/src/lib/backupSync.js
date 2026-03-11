@@ -18,7 +18,6 @@ import { createArchive, openArchive } from '$lib/archive.js';
 import { applyRestore } from '$lib/restore.js';
 import { computeStateHash } from '$lib/backupStateHash.js';
 import { getBackup, putBackup } from '$lib/backupApi.js';
-import { setKnownServerStateHash } from '$lib/backupVersion.js';
 
 /**
  * Resultat de la derniere sync apres unlock.

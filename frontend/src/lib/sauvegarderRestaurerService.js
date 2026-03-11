@@ -19,9 +19,67 @@ import JSZip from 'jszip';
  * @param {string} id - id de secours si pas de numéro
  * @returns {string}
  */
-export function  safePdfFilename(prefix, numero, id) {
+export function safePdfFilename(prefix, numero, id) {
   const base = numero && String(numero).trim() ? String(numero).replace(/[/\\?*:|"]/g, '-') : (id || '');
   return (prefix + (base ? `-${base}` : '') + '.pdf').trim() || prefix + '.pdf';
+}
+
+/**
+ * Limite la concurrence lors du traitement asynchrone d'une liste (ex. génération de PDF).
+ * @template T
+ * @param {T[]} items
+ * @param {number} limit
+ * @param {(item: T) => Promise<void>} fn
+ */
+async function mapWithConcurrency(items, limit, fn) {
+  const queue = [...items];
+  const workerCount = Math.min(limit, queue.length || 0);
+  if (workerCount === 0) return;
+  const workers = Array.from({ length: workerCount }, async () => {
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const item = queue.shift();
+      if (!item) break;
+      // eslint-disable-next-line no-await-in-loop
+      await fn(item);
+    }
+  });
+  await Promise.all(workers);
+}
+
+/**
+ * Ajoute un PDF de devis/facture dans un ZIP (utilisé par exportZipWithFiles et preRestoreBackupPdf).
+ * @param {Object} params
+ * @param {JSZip} params.zip
+ * @param {any} params.document
+ * @param {'devis'|'facture'} params.docType
+ * @param {Record<string, any>} params.clientsMap
+ * @param {any} params.societe
+ * @param {Set<string>} params.usedNames
+ */
+async function addPdfToZip({ zip, document, docType, clientsMap, societe, usedNames }) {
+  const clientId = document?.entete?.clientId ?? document?.clientId;
+  const client = clientId ? clientsMap[clientId] : null;
+  const numero = document?.entete?.numero ?? '';
+  const prefix = docType === 'devis' ? 'Devis' : 'Facture';
+  let filename = safePdfFilename(prefix, numero, document?.id);
+  if (usedNames.has(filename)) {
+    let n = 1;
+    while (usedNames.has(prefix + '-' + n + '.pdf')) n++;
+    filename = prefix + '-' + n + '.pdf';
+  }
+  usedNames.add(filename);
+  const htmlString = buildPdfDocumentHtml(document, client, societe, docType);
+  const blob = await html2pdf()
+    .set({
+      margin: 4,
+      image: { type: 'jpeg', quality: 0.95 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    })
+    .from(htmlString)
+    .outputPdf('blob');
+  zip.file(filename, blob);
 }
 
 /**
@@ -160,37 +218,16 @@ export async function exportZipWithFiles({ uid }) {
   const zip = new JSZip();
   const usedPdfNames = new Set();
 
-  const addPdfToZip = async (document, docType) => {
-    const clientId = document?.entete?.clientId ?? document?.clientId;
-    const client = clientId ? clientsMap[clientId] : null;
-    const numero = document?.entete?.numero ?? '';
-    const prefix = docType === 'devis' ? 'Devis' : 'Facture';
-    let filename = safePdfFilename(prefix, numero, document?.id);
-    if (usedPdfNames.has(filename)) {
-      let n = 1;
-      while (usedPdfNames.has(prefix + '-' + n + '.pdf')) n++;
-      filename = prefix + '-' + n + '.pdf';
-    }
-    usedPdfNames.add(filename);
-    const htmlString = buildPdfDocumentHtml(document, client, societe, docType);
-    const blob = await html2pdf()
-      .set({
-        margin: 4,
-        image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      })
-      .from(htmlString)
-      .outputPdf('blob');
-    zip.file(filename, blob);
-  };
-
-  for (const doc of devis) {
-    if (doc) await addPdfToZip(doc, 'devis');
-  }
-  for (const doc of factures) {
-    if (doc) await addPdfToZip(doc, 'facture');
-  }
+  await mapWithConcurrency(
+    (devis ?? []).filter(Boolean),
+    3,
+    async (doc) => addPdfToZip({ zip, document: doc, docType: 'devis', clientsMap, societe, usedNames: usedPdfNames })
+  );
+  await mapWithConcurrency(
+    (factures ?? []).filter(Boolean),
+    3,
+    async (doc) => addPdfToZip({ zip, document: doc, docType: 'facture', clientsMap, societe, usedNames: usedPdfNames })
+  );
 
   const coffreDocs = Array.isArray(allDocuments) ? allDocuments.filter((d) => !d || !d.linkedInvoiceId) : [];
   const usedCoffreNames = new Set();
@@ -307,37 +344,16 @@ export async function preRestoreBackupPdf({ uid }) {
   const zip = new JSZip();
   const usedNames = new Set();
 
-  const addPdfToZip = async (document, docType) => {
-    const clientId = document?.entete?.clientId ?? document?.clientId;
-    const client = clientId ? clientsMap[clientId] : null;
-    const numero = document?.entete?.numero ?? '';
-    const prefix = docType === 'devis' ? 'Devis' : 'Facture';
-    let filename = safePdfFilename(prefix, numero, document?.id);
-    if (usedNames.has(filename)) {
-      let n = 1;
-      while (usedNames.has(prefix + '-' + n + '.pdf')) n++;
-      filename = prefix + '-' + n + '.pdf';
-    }
-    usedNames.add(filename);
-    const htmlString = buildPdfDocumentHtml(document, client, societe, docType);
-    const blob = await html2pdf()
-      .set({
-        margin: 4,
-        image: { type: 'jpeg', quality: 0.95 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      })
-      .from(htmlString)
-      .outputPdf('blob');
-    zip.file(filename, blob);
-  };
-
-  for (const doc of devis) {
-    if (doc) await addPdfToZip(doc, 'devis');
-  }
-  for (const doc of factures) {
-    if (doc) await addPdfToZip(doc, 'facture');
-  }
+  await mapWithConcurrency(
+    (devis ?? []).filter(Boolean),
+    3,
+    async (doc) => addPdfToZip({ zip, document: doc, docType: 'devis', clientsMap, societe, usedNames: usedNames })
+  );
+  await mapWithConcurrency(
+    (factures ?? []).filter(Boolean),
+    3,
+    async (doc) => addPdfToZip({ zip, document: doc, docType: 'facture', clientsMap, societe, usedNames: usedNames })
+  );
 
   zip.file(
     'LISEZMOI.txt',

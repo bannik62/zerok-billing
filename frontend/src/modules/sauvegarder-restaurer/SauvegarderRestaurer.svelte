@@ -1,6 +1,6 @@
 <script>
   import { createPasswordField } from '$lib/formField.js';
-  import { hasEncryptionKey } from '$lib/dbEncrypted.js';
+  import { encryptionKeyLoadedStore } from '$lib/dbEncrypted.js';
   import { uploadBackupNow } from '$lib/backupSync.js';
   import { exportArchive, exportZipWithFiles, importArchive } from '$lib/sauvegarderRestaurerService.js';
 
@@ -72,7 +72,7 @@
   let importSuccess = $state('');
   let exportLoading = $state(false);
   let importLoading = $state(false);
-  let keyLoaded = $state(false);
+  let keyLoaded = $derived($encryptionKeyLoadedStore);
 
   /** Modale au clic sur Restaurer : confirmer régénérer ou sauvegarder l'état en local */
   let restoreModalOpen = $state(false);
@@ -89,10 +89,6 @@
   let storagePersistLoading = $state(false);
   let storagePersistMessage = $state('');
   let storagePersistMessageType = $state(''); // 'success' | 'error'
-
-  $effect(() => {
-    keyLoaded = hasEncryptionKey();
-  });
 
   function openRestoreModal() {
     backupError = '';
@@ -143,8 +139,7 @@
   }
 
   function confirmRestore() {
-    closeRestoreModal();
-    doImport();
+    doImport(true);
   }
 
   async function doSaveToServer() {
@@ -245,7 +240,7 @@
   let fileInputEl = $state(null);
   let selectedFileName = $state('');
 
-  async function doImport() {
+  async function doImport(closeModalOnSuccess = false) {
     importError = '';
     importSuccess = '';
     const err = importPwd.getError();
@@ -275,8 +270,14 @@
       });
       archiveRestoreFields.clearImportFile(fileInputEl);
       selectedFileName = '';
-      if (result.error) importError = result.error;
-      else importSuccess = result.success;
+      if (result.error) {
+        importError = result.error;
+      } else {
+        importSuccess = result.success;
+        if (closeModalOnSuccess) {
+          restoreModalOpen = false;
+        }
+      }
     } catch (e) {
       importError = e?.message || 'Erreur : archive invalide ou mot de passe incorrect.';
     } finally {
@@ -414,14 +415,19 @@
         <p class="modal-text">Avant de restaurer, vous pouvez télécharger un ZIP avec tous les fichiers : PDF des devis/factures, coffre fort et pièces jointes.</p>
         {#if backupError}<p class="error">{backupError}</p>{/if}
         {#if backupSuccess}<p class="success">{backupSuccess}</p>{/if}
+        {#if importLoading}
+          <p class="modal-text">Restauration en cours… Merci de ne pas fermer la fenêtre.</p>
+        {/if}
+        {#if importError}<p class="error">{importError}</p>{/if}
+        {#if importSuccess}<p class="success">{importSuccess}</p>{/if}
         <div class="modal-actions">
-          <button type="button" class="btn-secondary" disabled={backupLoading} onclick={doSaveToDiskFromModal}>
+          <button type="button" class="btn-secondary" disabled={backupLoading || importLoading} onclick={doSaveToDiskFromModal}>
             {backupLoading ? 'Téléchargement…' : 'Sauvegarder l\'état actuel sur le disque'}
           </button>
-          <button type="button" class="btn-primary" onclick={confirmRestore}>
-            Régénérer la BDD avec l'archive
+          <button type="button" class="btn-primary" disabled={importLoading} onclick={confirmRestore}>
+            {importLoading ? 'Restauration…' : 'Régénérer la BDD avec l\'archive'}
           </button>
-          <button type="button" class="btn-ghost" onclick={closeRestoreModal}>
+          <button type="button" class="btn-ghost" disabled={importLoading || backupLoading} onclick={closeRestoreModal}>
             Annuler
           </button>
         </div>
@@ -454,10 +460,6 @@
   .block { margin-bottom: 0; }
   .block h3 { margin: 0 0 0.75rem 0; font-size: 1.1rem; color: var(--color-primary); }
   .label-like { margin: 0.5rem 0 0.25rem 0; font-size: 0.9rem; font-weight: 500; }
-  .checkbox-group { margin-bottom: 0.75rem; }
-  .checkbox-group.export-options .checkbox-label span { display: inline; }
-  .checkbox-label { display: flex; align-items: center; gap: 0.5rem; margin: 0.35rem 0; font-size: 0.9rem; cursor: pointer; }
-  .checkbox-label input[type="checkbox"] { flex-shrink: 0; }
   .form label { display: block; margin: 0.5rem 0 0.25rem 0; font-size: 0.9rem; }
   .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
   .form input[type="password"] { display: block; width: 100%; margin-bottom: 0.5rem; padding: 0.5rem; border: 1px solid var(--color-border-strong); border-radius: 6px; box-sizing: border-box; }
