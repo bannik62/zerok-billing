@@ -568,24 +568,27 @@ export async function migrateLegacyDataToUser(userId) {
   const out = { clients: 0, devis: 0, factures: 0, societe: false, documents: 0 };
 
   const clients = await db[STORE_CLIENTS].toArray();
-  for (const r of clients) {
-    if (r.userId != null) continue;
-    await db[STORE_CLIENTS].put(plainClone({ ...r, userId }));
-    out.clients++;
+  const legacyClients = clients.filter((r) => r.userId == null);
+  if (legacyClients.length > 0) {
+    const migratedClients = legacyClients.map((r) => plainClone({ ...r, userId }));
+    await db[STORE_CLIENTS].bulkPut(migratedClients);
+    out.clients = migratedClients.length;
   }
 
   const devis = await db[STORE_DEVIS].toArray();
-  for (const r of devis) {
-    if (r.userId != null) continue;
-    await db[STORE_DEVIS].put(plainClone({ ...r, userId }));
-    out.devis++;
+  const legacyDevis = devis.filter((r) => r.userId == null);
+  if (legacyDevis.length > 0) {
+    const migratedDevis = legacyDevis.map((r) => plainClone({ ...r, userId }));
+    await db[STORE_DEVIS].bulkPut(migratedDevis);
+    out.devis = migratedDevis.length;
   }
 
   const factures = await db[STORE_FACTURES].toArray();
-  for (const r of factures) {
-    if (r.userId != null) continue;
-    await db[STORE_FACTURES].put(plainClone({ ...r, userId }));
-    out.factures++;
+  const legacyFactures = factures.filter((r) => r.userId == null);
+  if (legacyFactures.length > 0) {
+    const migratedFactures = legacyFactures.map((r) => plainClone({ ...r, userId }));
+    await db[STORE_FACTURES].bulkPut(migratedFactures);
+    out.factures = migratedFactures.length;
   }
 
   const legacySociete = await db[STORE_SOCIETE].get(SOCIETE_ID);
@@ -597,10 +600,11 @@ export async function migrateLegacyDataToUser(userId) {
   }
 
   const documents = await db[STORE_DOCUMENTS].toArray();
-  for (const r of documents) {
-    if (r.userId != null) continue;
-    await db[STORE_DOCUMENTS].put(plainClone({ ...r, userId }));
-    out.documents++;
+  const legacyDocuments = documents.filter((r) => r.userId == null);
+  if (legacyDocuments.length > 0) {
+    const migratedDocs = legacyDocuments.map((r) => plainClone({ ...r, userId }));
+    await db[STORE_DOCUMENTS].bulkPut(migratedDocs);
+    out.documents = migratedDocs.length;
   }
 
   return out;

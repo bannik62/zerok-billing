@@ -32,12 +32,23 @@ export async function confirmSignRequest(token) {
   if (!trimmed) return { status: 'invalid' };
   const row = await prisma.signRequest.findUnique({ where: { token: trimmed } });
   if (!row) return { status: 'invalid' };
-  if (row.signedAt) return { status: 'used' };
-  if (new Date() > row.expiresAt) return { status: 'expired' };
-  await prisma.signRequest.update({
-    where: { id: row.id },
-    data: { signedAt: new Date() }
+
+  const now = new Date();
+  if (now > row.expiresAt) {
+    return { status: 'expired' };
+  }
+
+  // Idempotence : on n'écrit signedAt que si encore null.
+  const updated = await prisma.signRequest.updateMany({
+    where: { id: row.id, signedAt: null },
+    data: { signedAt: now }
   });
+
+  if (updated.count === 0) {
+    // Une autre requête a déjà confirmé la signature entre-temps.
+    return { status: 'used' };
+  }
+
   return {
     status: 'ok',
     documentType: row.documentType,

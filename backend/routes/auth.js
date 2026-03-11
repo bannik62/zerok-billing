@@ -29,6 +29,7 @@ import {
   RECOVERY_RATE_LIMIT_WINDOW_MS,
   RECOVERY_RATE_LIMIT_MAX
 } from '../config/constants.js';
+import { prisma } from '../lib/prisma.js';
 
 const authRateLimiter = rateLimit({
   windowMs: AUTH_RATE_LIMIT_WINDOW_MS,

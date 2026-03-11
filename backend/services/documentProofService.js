@@ -63,12 +63,13 @@ export async function deleteDocumentProofsNotInList(userId, keepDocumentIds) {
   if (!userId) return;
   if (!Array.isArray(keepDocumentIds) || keepDocumentIds.length === 0) return;
   const keep = new Set(keepDocumentIds.map((id) => String(id).trim()).filter(Boolean));
-  const all = await prisma.documentProof.findMany({
-    where: { userId },
-    select: { documentId: true }
+  // Un seul deleteMany conditionnel plutôt qu'une boucle de suppressions.
+  await prisma.documentProof.deleteMany({
+    where: {
+      userId,
+      documentId: {
+        notIn: Array.from(keep)
+      }
+    }
   });
-  const toDelete = all.filter((p) => !keep.has(p.documentId)).map((p) => p.documentId);
-  for (const documentId of toDelete) {
-    await prisma.documentProof.deleteMany({ where: { documentId, userId } });
-  }
 }

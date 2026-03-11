@@ -53,17 +53,21 @@ export async function deleteProofByUserIdAndInvoiceId(userId, invoiceId) {
  * @returns {Promise<number>} nombre de preuves enregistrées
  */
 export async function replaceProofsByUserId(userId, proofs) {
-  await prisma.proof.deleteMany({ where: { userId } });
-  if (!proofs || proofs.length === 0) return 0;
-  const now = new Date();
-  await prisma.proof.createMany({
-    data: proofs.map((p) => ({
-      userId,
-      invoiceId: p.invoiceId,
-      invoiceHash: p.invoiceHash,
-      signature: p.invoiceHash,
-      signedAt: now
-    }))
+  return prisma.$transaction(async (tx) => {
+    await tx.proof.deleteMany({ where: { userId } });
+    if (!proofs || proofs.length === 0) {
+      return 0;
+    }
+    const now = new Date();
+    await tx.proof.createMany({
+      data: proofs.map((p) => ({
+        userId,
+        invoiceId: p.invoiceId,
+        invoiceHash: p.invoiceHash,
+        signature: p.invoiceHash,
+        signedAt: now
+      }))
+    });
+    return proofs.length;
   });
-  return proofs.length;
 }

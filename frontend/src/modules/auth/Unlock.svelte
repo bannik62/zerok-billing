@@ -4,24 +4,30 @@
   import { initEncryption, clearEncryptionKey } from '$lib/dbEncrypted.js';
   import { syncAfterUnlock } from '$lib/backupSync.js';
   import { apiClient } from '$lib/apiClient.js';
+  import PasswordInput from '$lib/PasswordInput.svelte';
 
-  let { user = null, onLogout = () => {} } = $props();
+  let { user = null, onLogout = () => {}, onSuccess = null } = $props();
   const passwordField = createPasswordField('', { autocomplete: 'current-password' });
   const passwordStore = passwordField.store;
 
   let error = $state('');
   let loading = $state(false);
+  let checkingSession = $state(true);
 
   onMount(async () => {
     try {
       const res = await apiClient.get('/api/auth/me');
       if (!res?.data?.valid) {
         onLogout?.();
+        return;
       }
     } catch (err) {
       if (err?.response?.status === 401) {
         onLogout?.();
+        return;
       }
+    } finally {
+      checkingSession = false;
     }
   });
 
@@ -40,6 +46,8 @@
       if (user?.id) {
         await syncAfterUnlock(user.id, password).catch(() => {});
       }
+      passwordField.value = '';
+      onSuccess?.();
     } catch {
       clearEncryptionKey();
       error = 'Mot de passe incorrect';
@@ -52,25 +60,19 @@
 
 <div class="unlock-module card">
   <h2>Déverrouiller vos données</h2>
-  <p class="hint">La session est active mais la clé de chiffrement a été perdue (rechargement). Entrez votre mot de passe pour la recréer.</p>
-  <form onsubmit={submit}>
-    <input
-      type="password"
-      placeholder="Mot de passe"
-      required
-      disabled={loading}
-      minlength={passwordField.minLength}
-      maxlength={passwordField.maxLength}
-      autocomplete={passwordField.autocomplete ?? undefined}
-      value={$passwordStore}
-      oninput={(e) => (passwordField.value = e.currentTarget.value)}
-    />
-    {#if error}<p class="error">{error}</p>{/if}
-    <div class="actions">
-      <button type="submit" disabled={loading}>{loading ? 'Déverrouillage et synchronisation avec le serveur témoin…' : 'Déverrouiller'}</button>
-      <button type="button" class="btn-logout" disabled={loading} onclick={onLogout}>Déconnexion</button>
-    </div>
-  </form>
+  {#if checkingSession}
+    <p class="checking">Vérification de la session en cours…</p>
+  {:else}
+    <p class="hint">La session est active mais la clé de chiffrement a été perdue (rechargement). Entrez votre mot de passe pour la recréer.</p>
+    <form onsubmit={submit}>
+      <PasswordInput field={passwordField} disabled={loading} />
+      {#if error}<p class="error">{error}</p>{/if}
+      <div class="actions">
+        <button type="submit" disabled={loading}>{loading ? 'Déverrouillage et synchronisation avec le serveur témoin…' : 'Déverrouiller'}</button>
+        <button type="button" class="btn-logout" disabled={loading} onclick={onLogout}>Déconnexion</button>
+      </div>
+    </form>
+  {/if}
 </div>
 
 <style>
@@ -84,6 +86,11 @@
     color: var(--color-text-muted);
     font-size: 0.9rem;
     margin: 0 0 1rem 0;
+  }
+  .checking {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    margin: 0;
   }
   input {
     display: block;

@@ -17,6 +17,7 @@
   } = $props();
 
   const HASH_DISPLAY_LEN = 12;
+  const DEFAULT_DELETE_TITLE = 'Document supprimé en local — supprimer la preuve sur le serveur';
 </script>
 
 <aside class="proofs-panel" aria-label={ariaLabel}>
@@ -31,163 +32,62 @@
     {@const factureItems = items.filter((i) => i.documentType === 'facture')}
     {@const achatItems = items.filter((i) => i.documentType === 'achat')}
     {@const documentItems = items.filter((i) => i.documentType === 'document')}
-    {@const otherItems = items.filter((i) => i.documentType !== 'devis' && i.documentType !== 'facture' && i.documentType !== 'achat' && i.documentType !== 'document')}
+    {@const otherItems = items.filter(
+      (i) =>
+        i.documentType !== 'devis' &&
+        i.documentType !== 'facture' &&
+        i.documentType !== 'achat' &&
+        i.documentType !== 'document'
+    )}
+    {@const sections = [
+      { key: 'devis', label: 'Devis', aria: 'Preuves devis', items: devisItems, deleteTitle: DEFAULT_DELETE_TITLE },
+      { key: 'factures', label: 'Factures', aria: 'Preuves factures', items: factureItems, deleteTitle: DEFAULT_DELETE_TITLE },
+      { key: 'achats', label: 'Achats', aria: 'Preuves achats', items: achatItems, deleteTitle: DEFAULT_DELETE_TITLE },
+      {
+        key: 'documents',
+        label: 'Documents',
+        aria: 'Preuves documents coffre-fort',
+        items: documentItems,
+        deleteTitle: 'Preuve orpheline — supprimer la preuve sur le serveur'
+      },
+      { key: 'autres', label: 'Autres', aria: 'Preuves orphelines', items: otherItems, deleteTitle: DEFAULT_DELETE_TITLE }
+    ]}
     <div class="proofs-sections">
-      {#if devisItems.length > 0}
-        <section class="proofs-section" aria-label="Preuves devis">
-          <h4 class="proofs-section-title">Devis</h4>
-          <ul class="proofs-list">
-            {#each devisItems as item (item.id)}
-              <li class="proof-item">
-                <span class="proof-label" title={item.id}>{item.label}</span>
-                <code class="proof-hash" title={item.hash}>{item.hash ? item.hash.slice(0, HASH_DISPLAY_LEN) + '…' : '—'}</code>
-                {#if verifiedLoading && verifiedMap[item.id] === undefined}
-                  <span class="proof-status proof-pending" title="Vérification…">—</span>
-                {:else if verifiedMap[item.id] === true}
-                  <span class="proof-status proof-ok" title="Hash local = hash backend">✓ conforme</span>
-                {:else}
-                  <span class="proof-status proof-diff" title="Hash local ≠ hash backend">✗ différent</span>
-                {/if}
-                {#if item.isOrphan && onDeleteFromServer}
-                  <button
-                    type="button"
-                    class="proof-delete-btn"
-                    title="Document supprimé en local — supprimer la preuve sur le serveur"
-                    disabled={deletingProofId === item.id}
-                    onclick={() => onDeleteFromServer(item.id)}
-                  >
-                    {deletingProofId === item.id ? '…' : 'Supprimer du serveur'}
-                  </button>
-                {/if}
-              </li>
-            {/each}
-          </ul>
-        </section>
-      {/if}
-      {#if factureItems.length > 0}
-        <section class="proofs-section" aria-label="Preuves factures">
-          <h4 class="proofs-section-title">Factures</h4>
-          <ul class="proofs-list">
-            {#each factureItems as item (item.id)}
-              <li class="proof-item">
-                <span class="proof-label" title={item.id}>{item.label}</span>
-                <code class="proof-hash" title={item.hash}>{item.hash ? item.hash.slice(0, HASH_DISPLAY_LEN) + '…' : '—'}</code>
-                {#if verifiedLoading && verifiedMap[item.id] === undefined}
-                  <span class="proof-status proof-pending" title="Vérification…">—</span>
-                {:else if verifiedMap[item.id] === true}
-                  <span class="proof-status proof-ok" title="Hash local = hash backend">✓ conforme</span>
-                {:else}
-                  <span class="proof-status proof-diff" title="Hash local ≠ hash backend">✗ différent</span>
-                {/if}
-                {#if item.isOrphan && onDeleteFromServer}
-                  <button
-                    type="button"
-                    class="proof-delete-btn"
-                    title="Document supprimé en local — supprimer la preuve sur le serveur"
-                    disabled={deletingProofId === item.id}
-                    onclick={() => onDeleteFromServer(item.id)}
-                  >
-                    {deletingProofId === item.id ? '…' : 'Supprimer du serveur'}
-                  </button>
-                {/if}
-              </li>
-            {/each}
-          </ul>
-        </section>
-      {/if}
-      {#if achatItems.length > 0}
-        <section class="proofs-section" aria-label="Preuves achats">
-          <h4 class="proofs-section-title">Achats</h4>
-          <ul class="proofs-list">
-            {#each achatItems as item (item.id)}
-              <li class="proof-item">
-                <span class="proof-label" title={item.id}>{item.label}</span>
-                <code class="proof-hash" title={item.hash}>{item.hash ? item.hash.slice(0, HASH_DISPLAY_LEN) + '…' : '—'}</code>
-                {#if verifiedLoading && verifiedMap[item.id] === undefined}
-                  <span class="proof-status proof-pending" title="Vérification…">—</span>
-                {:else if verifiedMap[item.id] === true}
-                  <span class="proof-status proof-ok" title="Hash local = hash backend">✓ conforme</span>
-                {:else}
-                  <span class="proof-status proof-diff" title="Hash local ≠ hash backend">✗ différent</span>
-                {/if}
-                {#if item.isOrphan && onDeleteFromServer}
-                  <button
-                    type="button"
-                    class="proof-delete-btn"
-                    title="Document supprimé en local — supprimer la preuve sur le serveur"
-                    disabled={deletingProofId === item.id}
-                    onclick={() => onDeleteFromServer(item.id)}
-                  >
-                    {deletingProofId === item.id ? '…' : 'Supprimer du serveur'}
-                  </button>
-                {/if}
-              </li>
-            {/each}
-          </ul>
-        </section>
-      {/if}
-      {#if documentItems.length > 0}
-        <section class="proofs-section" aria-label="Preuves documents coffre-fort">
-          <h4 class="proofs-section-title">Documents</h4>
-          <ul class="proofs-list">
-            {#each documentItems as item (item.id)}
-              <li class="proof-item">
-                <span class="proof-label" title={item.id}>{item.label}</span>
-                <code class="proof-hash" title={item.hash}>{item.hash ? item.hash.slice(0, HASH_DISPLAY_LEN) + '…' : '—'}</code>
-                {#if verifiedLoading && verifiedMap[item.id] === undefined}
-                  <span class="proof-status proof-pending" title="Vérification…">—</span>
-                {:else if verifiedMap[item.id] === true}
-                  <span class="proof-status proof-ok" title="Hash local = hash backend">✓ conforme</span>
-                {:else}
-                  <span class="proof-status proof-diff" title="Hash local ≠ hash backend">✗ différent</span>
-                {/if}
-                {#if item.isOrphan && onDeleteFromServer}
-                  <button
-                    type="button"
-                    class="proof-delete-btn"
-                    title="Preuve orpheline — supprimer la preuve sur le serveur"
-                    disabled={deletingProofId === item.id}
-                    onclick={() => onDeleteFromServer(item.id)}
-                  >
-                    {deletingProofId === item.id ? '…' : 'Supprimer du serveur'}
-                  </button>
-                {/if}
-              </li>
-            {/each}
-          </ul>
-        </section>
-      {/if}
-      {#if otherItems.length > 0}
-        <section class="proofs-section" aria-label="Preuves orphelines">
-          <h4 class="proofs-section-title">Autres</h4>
-          <ul class="proofs-list">
-            {#each otherItems as item (item.id)}
-              <li class="proof-item">
-                <span class="proof-label" title={item.id}>{item.label}</span>
-                <code class="proof-hash" title={item.hash}>{item.hash ? item.hash.slice(0, HASH_DISPLAY_LEN) + '…' : '—'}</code>
-                {#if verifiedLoading && verifiedMap[item.id] === undefined}
-                  <span class="proof-status proof-pending" title="Vérification…">—</span>
-                {:else if verifiedMap[item.id] === true}
-                  <span class="proof-status proof-ok" title="Hash local = hash backend">✓ conforme</span>
-                {:else}
-                  <span class="proof-status proof-diff" title="Hash local ≠ hash backend">✗ différent</span>
-                {/if}
-                {#if item.isOrphan && onDeleteFromServer}
-                  <button
-                    type="button"
-                    class="proof-delete-btn"
-                    title="Document supprimé en local — supprimer la preuve sur le serveur"
-                    disabled={deletingProofId === item.id}
-                    onclick={() => onDeleteFromServer(item.id)}
-                  >
-                    {deletingProofId === item.id ? '…' : 'Supprimer du serveur'}
-                  </button>
-                {/if}
-              </li>
-            {/each}
-          </ul>
-        </section>
-      {/if}
+      {#each sections as section (section.key)}
+        {#if section.items.length > 0}
+          <section class="proofs-section" aria-label={section.aria}>
+            <h4 class="proofs-section-title">{section.label}</h4>
+            <ul class="proofs-list">
+              {#each section.items as item (item.id)}
+                <li class="proof-item">
+                  <span class="proof-label" title={item.id}>{item.label}</span>
+                  <code class="proof-hash" title={item.hash}>
+                    {item.hash ? item.hash.slice(0, HASH_DISPLAY_LEN) + '…' : '—'}
+                  </code>
+                  {#if verifiedLoading && verifiedMap[item.id] === undefined}
+                    <span class="proof-status proof-pending" title="Vérification…">—</span>
+                  {:else if verifiedMap[item.id] === true}
+                    <span class="proof-status proof-ok" title="Hash local = hash backend">✓ conforme</span>
+                  {:else}
+                    <span class="proof-status proof-diff" title="Hash local ≠ hash backend">✗ différent</span>
+                  {/if}
+                  {#if item.isOrphan && onDeleteFromServer}
+                    <button
+                      type="button"
+                      class="proof-delete-btn"
+                      title={section.deleteTitle}
+                      disabled={deletingProofId === item.id}
+                      onclick={() => onDeleteFromServer(item.id)}
+                    >
+                      {deletingProofId === item.id ? '…' : 'Supprimer du serveur'}
+                    </button>
+                  {/if}
+                </li>
+              {/each}
+            </ul>
+          </section>
+        {/if}
+      {/each}
     </div>
   {/if}
 </aside>
