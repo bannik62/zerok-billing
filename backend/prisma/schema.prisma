@@ -36,7 +36,7 @@ model User {
   proofs         Proof[]
   documentProofs DocumentProof[]
   signRequests   SignRequest[]
-  paymentConfigs PaymentConfig[]
+  providerConfigs ProviderConfig[]
   userBackup     UserBackup?
 }
 
@@ -105,19 +105,19 @@ model DocumentProof {
   @@index([invoiceId])
 }
 
-// Config paiement par utilisateur et par provider (Stripe, Mollie, etc.). Réutilisable : credentials en Json.
-model PaymentConfig {
+// Config par utilisateur et par provider (Stripe, OpenAI, Mistral, Pappers, etc.). credentials en Json.
+model ProviderConfig {
   id          String   @id @default(cuid())
   userId      String   @map("user_id")
-  provider    String   // 'stripe' | 'mollie' | ...
-  credentials Json    // { secretKey } pour Stripe, { apiKey } pour Mollie, etc.
+  provider    String   // 'stripe' | 'mollie' | 'openai' | 'mistral' | 'pappers' | ...
+  credentials Json    // { secretKey } pour Stripe, { apiKey } pour LLM/Pappers, etc.
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, provider])
-  @@map("payment_config")
+  @@map("provider_config")
   @@index([userId])
 }
 

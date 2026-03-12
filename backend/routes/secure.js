@@ -10,11 +10,11 @@ import {
   validateInvoiceIdParam,
   validateCleanupBody,
   validateSendForSignatureBody,
-  validatePaymentConfigBody
+  validateProviderConfigBody
 } from '../validators/secureValidator.js';
 import { sendMail } from '../services/emailService.js';
 import { createSignRequest, getSignedInvoiceIds } from '../services/signRequestService.js';
-import { getConfiguredProviders } from '../services/paymentConfigService.js';
+import { getConfiguredProviders } from '../services/providerConfigService.js';
 import { getPaymentStatusByInvoiceIds } from '../services/invoicePaymentService.js';
 import { prisma } from '../lib/prisma.js';
 import { env } from '../config/env.js';
@@ -231,7 +231,7 @@ secureRouter.put('/payment/config', async (req, res, next) => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Non authentifié' });
 
-    const { value, error } = validatePaymentConfigBody(req.body);
+    const { value, error } = validateProviderConfigBody(req.body);
     if (error) return res.status(400).json({ error });
 
     const { provider, secretKey } = value;
@@ -241,7 +241,7 @@ secureRouter.put('/payment/config', async (req, res, next) => {
     if (credentials === null) {
       return res.status(500).json({ error: 'CREDENTIALS_ENCRYPTION_KEY invalide (64 caractères hex requis)' });
     }
-    await prisma.paymentConfig.upsert({
+    await prisma.providerConfig.upsert({
       where: { userId_provider: { userId, provider } },
       create: { userId, provider, credentials },
       update: { credentials }

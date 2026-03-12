@@ -10,6 +10,7 @@
   import ExplorerBase from '../explorer-base/ExplorerBase.svelte';
   import SauvegarderRestaurer from '../sauvegarder-restaurer/SauvegarderRestaurer.svelte';
   import Paiement from '../paiement/Paiement.svelte';
+  import Prospect from '../prospect/Prospect.svelte';
   import { slide } from 'svelte/transition';
   import {
     migrateLegacyDataToUser,
@@ -33,7 +34,7 @@
       .catch(() => {});
   });
 
-  /** 'donnees-personnelles' | 'ajouter-client' | 'creer-devis' | 'facture' | 'liste-documents' | 'coffre-fort' | 'achats' | 'comptabilite' | 'explorer-base' | 'sauvegarder-restaurer' | 'paiement' | null */
+  /** 'donnees-personnelles' | 'ajouter-client' | 'creer-devis' | 'facture' | 'liste-documents' | 'coffre-fort' | 'achats' | 'comptabilite' | 'explorer-base' | 'sauvegarder-restaurer' | 'paiement' | 'prospect' | null */
   let displayModule = $state(null);
   /** Client sélectionné pour Facture ou Devis (depuis la liste clients) */
   let selectedClient = $state(null);
@@ -52,6 +53,7 @@
   function showExplorerBase() { displayModule = 'explorer-base'; selectedClient = null; selectedDevisForFacture = null; }
   function showSauvegarderRestaurer() { displayModule = 'sauvegarder-restaurer'; selectedClient = null; selectedDevisForFacture = null; }
   function showPaiement() { displayModule = 'paiement'; selectedClient = null; selectedDevisForFacture = null; }
+  function showProspect() { displayModule = 'prospect'; selectedClient = null; selectedDevisForFacture = null; }
   function showAccueil() { displayModule = null; selectedClient = null; selectedDevisForFacture = null; }
 
   function openFactureForClient(client) {
@@ -142,6 +144,7 @@
         <button type="button" role="tab" class="tab" class:active={displayModule === 'coffre-fort'} aria-selected={displayModule === 'coffre-fort'} aria-label="Coffre fort" onclick={showCoffreFort}>Coffre fort</button>
         <button type="button" role="tab" class="tab" class:active={displayModule === 'explorer-base'} aria-selected={displayModule === 'explorer-base'} aria-label="Explorer la base" onclick={showExplorerBase}>Explorer la base</button>
         <button type="button" role="tab" class="tab" class:active={displayModule === 'sauvegarder-restaurer'} aria-selected={displayModule === 'sauvegarder-restaurer'} aria-label="Sauvegarder ou restaurer" onclick={showSauvegarderRestaurer}>Sauvegarder / Restaurer</button>
+        <button type="button" role="tab" class="tab" class:active={displayModule === 'prospect'} aria-selected={displayModule === 'prospect'} aria-label="Prospect" onclick={showProspect}>Prospect</button>
       </div>
     </div>
 
@@ -189,6 +192,10 @@
       {:else if displayModule === 'paiement'}
         <div transition:slide={{ duration: 200 }}>
           <Paiement {user} />
+        </div>
+      {:else if displayModule === 'prospect'}
+        <div transition:slide={{ duration: 200 }}>
+          <Prospect {user} />
         </div>
       {:else}
         <div class="welcome-presentation" transition:slide={{ duration: 200 }}>

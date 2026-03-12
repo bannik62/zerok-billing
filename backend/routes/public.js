@@ -7,7 +7,7 @@ import { env } from '../config/env.js';
 import { log } from '../lib/logger.js';
 import { confirmSignRequest } from '../services/signRequestService.js';
 import { createPaymentToken, validatePaymentToken } from '../services/paymentTokenService.js';
-import { getConfiguredProviders } from '../services/paymentConfigService.js';
+import { getConfiguredProviders } from '../services/providerConfigService.js';
 import { createCheckoutSession, getReceiptUrl, getPaymentDetails } from '../plugins/stripe.js';
 import { buildReceiptPdf } from '../services/receiptPdfService.js';
 import { markInvoicePaid } from '../services/invoicePaymentService.js';

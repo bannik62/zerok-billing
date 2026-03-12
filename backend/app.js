@@ -21,6 +21,7 @@ import { publicRouter } from './routes/public.js';
 import { healthRouter } from './routes/health.js';
 import { webhooksRouter } from './routes/webhooks.js';
 import { eventsRouter } from './routes/events.js';
+import { prospectRouter } from './routes/prospect.js';
 
 export const app = express();
 
@@ -51,6 +52,7 @@ app.use(healthRouter);
 
 // SSE events (auth requis)
 app.use('/api', requireAuth, eventsRouter);
+app.use('/api', requireAuth, prospectRouter);
 
 app.use('/api', requireAuth, secureRouter);
 

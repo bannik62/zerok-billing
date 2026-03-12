@@ -42,6 +42,10 @@ export const JSON_BODY_LIMIT = '100mb';
 // ——— Pièce jointe email (PDF) ———
 export const PDF_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024; // 5 Mo
 
+// Prospect (chat LLM)
+export const PROSPECT_CHAT_RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+export const PROSPECT_CHAT_RATE_LIMIT_MAX = 10;
+
 // Paiement (plugins multi-provider)
 export const PAYMENT_PROVIDERS = ['stripe'];
 export const PAYMENT_SECRET_KEY_MAX = 256;

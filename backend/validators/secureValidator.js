@@ -142,9 +142,9 @@ const sendForSignatureSchema = Joi.object({
   })
 }).options({ stripUnknown: true });
 
-const paymentConfigSchema = Joi.object({
-  provider: Joi.string().valid('stripe').required().messages({
-    'any.only': 'provider doit être stripe'
+const providerConfigSchema = Joi.object({
+  provider: Joi.string().valid('stripe', 'mollie', 'openai', 'mistral', 'pappers').required().messages({
+    'any.only': 'provider doit être stripe, mollie, openai, mistral ou pappers'
   }),
   secretKey: Joi.string().trim().min(1).max(PAYMENT_SECRET_KEY_MAX).required().messages({
     'string.empty': 'secretKey requis',
@@ -268,10 +268,10 @@ export function validateSendForSignatureBody(body) {
 }
 
 /**
- * PUT /api/payment/config
+ * PUT /api/payment/config — body pour config provider (Stripe, OpenAI, Mistral, Pappers, etc.)
  */
-export function validatePaymentConfigBody(body) {
-  const result = paymentConfigSchema.validate(body || {}, { abortEarly: false });
+export function validateProviderConfigBody(body) {
+  const result = providerConfigSchema.validate(body || {}, { abortEarly: false });
   const err = toError(result);
   if (err) return { value: null, error: err };
   return { value: result.value, error: null };

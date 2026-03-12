@@ -7,7 +7,13 @@
   let providers = $state([]);
   let loading = $state(true);
   let stripeConfigured = $state(false);
+  let openaiConfigured = $state(false);
+  let mistralConfigured = $state(false);
+  let pappersConfigured = $state(false);
   let secretKey = $state('');
+  let openaiKey = $state('');
+  let mistralKey = $state('');
+  let pappersKey = $state('');
   let saving = $state(false);
   let message = $state({ type: '', text: '' });
 
@@ -19,6 +25,9 @@
       const list = res.data?.providers ?? [];
       providers = list;
       stripeConfigured = list.some((p) => p.provider === 'stripe' && p.configured);
+      openaiConfigured = list.some((p) => p.provider === 'openai' && p.configured);
+      mistralConfigured = list.some((p) => p.provider === 'mistral' && p.configured);
+      pappersConfigured = list.some((p) => p.provider === 'pappers' && p.configured);
     } catch (e) {
       message = { type: 'error', text: e.response?.data?.error ?? 'Impossible de charger la config.' };
     } finally {
@@ -26,19 +35,24 @@
     }
   }
 
-  async function saveStripe(e) {
+  async function saveProvider(e, providerName) {
     e.preventDefault();
-    const key = (secretKey || '').trim();
+    const keyMap = { stripe: secretKey, openai: openaiKey, mistral: mistralKey, pappers: pappersKey };
+    const key = (keyMap[providerName] || '').trim();
+    const labels = { stripe: 'Stripe', openai: 'OpenAI', mistral: 'Mistral', pappers: 'Pappers' };
     if (!key) {
-      message = { type: 'error', text: 'Saisissez la clé secrète Stripe.' };
+      message = { type: 'error', text: `Saisissez la clé ${labels[providerName]}.` };
       return;
     }
     saving = true;
     message = { type: '', text: '' };
     try {
-      await apiClient.put('/api/payment/config', { provider: 'stripe', secretKey: key });
-      message = { type: 'success', text: 'Stripe est configuré. Les paiements en ligne seront proposés après signature des factures.' };
-      secretKey = '';
+      await apiClient.put('/api/payment/config', { provider: providerName, secretKey: key });
+      message = { type: 'success', text: `${labels[providerName]} est configuré.` };
+      if (providerName === 'stripe') secretKey = '';
+      if (providerName === 'openai') openaiKey = '';
+      if (providerName === 'mistral') mistralKey = '';
+      if (providerName === 'pappers') pappersKey = '';
       await loadConfig();
     } catch (e) {
       message = { type: 'error', text: e.response?.data?.error ?? 'Erreur lors de l\'enregistrement.' };
@@ -53,9 +67,9 @@
 </script>
 
 <div class="paiement-module">
-  <h2 class="paiement-title">Paiement</h2>
+  <h2 class="paiement-title">Token service</h2>
   <p class="paiement-intro">
-    Configurez vos moyens de paiement pour que vos clients puissent régler les factures en ligne après signature.
+    Configurez les clés pour le paiement en ligne (Stripe) et pour le module Prospect (OpenAI, Mistral, Pappers).
   </p>
 
   {#if loading}
@@ -72,7 +86,7 @@
       {:else}
         <p class="paiement-status">Stripe n'est pas encore configuré.</p>
       {/if}
-      <form class="paiement-form" onsubmit={saveStripe}>
+      <form class="paiement-form" onsubmit={(e) => saveProvider(e, 'stripe')}>
         <label for="stripe-secret" class="paiement-label">Clé secrète Stripe</label>
         <input
           id="stripe-secret"
@@ -86,6 +100,42 @@
           {saving ? 'Enregistrement…' : 'Enregistrer'}
         </button>
       </form>
+    </section>
+
+    <section class="paiement-section" aria-labelledby="llm-heading">
+      <h3 id="llm-heading" class="paiement-h3">Assistant IA (Prospect)</h3>
+      <p class="paiement-hint">Au moins une clé (OpenAI ou Mistral) est requise pour le module Prospect.</p>
+      <div class="paiement-provider-row">
+        <div class="paiement-provider-block">
+          <span class="paiement-provider-name">OpenAI</span>
+          {#if openaiConfigured}<p class="paiement-status configured">Configuré</p>{/if}
+          <form class="paiement-form" onsubmit={(e) => saveProvider(e, 'openai')}>
+            <input type="password" class="paiement-input" placeholder="sk-…" bind:value={openaiKey} autocomplete="off" />
+            <button type="submit" class="paiement-btn" disabled={saving}>Enregistrer</button>
+          </form>
+        </div>
+        <div class="paiement-provider-block">
+          <span class="paiement-provider-name">Mistral</span>
+          {#if mistralConfigured}<p class="paiement-status configured">Configuré</p>{/if}
+          <form class="paiement-form" onsubmit={(e) => saveProvider(e, 'mistral')}>
+            <input type="password" class="paiement-input" placeholder="Clé API Mistral" bind:value={mistralKey} autocomplete="off" />
+            <button type="submit" class="paiement-btn" disabled={saving}>Enregistrer</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section class="paiement-section" aria-labelledby="pappers-heading">
+      <h3 id="pappers-heading" class="paiement-h3">Sources de données</h3>
+      <p class="paiement-hint">Pappers (bilans, dirigeants). SIRENE et geo.api.gouv.fr sont gratuits et toujours actifs.</p>
+      <div class="paiement-provider-block">
+        <span class="paiement-provider-name">Pappers</span>
+        {#if pappersConfigured}<p class="paiement-status configured">Configuré</p>{/if}
+        <form class="paiement-form" onsubmit={(e) => saveProvider(e, 'pappers')}>
+          <input type="password" class="paiement-input" placeholder="Clé API Pappers" bind:value={pappersKey} autocomplete="off" />
+          <button type="submit" class="paiement-btn" disabled={saving}>Enregistrer</button>
+        </form>
+      </div>
     </section>
 
     {#if message.text}
@@ -116,4 +166,7 @@
   .paiement-msg { margin: 1rem 0 0; font-size: 0.9rem; padding: 0.5rem 0; }
   .paiement-msg.success { color: var(--color-success, #059669); }
   .paiement-msg.error { color: var(--color-error); }
+  .paiement-provider-row { display: flex; flex-wrap: wrap; gap: 1.5rem; }
+  .paiement-provider-block { min-width: 12rem; }
+  .paiement-provider-name { font-size: 0.9rem; font-weight: 600; display: block; margin-bottom: 0.25rem; color: var(--color-text); }
 </style>

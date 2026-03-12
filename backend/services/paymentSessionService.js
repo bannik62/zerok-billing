@@ -1,6 +1,6 @@
 /**
  * Service : données pour création de session de paiement et justificatifs.
- * Encapsule l'accès Prisma (invoicePaymentSummary, paymentConfig).
+ * Encapsule l'accès Prisma (invoicePaymentSummary, providerConfig).
  * Déchiffre les credentials si nécessaire.
  */
 import { prisma } from '../lib/prisma.js';
@@ -17,7 +17,7 @@ export async function getCheckoutData(invoiceId, userId, provider) {
   const summary = await prisma.invoicePaymentSummary.findUnique({ where: { invoiceId } });
   if (!summary) return { ok: false, reason: 'no_summary' };
 
-  const config = await prisma.paymentConfig.findUnique({
+  const config = await prisma.providerConfig.findUnique({
     where: { userId_provider: { userId, provider } }
   });
   if (!config) return { ok: false, reason: 'no_config' };
@@ -35,7 +35,7 @@ export async function getReceiptData(invoiceId) {
   const summary = await prisma.invoicePaymentSummary.findUnique({ where: { invoiceId } });
   if (!summary) return { ok: false, reason: 'no_summary' };
 
-  const config = await prisma.paymentConfig.findUnique({
+  const config = await prisma.providerConfig.findUnique({
     where: { userId_provider: { userId: summary.userId, provider: 'stripe' } }
   });
   if (!config) return { ok: false, reason: 'no_config' };
