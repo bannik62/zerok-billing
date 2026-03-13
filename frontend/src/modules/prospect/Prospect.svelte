@@ -9,6 +9,8 @@
   let error = $state('');
   let history = $state([]);
   let results = $state([]);
+  let sireneResults = $derived((results || []).filter((r) => !r.type || r.type === 'sirene'));
+  let cadastreResults = $derived((results || []).filter((r) => r.type === 'cadastre'));
 
   async function send() {
     const text = (inputText || '').trim();
@@ -83,18 +85,42 @@
       </form>
     </section>
 
-    <aside class="prospect-results" aria-label="Entreprises trouvées">
+    <aside class="prospect-results" aria-label="Résultats trouvés">
       <h3 class="prospect-results-title">Entreprises trouvées</h3>
-      {#if results.length === 0}
+      {#if sireneResults.length === 0}
         <p class="prospect-results-empty">Aucune entreprise pour l’instant. Posez une question dans le chat.</p>
       {:else}
         <ul class="prospect-results-list">
-          {#each results as item, j (item.siret + (item.nom || '') + j)}
+          {#each sireneResults as item, j ((item.siret || '') + (item.nom || '') + j)}
             <li class="prospect-results-item">
               <strong>{item.nom || '—'}</strong>
               {#if item.siret}<span class="prospect-results-siret">SIRET {item.siret}</span>{/if}
               {#if item.adresse}<p class="prospect-results-adresse">{item.adresse}</p>{/if}
               {#if item.formeJuridique}<span class="prospect-results-forme">{item.formeJuridique}</span>{/if}
+            </li>
+          {/each}
+        </ul>
+      {/if}
+
+      <h3 class="prospect-results-title prospect-results-title-secondary">Cadastre</h3>
+      {#if cadastreResults.length === 0}
+        <p class="prospect-results-empty">Aucune parcelle cadastrale pour l’instant.</p>
+      {:else}
+        <ul class="prospect-results-list">
+          {#each cadastreResults as parcelle, k ((parcelle.idParcelle || '') + (parcelle.commune || '') + k)}
+            <li class="prospect-results-item">
+              <strong>{parcelle.commune || '—'}</strong>
+              <span class="prospect-results-siret">
+                Parcelle {parcelle.section || '—'} {parcelle.numeroParcelle || ''}
+              </span>
+              {#if parcelle.surfaceM2 != null}
+                <p class="prospect-results-adresse">
+                  Surface&nbsp;: {parcelle.surfaceM2.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} m²
+                </p>
+              {/if}
+              {#if parcelle.adresseApprox}
+                <p class="prospect-results-adresse">{parcelle.adresseApprox}</p>
+              {/if}
             </li>
           {/each}
         </ul>
@@ -127,6 +153,7 @@
   .prospect-btn:disabled { opacity: 0.7; cursor: not-allowed; }
   .prospect-results { border: 1px solid var(--color-border-strong); border-radius: 8px; background: var(--color-bg-elevated); padding: 1rem; max-height: 24rem; overflow-y: auto; }
   .prospect-results-title { margin: 0 0 0.75rem; font-size: 1rem; font-weight: 600; color: var(--color-text); }
+  .prospect-results-title-secondary { margin-top: 1.25rem; }
   .prospect-results-empty { margin: 0; font-size: 0.9rem; color: var(--color-text-muted); }
   .prospect-results-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
   .prospect-results-item { padding: 0.5rem 0; border-bottom: 1px solid var(--color-border-soft); font-size: 0.9rem; }

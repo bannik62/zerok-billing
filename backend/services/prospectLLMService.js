@@ -1,6 +1,6 @@
 /**
- * Service Prospect : orchestration LLM (OpenAI / Mistral) + outils SIRENE, geo, Pappers.
- * Retourne la réponse texte et une liste structurée d'entreprises trouvées (pour le panel côté frontend).
+ * Service Prospect : orchestration LLM (OpenAI / Mistral) + outils SIRENE, cadastre, Pappers.
+ * Retourne la réponse texte et une liste structurée de résultats typés pour le panel côté frontend.
  */
 
 const TOOLS = [
@@ -51,11 +51,37 @@ const TOOLS = [
         required: ['siret']
       }
     }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'searchCadastre',
+      description:
+        'Recherche des parcelles cadastrales à partir d’une adresse ou de coordonnées (lon/lat). Utiliser pour toute question sur le cadastre ou les parcelles.',
+      parameters: {
+        type: 'object',
+        properties: {
+          adresse: {
+            type: 'string',
+            description: 'Adresse textuelle (ex: "12 rue X, 62100 Calais"). Optionnelle si lon/lat fournis.'
+          },
+          lon: {
+            type: 'number',
+            description: 'Longitude WGS84. Optionnelle si une adresse est fournie.'
+          },
+          lat: {
+            type: 'number',
+            description: 'Latitude WGS84. Optionnelle si une adresse est fournie.'
+          }
+        },
+        required: []
+      }
+    }
   }
 ];
 
 /**
- * Normalise un résultat SIRENE en objet { siret, nom, adresse, formeJuridique }.
+ * Normalise un résultat SIRENE en objet typé.
  * @param {object} hit - Entrée brute API
  * @returns {object|null}
  */
@@ -66,12 +92,70 @@ function normalizeSireneHit(hit) {
   const adresse = hit.adresse ?? hit.siege?.adresse ?? [hit.voie, hit.code_postal, hit.libelle_commune].filter(Boolean).join(', ') ?? '';
   const formeJuridique = hit.forme_juridique ?? hit.unite_legale?.forme_juridique ?? '';
   if (!siret && !nom) return null;
-  return { siret: String(siret), nom: String(nom), adresse: String(adresse || ''), formeJuridique: String(formeJuridique || '') };
+  return {
+    type: 'sirene',
+    siret: String(siret),
+    siren: hit.siren ? String(hit.siren) : undefined,
+    nom: String(nom),
+    adresse: String(adresse || ''),
+    formeJuridique: String(formeJuridique || ''),
+    codePostal: hit.code_postal ? String(hit.code_postal) : hit.siege?.code_postal ? String(hit.siege.code_postal) : undefined,
+    commune: hit.libelle_commune ?? hit.siege?.libelle_commune ?? undefined,
+    codeNaf: hit.activite_principale ?? hit.siege?.activite_principale ?? undefined,
+    libelleNaf: hit.libelle_activite_principale ?? hit.siege?.libelle_activite_principale ?? undefined
+  };
+}
+
+/**
+ * Construit un tableau de résultats cadastre typés à partir d'une FeatureCollection GeoJSON.
+ * @param {any} geojson
+ * @param {object} opts
+ * @param {string} [opts.adresseApprox]
+ * @returns {Array<object>}
+ */
+function normalizeCadastreFeatures(geojson, opts = {}) {
+  const out = [];
+  if (!geojson || typeof geojson !== 'object' || !Array.isArray(geojson.features)) return out;
+  const adresseApprox = typeof opts.adresseApprox === 'string' ? opts.adresseApprox : undefined;
+  for (const f of geojson.features) {
+    const props = f?.properties || {};
+    const idParcelle = props.id || props.idu || props.id_parcelle || null;
+    const commune = props.commune || props.libelle_commune || props.nom_commune || '';
+    const codeCommune = props.code_insee || props.insee || undefined;
+    const section = props.section || props.section_parcellaire || '';
+    const numeroParcelle = props.numero || props.numero_parcelle || '';
+    if (!idParcelle && !numeroParcelle) continue;
+    let lon;
+    let lat;
+    if (f.geometry && f.geometry.type === 'Point' && Array.isArray(f.geometry.coordinates)) {
+      lon = f.geometry.coordinates[0];
+      lat = f.geometry.coordinates[1];
+    } else if (geojson?.bbox && Array.isArray(geojson.bbox) && geojson.bbox.length >= 4) {
+      // centre approximatif du bbox
+      lon = (geojson.bbox[0] + geojson.bbox[2]) / 2;
+      lat = (geojson.bbox[1] + geojson.bbox[3]) / 2;
+    }
+    const surfaceM2 = typeof props.surface === 'number' ? props.surface : undefined;
+    out.push({
+      type: 'cadastre',
+      idParcelle: String(idParcelle || `${section}-${numeroParcelle}`),
+      commune: String(commune || ''),
+      codeCommune: codeCommune ? String(codeCommune) : undefined,
+      section: String(section || ''),
+      numeroParcelle: String(numeroParcelle || ''),
+      surfaceM2,
+      adresseApprox,
+      lon,
+      lat,
+      geojson: f
+    });
+  }
+  return out;
 }
 
 /**
  * Exécute un outil et retourne le résultat (objet ou tableau). En cas d'erreur, retourne { error: string }.
- * Les résultats searchSIRENE sont normalisés et ajoutés à resultsCollector.
+ * Les résultats searchSIRENE / cadastre sont normalisés et ajoutés à resultsCollector.
  * @param {string} name - Nom de l'outil
  * @param {object} args - Arguments (parsés depuis le LLM)
  * @param {string|null} pappersKey - Clé API Pappers
@@ -124,6 +208,48 @@ async function executeTool(name, args, pappersKey, resultsCollector) {
       return data;
     }
 
+    if (name === 'searchCadastre') {
+      let adresse = typeof args?.adresse === 'string' ? args.adresse.trim() : '';
+      let lon = typeof args?.lon === 'number' ? args.lon : undefined;
+      let lat = typeof args?.lat === 'number' ? args.lat : undefined;
+      let adresseApprox;
+
+      // Étape 1 : si adresse fournie et pas de lon/lat, géocoder via API Adresse
+      if ((!lon || !lat) && adresse) {
+        const params = new URLSearchParams({ q: adresse, limit: '1' });
+        const geoRes = await fetch(`https://api-adresse.data.gouv.fr/search/?${params.toString()}`);
+        if (!geoRes.ok) {
+          return { error: `Erreur API Adresse: ${geoRes.status}` };
+        }
+        const geo = await geoRes.json();
+        const feat = Array.isArray(geo.features) && geo.features.length > 0 ? geo.features[0] : null;
+        if (feat && feat.geometry && Array.isArray(feat.geometry.coordinates)) {
+          lon = feat.geometry.coordinates[0];
+          lat = feat.geometry.coordinates[1];
+          adresseApprox = feat.properties?.label || adresse;
+        } else {
+          return { error: 'Adresse introuvable pour le cadastre' };
+        }
+      }
+
+      if (typeof lon !== 'number' || typeof lat !== 'number') {
+        return { error: 'Coordonnées (lon, lat) ou adresse requises pour le cadastre' };
+      }
+
+      const pointGeom = JSON.stringify({ type: 'Point', coordinates: [lon, lat] });
+      const cadParams = new URLSearchParams({ geom: pointGeom });
+      const cadRes = await fetch(`https://apicarto.ign.fr/api/cadastre/parcelle?${cadParams.toString()}`);
+      if (!cadRes.ok) {
+        return { error: `Erreur API Cadastre: ${cadRes.status}` };
+      }
+      const cadGeo = await cadRes.json();
+      const items = normalizeCadastreFeatures(cadGeo, { adresseApprox });
+      if (Array.isArray(items) && items.length > 0) {
+        resultsCollector.push(...items);
+      }
+      return { count: items.length };
+    }
+
     return { error: `Outil inconnu: ${name}` };
   } catch (err) {
     return { error: err?.message ?? 'Erreur inconnue' };
@@ -148,9 +274,9 @@ export async function runProspectChat({ provider, llmKey, pappersKey, messages }
   const systemPrompt = {
     role: 'system',
     content: `Tu es un assistant de prospection commerciale pour des indépendants et TPE françaises.
-Tu aides à trouver des entreprises et artisans en France via la base SIRENE officielle.
-Réponds toujours en français. Sois concis. Si tu dois chercher une ville, commence par appeler getCommune pour obtenir le département.
-Format des résultats : liste les entreprises trouvées avec nom, adresse, SIRET, forme juridique.`
+Tu aides à trouver des entreprises et artisans en France via la base SIRENE officielle et à donner des informations de contexte via le cadastre (parcelles autour d'une adresse).
+Réponds toujours en français. Sois concis. Si tu dois chercher une ville, commence par appeler getCommune pour obtenir le département. Si la question concerne des parcelles ou le cadastre, appelle searchCadastre avec une adresse ou des coordonnées.
+Format des résultats : pour chaque entreprise trouvée (type = 'sirene'), fournis nom, adresse, SIRET, forme juridique. Pour les résultats de type 'cadastre', fournis au moins commune, section, numéro de parcelle et surface approximative si disponible.`
   };
 
   const resultsCollector = [];
