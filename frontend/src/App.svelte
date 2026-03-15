@@ -12,6 +12,7 @@
   import DatabaseTemoin from './modules/session/DatabaseTemoin.svelte';
   import IndexedDBTemoin from './modules/session/IndexedDBTemoin.svelte';
   import Menu from './modules/menu/Menu.svelte';
+  import Landing from './modules/landing/Landing.svelte';
   import { apiClient } from '$lib/apiClient.js';
   import { fetchCsrfToken } from '$lib/csrf.js';
   import { clearEncryptionKey, encryptionKeyLoadedStore } from '$lib/dbEncrypted.js';
@@ -27,7 +28,7 @@
   let user = $state(null);
   let loading = $state(true);
   let page = $state('auth');
-  let view = $state('login');
+  let view = $state('landing');
   let tokenFromUrl = $state('');
 
   function init() {
@@ -59,7 +60,7 @@
       } else {
         user = null;
         page = 'auth';
-        view = 'login';
+        view = 'landing';
         clearEncryptionKey();
         clearBackupPassword();
       }
@@ -67,7 +68,7 @@
       if (err?.response?.status === 401) {
         user = null;
         page = 'auth';
-        view = 'login';
+        view = 'landing';
         clearEncryptionKey();
         clearBackupPassword();
       }
@@ -153,7 +154,7 @@
     stopInactivityTimer();
     user = null;
     page = 'auth';
-    view = 'login';
+    view = 'landing';
   }
 
   // Timeout d'inactivité : après une certaine durée sans interaction,
@@ -170,15 +171,24 @@
       stopInactivityTimer();
     }
   });
+
+  $effect(() => {
+    if (typeof document === 'undefined') return;
+    const isLanding = page === 'auth' && view === 'landing';
+    document.body.classList.toggle('landing-visible', isLanding);
+    return () => document.body.classList.remove('landing-visible');
+  });
 </script>
 
+{#if page !== 'auth' || view !== 'landing'}
 <nav class="temoin-bar" aria-label="État de l’application">
   <CsrfTemoin />
   <CleTemoin />
   <DatabaseTemoin />
   <IndexedDBTemoin />
 </nav>
-<main class:fullscreen={page === 'menu'}>
+{/if}
+<main class:fullscreen={page === 'menu'} class:landing-page={page === 'auth' && view === 'landing'}>
   {#if loading}
     <p class="loading">Chargement…</p>
   {:else if page === 'signConfirm'}
@@ -238,6 +248,17 @@
       <Unlock user={user} onLogout={logout} />
     {/if}
   {:else}
+    {#if view === 'landing'}
+      <Landing
+        onGoToLogin={() => { view = 'login'; }}
+        onGoToRegister={() => { view = 'register'; }}
+      />
+    {:else}
+    <div class="auth-back">
+      <button type="button" class="auth-back-btn" onclick={() => { view = 'landing'; }} aria-label="Retour à l'accueil">
+        ← Retour à l'accueil
+      </button>
+    </div>
     <div class="auth-header">
       <h1>Zero-Knowledge Facturation</h1>
     </div>
@@ -246,6 +267,7 @@
     {#if view === 'login'}
       <Login
         onSuccess={onLoginSuccess}
+        onError={() => {}}
         onSwitchToRegister={() => { view = 'register'; }}
         onSwitchToForgot={() => { view = 'forgotPassword'; }}
       />
@@ -266,8 +288,10 @@
     {:else}
       <Register
         onSuccess={onRegisterSuccess}
+        onError={() => {}}
         onSwitchToLogin={() => { view = 'login'; }}
       />
+    {/if}
     {/if}
   {/if}
 </main>
@@ -287,7 +311,30 @@
     box-sizing: border-box;
     padding-bottom: 3.5rem; /* même réserve en bas que la barre témoins */
   }
+  main.landing-page {
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+  }
   .loading { margin: 2rem 0; }
+  .auth-back {
+    margin-bottom: 1rem;
+  }
+  .auth-back-btn {
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem 0;
+    text-decoration: none;
+  }
+  .auth-back-btn:hover {
+    color: var(--color-primary);
+    text-decoration: underline;
+  }
   .auth-header {
     display: flex;
     align-items: center;
